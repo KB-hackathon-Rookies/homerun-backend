@@ -2,6 +2,7 @@ plugins {
     id 'java'
     id 'org.springframework.boot' version '4.1.1'
     id 'io.spring.dependency-management' version '1.1.7'
+    id 'com.diffplug.spotless' version '8.10.1'
 }
 
 group = 'com.homerun'
@@ -34,12 +35,33 @@ dependencies {
     testImplementation 'org.springframework.boot:spring-boot-starter-flyway-test'
     testImplementation 'org.springframework.boot:spring-boot-starter-validation-test'
     testImplementation 'org.springframework.boot:spring-boot-starter-webmvc-test'
+    // 테스트도 운영과 같은 PostgreSQL 에서 돌린다. H2 로 대신하면 Flyway 마이그레이션과
+    // Postgres 전용 문법(JSONB, ON CONFLICT, 시퀀스 등)이 한 번도 검증되지 않는다.
+    testImplementation 'org.springframework.boot:spring-boot-testcontainers'
+    // Testcontainers 2.x 부터 아티팩트 이름에 testcontainers- 접두사가 붙는다.
+    // 버전은 Spring Boot BOM 이 관리한다(4.1.1 → 2.0.5).
+    testImplementation 'org.testcontainers:testcontainers-junit-jupiter'
+    testImplementation 'org.testcontainers:testcontainers-postgresql'
     testCompileOnly 'org.projectlombok:lombok'
     testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
-    testRuntimeOnly 'com.h2database:h2'
     testAnnotationProcessor 'org.projectlombok:lombok'
 }
 
 tasks.named('test') {
     useJUnitPlatform()
+}
+
+// PR 체크리스트의 "코드 포맷팅을 적용했습니다"를 사람 손에 맡기지 않는다.
+// spotlessCheck 는 check → build 에 자동으로 붙으므로 CI 에서도 같이 걸린다.
+// 포맷이 깨졌을 때 고치는 명령은 ./gradlew spotlessApply
+spotless {
+    java {
+        target 'src/*/java/**/*.java'
+        // google-java-format 은 들여쓰기가 2칸이라 Spring 계열 기존 코드와 diff 가 크다.
+        // palantir 는 4칸이라 지금 코드 스타일을 그대로 유지한 채 강제만 걸 수 있다.
+        palantirJavaFormat('2.97.0')
+        removeUnusedImports()
+        trimTrailingWhitespace()
+        endWithNewline()
+    }
 }

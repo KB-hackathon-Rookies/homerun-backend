@@ -1,0 +1,14 @@
+# compose.prod.yaml 이 SPRING_PROFILES_ACTIVE=docker 로 켜는 프로파일.
+# DB 접속 정보는 컨테이너 환경변수로 들어오므로, 여기에는 컨테이너에서만 달라야 하는 것만 둔다.
+spring:
+  docker:
+    compose:
+      # 컨테이너 안에서 또 compose 를 띄우려 들면 안 된다.
+      # (spring-boot-docker-compose 는 developmentOnly 라 운영 jar 에는 없지만,
+      #  의존성 스코프가 바뀌었을 때를 대비한 안전장치다.)
+      enabled: false
+
+logging:
+  level:
+    root: INFO
+    com.homerun: INFO

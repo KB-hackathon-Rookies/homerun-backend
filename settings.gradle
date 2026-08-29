@@ -1,1 +1,9 @@
+plugins {
+    // toolchain 을 17로 고정한 이상, 로컬에 JDK 17이 없으면 빌드가 그냥 죽는다.
+    // ("Cannot find a Java installation ... matching languageVersion=17")
+    // 이 플러그인이 붙어 있으면 Gradle 이 알아서 받아온다. 팀원 로컬 JDK 버전을
+    // 맞추라고 공지할 필요가 없어진다.
+    id 'org.gradle.toolchains.foojay-resolver-convention' version '1.0.0'
+}
+
 rootProject.name = 'homerun'

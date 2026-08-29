@@ -3,7 +3,9 @@
   "private": true,
   "scripts": {
     "prepare": "husky",
+    "format": "./gradlew spotlessApply",
     "test": "./gradlew test",
+    "verify": "./gradlew build",
     "commit": "node scripts/commit.js"
   },
   "devDependencies": {

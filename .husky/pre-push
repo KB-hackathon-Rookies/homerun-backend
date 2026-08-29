@@ -1,2 +1,4 @@
 #!/usr/bin/env sh
-npm test
+# 컴파일 + 포맷 검사 + 테스트. CI 가 돌릴 것과 같은 태스크라 여기서 통과하면 CI 도 통과한다.
+# 테스트는 Testcontainers 를 쓰므로 Docker 가 떠 있어야 한다.
+./gradlew build

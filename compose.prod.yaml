@@ -1,0 +1,47 @@
+# 앱까지 컨테이너로 묶어 돌릴 때 쓴다. 서버 배포와 "컨테이너 상태로 한 번 확인" 용도.
+#
+#   docker compose -f compose.prod.yaml up -d --build
+#
+# 로컬 개발(IDE 에서 앱 실행)에는 쓰지 않는다. 그쪽은 compose.yaml 이 자동으로 뜬다.
+services:
+  postgres:
+    image: postgres:17-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-homerun}
+      POSTGRES_USER: ${POSTGRES_USER:-homerun}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U "$$POSTGRES_USER" -d "$$POSTGRES_DB"']
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  app:
+    # IMAGE 를 주면 그 이미지를 쓰고(= CD 가 올린 태그로 롤백 가능), 없으면 로컬에서 빌드한다.
+    image: ${IMAGE:-homerun-backend:local}
+    build: .
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      SPRING_PROFILES_ACTIVE: docker
+      DB_HOST: postgres
+      DB_PORT: 5432
+      POSTGRES_DB: ${POSTGRES_DB:-homerun}
+      POSTGRES_USER: ${POSTGRES_USER:-homerun}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}
+    ports:
+      - '${APP_PORT:-8080}:8080'
+    healthcheck:
+      test: ['CMD-SHELL', 'wget -qO- http://localhost:8080/actuator/health/readiness || exit 1']
+      interval: 15s
+      timeout: 5s
+      retries: 10
+      start_period: 60s
+
+volumes:
+  postgres-data:

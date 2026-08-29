@@ -1,0 +1,90 @@
+# main 에 머지되면 컨테이너 이미지를 만들어 GHCR(GitHub Container Registry)에 올린다.
+#
+# 설계 메모
+#   - 레지스트리는 GHCR 을 쓴다. GITHUB_TOKEN 으로 인증되므로 따로 준비할 계정/시크릿이 없다.
+#   - 이미지 태그는 커밋 SHA 뿐이다. latest 는 붙이지 않는다 — 어떤 커밋인지 알 수 없는
+#     태그는 롤백 대상으로 지정할 수 없기 때문이다.
+#   - workflow_dispatch 에 image_tag 를 주면 빌드를 건너뛴다. 롤백 경로다.
+#
+# ⚠ 아직 배포 대상 서버가 정해지지 않았다. 지금은 "이미지를 만들어 올리는" 데까지만 한다.
+#   서버가 정해지면 아래 deploy 잡의 주석을 참고해 채운다.
+name: CD
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+    inputs:
+      image_tag:
+        description: '배포할 이미지 태그. 비우면 현재 커밋으로 새로 빌드한다. 롤백할 때 이전 태그를 넣는다.'
+        required: false
+        type: string
+
+# 배포가 겹치면 같은 호스트에서 compose up 이 두 개 붙는다. 취소하지 않고 줄을 세운다.
+concurrency:
+  group: deploy-prod
+  cancel-in-progress: false
+
+env:
+  REGISTRY: ghcr.io
+
+jobs:
+  build:
+    # 롤백(태그를 직접 지정한 실행)일 때는 이미 올라가 있는 이미지를 쓰므로 빌드하지 않는다.
+    if: ${{ !inputs.image_tag }}
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    outputs:
+      tag: ${{ steps.meta.outputs.tag }}
+      image: ${{ steps.meta.outputs.image }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: 이미지 이름과 태그 결정
+        id: meta
+        run: |
+          # GHCR 은 이미지 경로에 대문자를 허용하지 않는다. 조직명이 KB-... 라 반드시 낮춰야 한다.
+          repo=$(echo "${{ github.repository }}" | tr '[:upper:]' '[:lower:]')
+          tag=$(git rev-parse --short=12 HEAD)
+          echo "tag=$tag" >> "$GITHUB_OUTPUT"
+          echo "image=${{ env.REGISTRY }}/$repo:$tag" >> "$GITHUB_OUTPUT"
+
+      - uses: docker/setup-buildx-action@v3
+
+      - uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: 빌드 및 푸시
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          push: true
+          tags: ${{ steps.meta.outputs.image }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: 배포할 이미지
+        run: echo "::notice::${{ steps.meta.outputs.image }}"
+
+  # 배포 대상 서버가 정해지면 이 잡을 살린다.
+  #
+  # deploy:
+  #   needs: [build]
+  #   if: ${{ always() && !cancelled() }}
+  #   runs-on: ubuntu-latest
+  #   steps:
+  #     - name: 이미지 태그 확정
+  #       id: image
+  #       run: |
+  #         repo=$(echo "${{ github.repository }}" | tr '[:upper:]' '[:lower:]')
+  #         tag="${{ inputs.image_tag || needs.build.outputs.tag }}"
+  #         echo "ref=${{ env.REGISTRY }}/$repo:$tag" >> "$GITHUB_OUTPUT"
+  #
+  #     # 서버에서 실행할 명령(SSH 든 SSM 이든 전달 수단만 다르다):
+  #     #   IMAGE=<ref> docker compose -f compose.prod.yaml up -d
+  #     # 시크릿 값은 워크플로가 알 필요가 없다. 서버의 .env 가 갖고 있게 한다.

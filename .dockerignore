@@ -1,7 +1,14 @@
 .git
+.github
 .gradle
+.husky
 .idea
 build
 *.iml
 .env
+.env.*
+!.env.example
 node_modules
+compose.yaml
+compose.prod.yaml
+*.md
