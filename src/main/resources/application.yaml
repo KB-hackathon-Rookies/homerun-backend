@@ -34,6 +34,26 @@ external-api:
       officetel: /1613000/RTMSDataSvcOffiRent/getRTMSDataSvcOffiRent
       row-house: /1613000/RTMSDataSvcRHRent/getRTMSDataSvcRHRent
 
+oauth:
+  google:
+    client-id: ${GOOGLE_CLIENT_ID:}
+    client-secret: ${GOOGLE_CLIENT_SECRET:}
+    redirect-uri: ${GOOGLE_REDIRECT_URI:http://localhost:8080/api/auth/google/callback}
+  kakao:
+    client-id: ${KAKAO_CLIENT_ID:}
+    client-secret: ${KAKAO_CLIENT_SECRET:}
+    redirect-uri: ${KAKAO_REDIRECT_URI:http://localhost:8080/api/auth/kakao/callback}
+
+app:
+  jwt:
+    # 32자 이상의 무작위 문자열을 넣는다. 예: openssl rand -base64 48
+    secret: ${JWT_SECRET:}
+    access-token-expiration-seconds: ${JWT_ACCESS_TOKEN_EXPIRATION_SECONDS:1800}
+  refresh-token:
+    expiration-days: ${REFRESH_TOKEN_EXPIRATION_DAYS:14}
+  auth-cookie:
+    secure: ${AUTH_COOKIE_SECURE:false}
+
 management:
   endpoints:
     web:

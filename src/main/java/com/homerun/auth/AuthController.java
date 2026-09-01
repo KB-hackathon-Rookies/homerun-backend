@@ -1,0 +1,204 @@
+package com.homerun.auth;
+
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.tags.Tag;
+import jakarta.servlet.http.HttpSession;
+import java.net.URI;
+import java.security.SecureRandom;
+import java.time.Duration;
+import java.util.Base64;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseCookie;
+import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.CookieValue;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestHeader;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.server.ResponseStatusException;
+import org.springframework.web.util.UriComponentsBuilder;
+
+@RestController
+@RequestMapping("/api/auth")
+@Tag(name = "인증", description = "Google·Kakao OAuth 로그인")
+public class AuthController {
+
+    private static final SecureRandom SECURE_RANDOM = new SecureRandom();
+
+    private final OAuthProperties properties;
+    private final OAuthLoginService oauthLoginService;
+    private final RefreshTokenService refreshTokenService;
+    private final RefreshTokenProperties refreshTokenProperties;
+    private final AuthCookieProperties authCookieProperties;
+    private final JwtTokenService jwtTokenService;
+    private final MemberRepository memberRepository;
+
+    public AuthController(
+            OAuthProperties properties,
+            OAuthLoginService oauthLoginService,
+            RefreshTokenService refreshTokenService,
+            RefreshTokenProperties refreshTokenProperties,
+            AuthCookieProperties authCookieProperties,
+            JwtTokenService jwtTokenService,
+            MemberRepository memberRepository) {
+        this.properties = properties;
+        this.oauthLoginService = oauthLoginService;
+        this.refreshTokenService = refreshTokenService;
+        this.refreshTokenProperties = refreshTokenProperties;
+        this.authCookieProperties = authCookieProperties;
+        this.jwtTokenService = jwtTokenService;
+        this.memberRepository = memberRepository;
+    }
+
+    @GetMapping("/google/login")
+    @Operation(summary = "Google 로그인 시작")
+    public ResponseEntity<Void> startGoogleLogin(HttpSession session) {
+        OAuthProperties.Provider google = requireProvider(properties.google(), "Google");
+        String state = createState(session, AuthProvider.GOOGLE);
+        URI location = UriComponentsBuilder.fromUriString("https://accounts.google.com/o/oauth2/v2/auth")
+                .queryParam("client_id", google.clientId())
+                .queryParam("redirect_uri", google.redirectUri())
+                .queryParam("response_type", "code")
+                .queryParam("scope", "openid email profile")
+                .queryParam("state", state)
+                .build()
+                .encode()
+                .toUri();
+        return ResponseEntity.status(HttpStatus.FOUND).location(location).build();
+    }
+
+    @GetMapping("/kakao/login")
+    @Operation(summary = "Kakao 로그인 시작")
+    public ResponseEntity<Void> startKakaoLogin(HttpSession session) {
+        OAuthProperties.Provider kakao = requireProvider(properties.kakao(), "Kakao");
+        String state = createState(session, AuthProvider.KAKAO);
+        URI location = UriComponentsBuilder.fromUriString("https://kauth.kakao.com/oauth/authorize")
+                .queryParam("client_id", kakao.clientId())
+                .queryParam("redirect_uri", kakao.redirectUri())
+                .queryParam("response_type", "code")
+                .queryParam("state", state)
+                .build()
+                .encode()
+                .toUri();
+        return ResponseEntity.status(HttpStatus.FOUND).location(location).build();
+    }
+
+    @GetMapping("/google/callback")
+    @Operation(summary = "Google 로그인 콜백")
+    public ResponseEntity<LoginResponse> googleCallback(
+            @RequestParam(required = false) String code,
+            @RequestParam(required = false) String state,
+            @RequestParam(required = false) String error,
+            HttpSession session) {
+        validateCallback(AuthProvider.GOOGLE, code, state, error, session);
+        return loginResponse(oauthLoginService.login(AuthProvider.GOOGLE, code));
+    }
+
+    @GetMapping("/kakao/callback")
+    @Operation(summary = "Kakao 로그인 콜백")
+    public ResponseEntity<LoginResponse> kakaoCallback(
+            @RequestParam(required = false) String code,
+            @RequestParam(required = false) String state,
+            @RequestParam(required = false) String error,
+            HttpSession session) {
+        validateCallback(AuthProvider.KAKAO, code, state, error, session);
+        return loginResponse(oauthLoginService.login(AuthProvider.KAKAO, code));
+    }
+
+    @PostMapping("/refresh")
+    @Operation(summary = "Access Token 갱신", description = "Refresh Token 쿠키를 회전하고 새 Access Token을 발급합니다.")
+    public ResponseEntity<LoginResponse> refresh(
+            @CookieValue(name = "refresh_token", required = false) String refreshToken) {
+        if (isBlank(refreshToken)) {
+            throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Refresh Token이 필요합니다.");
+        }
+        return loginResponse(refreshTokenService.rotate(refreshToken));
+    }
+
+    @PostMapping("/logout")
+    @Operation(summary = "로그아웃", description = "Refresh Token을 폐기하고 브라우저 쿠키를 제거합니다.")
+    public ResponseEntity<Void> logout(@CookieValue(name = "refresh_token", required = false) String refreshToken) {
+        refreshTokenService.revoke(refreshToken);
+        return ResponseEntity.noContent()
+                .header(HttpHeaders.SET_COOKIE, expiredRefreshCookie().toString())
+                .build();
+    }
+
+    @GetMapping("/me")
+    @Operation(summary = "현재 로그인 사용자 조회")
+    public LoginResponse.MemberResponse me(@RequestHeader(HttpHeaders.AUTHORIZATION) String authorizationHeader) {
+        Long memberId = jwtTokenService.getMemberId(authorizationHeader);
+        Member member = memberRepository
+                .findById(memberId)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.UNAUTHORIZED, "존재하지 않는 사용자입니다."));
+        return LoginResponse.MemberResponse.from(member);
+    }
+
+    private OAuthProperties.Provider requireProvider(OAuthProperties.Provider provider, String providerName) {
+        if (provider == null
+                || isBlank(provider.clientId())
+                || isBlank(provider.clientSecret())
+                || isBlank(provider.redirectUri())) {
+            throw new ResponseStatusException(
+                    HttpStatus.INTERNAL_SERVER_ERROR, providerName + " OAuth 환경변수가 설정되지 않았습니다.");
+        }
+        return provider;
+    }
+
+    private String createState(HttpSession session, AuthProvider provider) {
+        byte[] bytes = new byte[32];
+        SECURE_RANDOM.nextBytes(bytes);
+        String state = Base64.getUrlEncoder().withoutPadding().encodeToString(bytes);
+        session.setAttribute(stateKey(provider), state);
+        return state;
+    }
+
+    private void validateCallback(AuthProvider provider, String code, String state, String error, HttpSession session) {
+        if (!isBlank(error)) {
+            throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "사용자가 소셜 로그인을 취소했거나 거부했습니다.");
+        }
+        String expectedState = (String) session.getAttribute(stateKey(provider));
+        session.removeAttribute(stateKey(provider));
+        if (isBlank(code) || isBlank(state) || !state.equals(expectedState)) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "유효하지 않은 OAuth 로그인 요청입니다.");
+        }
+    }
+
+    private ResponseEntity<LoginResponse> loginResponse(Member member) {
+        String refreshToken = refreshTokenService.issue(member);
+        return ResponseEntity.ok()
+                .header(HttpHeaders.SET_COOKIE, refreshCookie(refreshToken).toString())
+                .body(oauthLoginService.createLoginResponse(member));
+    }
+
+    private ResponseCookie refreshCookie(String refreshToken) {
+        return ResponseCookie.from("refresh_token", refreshToken)
+                .httpOnly(true)
+                .secure(authCookieProperties.secure())
+                .sameSite("Lax")
+                .path("/api/auth")
+                .maxAge(Duration.ofDays(refreshTokenProperties.expirationDays()))
+                .build();
+    }
+
+    private ResponseCookie expiredRefreshCookie() {
+        return ResponseCookie.from("refresh_token", "")
+                .httpOnly(true)
+                .secure(authCookieProperties.secure())
+                .sameSite("Lax")
+                .path("/api/auth")
+                .maxAge(Duration.ZERO)
+                .build();
+    }
+
+    private String stateKey(AuthProvider provider) {
+        return "oauth.state." + provider.name();
+    }
+
+    private boolean isBlank(String value) {
+        return value == null || value.isBlank();
+    }
+}
