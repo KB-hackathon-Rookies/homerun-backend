@@ -114,10 +114,21 @@
 
 ## 로컬 기준 경로
 
-* **백엔드:** `/Users/kimyuhwan/Desktop/homerun-backend`
-* **프론트엔드:** `/Users/kimyuhwan/Desktop/homerun-frontend`
+두 저장소를 같은 상위 디렉터리에 나란히 두고 작업한다.
 
-저장소 경로를 코드나 설정에 하드코딩하지 않는다. 문서나 실행 예시에서는 위 경로를 기준으로 설명할 수 있지만, 실제 구현은 상대 경로와 환경 설정을 우선한다.
+```text
+KB IT's Your Life 해커톤대회/
+  ├─ homerun-backend/
+  └─ homerun-frontend/
+```
+
+경로에 공백과 작은따옴표가 들어 있다. 셸에서 다룰 때는 큰따옴표로 감싼다.
+
+```bash
+cd "/Users/kimyuhwan/Downloads/KB IT's Your Life 해커톤대회/homerun-backend"
+```
+
+저장소 경로를 코드나 설정에 하드코딩하지 않는다. 문서나 실행 예시에서는 위 구조를 기준으로 설명할 수 있지만, 실제 구현은 상대 경로와 환경 설정을 우선한다.
 
 ## 현재 구현 상태
 
