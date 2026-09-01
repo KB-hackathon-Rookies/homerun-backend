@@ -28,14 +28,14 @@ class MigrationTest {
     }
 
     @Test
-    @DisplayName("V1 이 47개 테이블을 만든다")
+    @DisplayName("V1 이 47개 테이블을, V3 가 refresh_token 을 더해 48개가 된다")
     void should_create_all_tables_when_migrated() {
         Integer count = jdbc.queryForObject(
                 "SELECT count(*) FROM information_schema.tables"
                         + " WHERE table_schema = 'public' AND table_name <> 'flyway_schema_history'",
                 Integer.class);
 
-        assertThat(count).isEqualTo(47);
+        assertThat(count).isEqualTo(48);
     }
 
     @Test
