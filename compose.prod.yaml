@@ -34,6 +34,8 @@ services:
       POSTGRES_DB: ${POSTGRES_DB:-homerun}
       POSTGRES_USER: ${POSTGRES_USER:-homerun}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}
+      JUSO_CONFIRM_KEY: ${JUSO_CONFIRM_KEY:?Set JUSO_CONFIRM_KEY in .env}
+      DATA_GO_KR_SERVICE_KEY: ${DATA_GO_KR_SERVICE_KEY:?Set DATA_GO_KR_SERVICE_KEY in .env}
     ports:
       - '${APP_PORT:-8080}:8080'
     healthcheck:
