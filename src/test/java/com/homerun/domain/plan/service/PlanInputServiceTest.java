@@ -7,8 +7,6 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
-import com.homerun.domain.plan.dto.request.PlanInputRequest;
-import com.homerun.domain.plan.dto.response.PlanInputResponse;
 import com.homerun.domain.plan.entity.Plan;
 import com.homerun.domain.plan.entity.PlanInput;
 import com.homerun.domain.plan.entity.PlanInputHistory;
