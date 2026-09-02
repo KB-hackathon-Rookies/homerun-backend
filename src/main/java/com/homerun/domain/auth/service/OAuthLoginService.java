@@ -51,6 +51,7 @@ public class OAuthLoginService {
                 switch (provider) {
                     case GOOGLE -> fetchGoogleProfile(authorizationCode);
                     case KAKAO -> fetchKakaoProfile(authorizationCode);
+                    case LOCAL -> throw new BusinessException(ErrorCode.INVALID_OAUTH_REQUEST);
                 };
         return memberRepository
                 .findByProviderAndProviderUserId(provider, profile.providerId())

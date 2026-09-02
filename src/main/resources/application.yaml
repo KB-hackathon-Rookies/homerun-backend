@@ -15,6 +15,22 @@ spring:
     open-in-view: false
   flyway:
     enabled: true
+  data:
+    redis:
+      host: ${REDIS_HOST:localhost}
+      port: ${REDIS_PORT:6379}
+      password: ${REDIS_PASSWORD:}
+      timeout: 2s
+      repositories:
+        enabled: false
+  mail:
+    host: smtp.gmail.com
+    port: 587
+    username: ${MAIL_USERNAME:}
+    password: ${MAIL_PASSWORD:}
+    properties:
+      mail.smtp.auth: true
+      mail.smtp.starttls.enable: true
 
 external-api:
   juso:
@@ -53,6 +69,15 @@ app:
     expiration-days: ${REFRESH_TOKEN_EXPIRATION_DAYS:14}
   auth-cookie:
     secure: ${AUTH_COOKIE_SECURE:false}
+  email-verification:
+    secret: ${EMAIL_VERIFICATION_SECRET:}
+    from: ${MAIL_FROM:${MAIL_USERNAME:}}
+    code-ttl: 5m
+    verified-token-ttl: 10m
+    resend-cooldown: 1m
+    send-window: 30m
+    max-sends-per-window: 5
+    max-attempts: 5
 
 management:
   endpoints:
