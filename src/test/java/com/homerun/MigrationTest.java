@@ -28,14 +28,14 @@ class MigrationTest {
     }
 
     @Test
-    @DisplayName("V1 이 47개 테이블을, V3 가 refresh_token 을 더해 48개가 된다")
+    @DisplayName("V1 이 47개 테이블을 만들고 V3·V6 가 두 테이블을 더해 49개가 된다")
     void should_create_all_tables_when_migrated() {
         Integer count = jdbc.queryForObject(
                 "SELECT count(*) FROM information_schema.tables"
                         + " WHERE table_schema = 'public' AND table_name <> 'flyway_schema_history'",
                 Integer.class);
 
-        assertThat(count).isEqualTo(48);
+        assertThat(count).isEqualTo(49);
     }
 
     @Test
@@ -90,6 +90,16 @@ class MigrationTest {
 
         assertThat(requiredTerms).isEqualTo(2);
         assertThat(constraintDefinition("uq_user_agreement_user_terms")).contains("user_id", "terms_id");
+    }
+
+    @Test
+    @DisplayName("V6 가 계획 입력 버전과 스냅샷 이력 테이블을 추가한다")
+    void should_add_planInputHistory_when_v6IsApplied() {
+        assertThat(columnNames("plan_input")).contains("updated_at", "revision", "version");
+        assertThat(tableNames()).contains("plan_input_history");
+        assertThat(columnNames("plan_input_history"))
+                .contains("plan_input_id", "plan_id", "revision", "snapshot", "saved_at");
+        assertThat(constraintDefinition("uq_plan_input_plan")).contains("plan_id");
     }
 
     @Test
