@@ -18,6 +18,7 @@ public enum ErrorCode {
     INVALID_OAUTH_REQUEST(HttpStatus.BAD_REQUEST, "AUTH_009", "유효하지 않은 OAuth 로그인 요청입니다."),
     OAUTH_PROVIDER_ERROR(HttpStatus.BAD_GATEWAY, "AUTH_010", "소셜 로그인 제공자 연동에 실패했습니다."),
     OAUTH_CONFIGURATION_ERROR(HttpStatus.INTERNAL_SERVER_ERROR, "AUTH_011", "OAuth 설정이 올바르지 않습니다."),
+    ACCESS_DENIED(HttpStatus.FORBIDDEN, "AUTH_012", "접근 권한이 없습니다."),
 
     CONSENT_TOKEN_INVALID(HttpStatus.UNAUTHORIZED, "TERMS_001", "유효하지 않은 동의 토큰입니다."),
     CONSENT_TOKEN_EXPIRED(HttpStatus.UNAUTHORIZED, "TERMS_002", "동의 토큰이 만료되었습니다."),

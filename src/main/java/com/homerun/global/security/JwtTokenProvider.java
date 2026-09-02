@@ -3,6 +3,7 @@ package com.homerun.global.security;
 import com.homerun.domain.member.Member;
 import com.homerun.global.exception.BusinessException;
 import com.homerun.global.exception.ErrorCode;
+import io.jsonwebtoken.ExpiredJwtException;
 import io.jsonwebtoken.Jwts;
 import io.jsonwebtoken.security.Keys;
 import java.nio.charset.StandardCharsets;
@@ -35,18 +36,17 @@ public class JwtTokenProvider {
         return properties.accessTokenExpirationSeconds();
     }
 
-    public Long getMemberId(String authorizationHeader) {
-        if (authorizationHeader == null || !authorizationHeader.startsWith("Bearer ")) {
-            throw new BusinessException(ErrorCode.ACCESS_TOKEN_REQUIRED);
-        }
+    public Long getMemberId(String token) {
         try {
             String subject = Jwts.parser()
                     .verifyWith(signingKey())
                     .build()
-                    .parseSignedClaims(authorizationHeader.substring("Bearer ".length()))
+                    .parseSignedClaims(token)
                     .getPayload()
                     .getSubject();
             return Long.valueOf(subject);
+        } catch (ExpiredJwtException exception) {
+            throw new BusinessException(ErrorCode.EXPIRED_ACCESS_TOKEN, exception);
         } catch (BusinessException exception) {
             throw exception;
         } catch (Exception exception) {

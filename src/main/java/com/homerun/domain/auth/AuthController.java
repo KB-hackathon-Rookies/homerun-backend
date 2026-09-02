@@ -5,7 +5,7 @@ import com.homerun.domain.member.MemberRepository;
 import com.homerun.global.exception.BusinessException;
 import com.homerun.global.exception.ErrorCode;
 import com.homerun.global.response.ApiResponse;
-import com.homerun.global.security.JwtTokenProvider;
+import com.homerun.global.security.MemberPrincipal;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.servlet.http.HttpSession;
@@ -17,10 +17,10 @@ import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseCookie;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.CookieValue;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
-import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
@@ -38,7 +38,6 @@ public class AuthController {
     private final RefreshTokenService refreshTokenService;
     private final RefreshTokenProperties refreshTokenProperties;
     private final AuthCookieProperties authCookieProperties;
-    private final JwtTokenProvider jwtTokenProvider;
     private final MemberRepository memberRepository;
 
     public AuthController(
@@ -47,14 +46,12 @@ public class AuthController {
             RefreshTokenService refreshTokenService,
             RefreshTokenProperties refreshTokenProperties,
             AuthCookieProperties authCookieProperties,
-            JwtTokenProvider jwtTokenProvider,
             MemberRepository memberRepository) {
         this.properties = properties;
         this.oauthLoginService = oauthLoginService;
         this.refreshTokenService = refreshTokenService;
         this.refreshTokenProperties = refreshTokenProperties;
         this.authCookieProperties = authCookieProperties;
-        this.jwtTokenProvider = jwtTokenProvider;
         this.memberRepository = memberRepository;
     }
 
@@ -134,11 +131,9 @@ public class AuthController {
 
     @GetMapping("/me")
     @Operation(summary = "현재 로그인 사용자 조회")
-    public ApiResponse<LoginResponse.MemberResponse> me(
-            @RequestHeader(HttpHeaders.AUTHORIZATION) String authorizationHeader) {
-        Long memberId = jwtTokenProvider.getMemberId(authorizationHeader);
+    public ApiResponse<LoginResponse.MemberResponse> me(@AuthenticationPrincipal MemberPrincipal principal) {
         Member member = memberRepository
-                .findById(memberId)
+                .findById(principal.memberId())
                 .orElseThrow(() -> new BusinessException(ErrorCode.MEMBER_NOT_FOUND));
         return ApiResponse.success(LoginResponse.MemberResponse.from(member));
     }
