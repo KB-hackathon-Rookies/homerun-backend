@@ -32,6 +32,12 @@ public class Member {
     @Column(length = 100)
     private String nickname;
 
+    @Column(name = "password_hash", length = 100)
+    private String passwordHash;
+
+    @Column(name = "email_verified_at")
+    private Instant emailVerifiedAt;
+
     @Column(name = "created_at", nullable = false)
     private Instant createdAt;
 
@@ -53,6 +59,13 @@ public class Member {
         return new Member(provider, providerId, email, nickname);
     }
 
+    public static Member createLocal(String email, String passwordHash, String nickname) {
+        Member member = new Member(AuthProvider.LOCAL, email, email, nickname);
+        member.passwordHash = passwordHash;
+        member.emailVerifiedAt = Instant.now();
+        return member;
+    }
+
     public Long getId() {
         return id;
     }
@@ -67,5 +80,13 @@ public class Member {
 
     public String getNickname() {
         return nickname;
+    }
+
+    public String getPasswordHash() {
+        return passwordHash;
+    }
+
+    public Instant getEmailVerifiedAt() {
+        return emailVerifiedAt;
     }
 }

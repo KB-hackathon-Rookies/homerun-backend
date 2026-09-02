@@ -7,4 +7,6 @@ import org.springframework.data.jpa.repository.JpaRepository;
 
 public interface MemberRepository extends JpaRepository<Member, Long> {
     Optional<Member> findByProviderAndProviderUserId(AuthProvider provider, String providerId);
+
+    boolean existsByEmailIgnoreCase(String email);
 }
