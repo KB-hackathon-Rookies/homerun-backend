@@ -14,6 +14,7 @@ public record DashboardResponse(
         @Schema(description = "현재 계획 단계") PlanStage currentStage,
         @Schema(description = "계획 상태") PlanStatus planStatus,
         @Schema(description = "마지막으로 머문 위치 코드") String lastLocationCode,
+        @Schema(description = "계획 이어하기 위치") DashboardResumeResponse resume,
         @Schema(description = "목표 이사일") LocalDate targetMoveDate,
         @Schema(description = "계획 진행률") DashboardProgressResponse progress,
         @Schema(description = "우선순위가 적용된 할 일") List<DashboardTaskResponse> prioritizedTasks) {
