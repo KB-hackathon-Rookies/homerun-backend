@@ -14,6 +14,7 @@ import com.homerun.domain.contract.type.ChecklistStatus;
 import com.homerun.domain.contract.type.ContractStep;
 import com.homerun.domain.contract.type.StepStatus;
 import com.homerun.domain.plan.type.LeaseType;
+import com.homerun.domain.property.dto.request.PropertyFacts;
 import com.homerun.global.exception.BusinessException;
 import com.homerun.global.exception.ErrorCode;
 import jakarta.persistence.EntityManager;
@@ -125,7 +126,9 @@ class ContractServiceTest {
 
         assertThat(guide.contractId()).isNull();
         assertThat(guide.progress().currentStep()).isEqualTo(ContractStep.CONTRACT_SIGNED);
-        assertThat(guide.checklist()).hasSize(4);
+        assertThat(guide.checklist())
+                .extracting(ChecklistItem::code)
+                .containsExactly("REGISTRY", "BUILDING_LEDGER", "OFFICIAL_PRICE", "BANK_CONSULT");
         assertThat(guide.checklist()).allMatch(i -> i.status() == ChecklistStatus.TODO);
     }
 
@@ -204,6 +207,34 @@ class ContractServiceTest {
         assertThat(guide.preConsult().action()).isNotNull();
     }
 
+    @Test
+    @DisplayName("전입일만 알아도 대출 신청 마감은 알려준다")
+    void should_keep_deadline_when_only_move_in_date_is_known() {
+        LocalDate moveIn = LocalDate.of(2026, 12, 1);
+        SaveRequest request = new SaveRequest(
+                null,
+                LeaseType.WOLSE,
+                30_000_000L,
+                600_000L,
+                0L,
+                null,
+                null,
+                null,
+                moveIn,
+                null,
+                null,
+                null,
+                null,
+                null,
+                false);
+
+        ContractGuide guide = service.save(ownerId, planId, request);
+
+        assertThat(guide.preConsult().recommendedStartDate()).isNull();
+        assertThat(guide.preConsult().applyDeadline()).isEqualTo(moveIn.plusMonths(3));
+        assertThat(guide.preConsult().factCodes()).contains("FCT-103");
+    }
+
     // PRP-02-02 계약 전 체크리스트
 
     @Test
@@ -224,12 +255,49 @@ class ContractServiceTest {
         Long propertyId = newProperty();
         recordCheck(propertyId, "OWNER_MATCH", "PASS");
         recordCheck(propertyId, "TRUST_REGISTRATION", "PASS");
+        recordCheck(propertyId, "JEONSE_RATIO", "PASS");
         service.save(ownerId, planId, withProperty(propertyId));
 
         ContractGuide guide = service.guide(ownerId, planId);
 
         assertThat(item(guide, "REGISTRY").status()).isEqualTo(ChecklistStatus.DONE);
         assertThat(item(guide, "REGISTRY").action()).isNull();
+    }
+
+    @Test
+    @DisplayName("보증금 계약인데 전세가율 판정이 없으면 등기부는 통과가 아니다")
+    void should_not_pass_registry_when_a_required_check_is_missing() {
+        Long propertyId = newProperty();
+        recordCheck(propertyId, "OWNER_MATCH", "PASS");
+        recordCheck(propertyId, "TRUST_REGISTRATION", "PASS");
+        service.save(ownerId, planId, withProperty(propertyId));
+
+        assertThat(item(service.guide(ownerId, planId), "REGISTRY").status()).isEqualTo(ChecklistStatus.TODO);
+    }
+
+    @Test
+    @DisplayName("보증금이 없으면 공시가격은 체크리스트에 올리지 않는다")
+    void should_drop_official_price_without_deposit() {
+        SaveRequest request = new SaveRequest(
+                null,
+                LeaseType.WOLSE,
+                0L,
+                600_000L,
+                0L,
+                null,
+                null,
+                BALANCE,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                false);
+
+        ContractGuide guide = service.save(ownerId, planId, request);
+
+        assertThat(guide.checklist()).noneMatch(i -> i.code().equals("OFFICIAL_PRICE"));
     }
 
     @Test
@@ -434,6 +502,68 @@ class ContractServiceTest {
         ContractGuide guide = service.save(ownerId, planId, wolseWithDeposit());
 
         assertThat(guide.riskCheckRequired()).isTrue();
+    }
+
+    // 매물 연결과 권한
+
+    @Test
+    @DisplayName("검증을 돌리면 결과가 남아 체크리스트가 따라 움직인다")
+    void should_record_verification_so_checklist_reflects_it() {
+        Long propertyId = newProperty();
+        service.save(ownerId, planId, withProperty(propertyId));
+
+        service.riskCheck(ownerId, planId, cleanFacts());
+        em.flush();
+        em.clear();
+
+        assertThat(item(service.guide(ownerId, planId), "BUILDING_LEDGER").status())
+                .isEqualTo(ChecklistStatus.DONE);
+    }
+
+    @Test
+    @DisplayName("매물을 아직 연결하지 않았으면 판정만 하고 저장하지 않는다")
+    void should_only_evaluate_when_no_property_linked() {
+        service.save(ownerId, planId, wolseWithDeposit());
+
+        assertThat(service.riskCheck(ownerId, planId, cleanFacts()).findings()).isNotEmpty();
+        assertThat(item(service.guide(ownerId, planId), "BUILDING_LEDGER").status())
+                .isEqualTo(ChecklistStatus.TODO);
+    }
+
+    @Test
+    @DisplayName("남의 계획에 달린 매물은 계약에 연결할 수 없다")
+    void should_reject_property_from_another_plan() {
+        Long strangerId = newMember();
+        Long strangerPlanId = (Long)
+                em.createNativeQuery("INSERT INTO plan (user_id, lease_type) VALUES (:uid, 'WOLSE') RETURNING id")
+                        .setParameter("uid", strangerId)
+                        .getSingleResult();
+        Long strangerProperty = (Long) em.createNativeQuery("INSERT INTO property (plan_id) VALUES (:pid) RETURNING id")
+                .setParameter("pid", strangerPlanId)
+                .getSingleResult();
+        em.flush();
+        em.clear();
+
+        assertThatThrownBy(() -> service.save(ownerId, planId, withProperty(strangerProperty)))
+                .isInstanceOf(BusinessException.class)
+                .extracting(e -> ((BusinessException) e).errorCode())
+                .isEqualTo(ErrorCode.PROPERTY_NOT_IN_PLAN);
+    }
+
+    /** 서울, 보증부월세 3천만원, 시세 3억, 공시가 2.5억, 선순위 없음, 문제 없음. */
+    private static PropertyFacts cleanFacts() {
+        return new PropertyFacts(
+                LeaseType.WOLSE,
+                30_000_000L,
+                "11620",
+                300_000_000L,
+                250_000_000L,
+                0L,
+                true,
+                false,
+                false,
+                false,
+                false);
     }
 
     private SaveRequest withProperty(Long propertyId) {
