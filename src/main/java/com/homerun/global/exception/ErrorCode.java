@@ -23,6 +23,8 @@ public enum ErrorCode {
     CONSENT_TOKEN_INVALID(HttpStatus.UNAUTHORIZED, "TERMS_001", "유효하지 않은 동의 토큰입니다."),
     CONSENT_TOKEN_EXPIRED(HttpStatus.UNAUTHORIZED, "TERMS_002", "동의 토큰이 만료되었습니다."),
     REQUIRED_TERMS_NOT_AGREED(HttpStatus.BAD_REQUEST, "TERMS_003", "필수 약관에 동의해야 합니다."),
+    TERMS_VERSION_MISMATCH(HttpStatus.CONFLICT, "TERMS_004", "현재 유효한 약관 버전과 일치하지 않습니다."),
+    REQUIRED_TERMS_AGREEMENT_REQUIRED(HttpStatus.FORBIDDEN, "TERMS_005", "서비스 이용 전에 필수 약관 동의가 필요합니다."),
     RULE_VERSION_MISMATCH(HttpStatus.CONFLICT, "PLAN_001", "규칙 버전이 변경되었습니다."),
     PLAN_NOT_FOUND(HttpStatus.NOT_FOUND, "PLAN_002", "계획을 찾을 수 없습니다."),
     PLAN_ACCESS_DENIED(HttpStatus.FORBIDDEN, "PLAN_003", "계획에 접근할 권한이 없습니다."),

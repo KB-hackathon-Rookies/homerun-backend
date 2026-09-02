@@ -15,6 +15,7 @@ public class SecurityConfig {
     SecurityFilterChain securityFilterChain(
             HttpSecurity http,
             JwtAuthenticationFilter jwtAuthenticationFilter,
+            RequiredTermsAgreementFilter requiredTermsAgreementFilter,
             RestAuthenticationEntryPoint authenticationEntryPoint,
             RestAccessDeniedHandler accessDeniedHandler)
             throws Exception {
@@ -38,6 +39,7 @@ public class SecurityConfig {
                         .anyRequest()
                         .authenticated())
                 .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class)
+                .addFilterAfter(requiredTermsAgreementFilter, JwtAuthenticationFilter.class)
                 .build();
     }
 }
