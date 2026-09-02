@@ -11,7 +11,7 @@ public class UnusableFactException extends RuntimeException {
     private final String factCode;
     private final Confidence confidence;
 
-    UnusableFactException(String factCode, Confidence confidence) {
+    public UnusableFactException(String factCode, Confidence confidence) {
         super("기준 수치 %s 는 확정도가 %s 라 판정에 쓸 수 없다".formatted(factCode, confidence));
         this.factCode = factCode;
         this.confidence = confidence;

@@ -1,6 +1,9 @@
 package com.homerun.rent;
 
 import io.swagger.v3.oas.annotations.media.Schema;
+import jakarta.validation.Valid;
+import jakarta.validation.constraints.Max;
+import jakarta.validation.constraints.Min;
 import java.util.List;
 
 /**
@@ -16,15 +19,18 @@ import java.util.List;
  */
 @Schema(description = "실질 월세 계산 입력")
 public record EffectiveRentRequest(
-        long monthlyRent,
-        long managementFee,
+        @Min(value = 0, message = "월세는 0원 이상이어야 한다") long monthlyRent,
+        @Min(value = 0, message = "관리비는 0원 이상이어야 한다") long managementFee,
+
+        @Min(value = 0, message = "개월 수는 0 이상이어야 한다") @Max(value = 12, message = "개월 수는 12 이하여야 한다")
         int months,
-        long annualSalary,
-        List<RentSupportOption> eligibleSupports,
+
+        @Min(value = 0, message = "총급여는 0원 이상이어야 한다") long annualSalary,
+        @Valid List<RentSupportOption> eligibleSupports,
         boolean homeless,
         boolean residentRegistered) {
 
     public EffectiveRentRequest {
-        eligibleSupports = List.copyOf(eligibleSupports);
+        eligibleSupports = eligibleSupports == null ? List.of() : List.copyOf(eligibleSupports);
     }
 }

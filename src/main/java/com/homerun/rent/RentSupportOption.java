@@ -1,6 +1,8 @@
 package com.homerun.rent;
 
 import io.swagger.v3.oas.annotations.media.Schema;
+import jakarta.validation.constraints.Min;
+import jakarta.validation.constraints.NotNull;
 
 /**
  * 받을 수 있다고 판정된 지원금 하나.
@@ -11,7 +13,11 @@ import io.swagger.v3.oas.annotations.media.Schema;
  * @param provisional 기준 수치가 확정 전이라 바뀔 수 있는가
  */
 @Schema(description = "수급 가능한 월세 지원금")
-public record RentSupportOption(RentSupportType type, long monthlyAmount, int months, boolean provisional) {
+public record RentSupportOption(
+        @NotNull(message = "지원금 종류는 필수다") RentSupportType type,
+        @Min(value = 0, message = "월 지원액은 0원 이상이어야 한다") long monthlyAmount,
+        @Min(value = 0, message = "지원 개월 수는 0 이상이어야 한다") int months,
+        boolean provisional) {
 
     public RentSupportOption {
         if (monthlyAmount < 0) {
