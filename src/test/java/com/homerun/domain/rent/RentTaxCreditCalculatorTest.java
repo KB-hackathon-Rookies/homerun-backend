@@ -1,4 +1,4 @@
-package com.homerun.rent;
+package com.homerun.domain.rent;
 
 import static org.assertj.core.api.Assertions.assertThat;
 

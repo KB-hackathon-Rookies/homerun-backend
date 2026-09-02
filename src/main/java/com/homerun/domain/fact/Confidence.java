@@ -1,4 +1,4 @@
-package com.homerun.fact;
+package com.homerun.domain.fact;
 
 /**
  * 기준 수치의 확정도.

@@ -1,4 +1,4 @@
-package com.homerun.rent;
+package com.homerun.domain.rent;
 
 import java.util.ArrayList;
 import java.util.Comparator;

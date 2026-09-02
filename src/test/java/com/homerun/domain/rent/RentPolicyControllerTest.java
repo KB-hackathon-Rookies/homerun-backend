@@ -1,12 +1,13 @@
-package com.homerun.rent;
+package com.homerun.domain.rent;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
-import com.homerun.fact.Confidence;
-import com.homerun.fact.UnusableFactException;
+import com.homerun.global.exception.BusinessException;
+import com.homerun.global.exception.ErrorCode;
+import com.homerun.global.exception.GlobalExceptionHandler;
 import java.math.BigDecimal;
 import java.util.List;
 import org.junit.jupiter.api.DisplayName;
@@ -19,10 +20,9 @@ class RentPolicyControllerTest {
     private final RentSupportResolver supportResolver = new RentSupportResolver();
     private final RentTaxCreditCalculator taxCreditCalculator = mock(RentTaxCreditCalculator.class);
     private final EffectiveRentCalculator effectiveRentCalculator = mock(EffectiveRentCalculator.class);
-
     private final MockMvcTester mvc = MockMvcTester.of(
             List.of(new RentPolicyController(supportResolver, taxCreditCalculator, effectiveRentCalculator)),
-            builder -> builder.setControllerAdvice(new RentExceptionHandler()).build());
+            builder -> builder.setControllerAdvice(new GlobalExceptionHandler()).build());
 
     @Test
     @DisplayName("배타 관계인 지원금은 함께 담긴 조합이 응답에 없다")
@@ -38,7 +38,7 @@ class RentPolicyControllerTest {
                                 """))
                 .hasStatusOk()
                 .bodyJson()
-                .extractingPath("$.combinations")
+                .extractingPath("$.data.combinations")
                 .asList()
                 .hasSize(2);
     }
@@ -57,7 +57,7 @@ class RentPolicyControllerTest {
                                 """))
                 .hasStatusOk()
                 .bodyJson()
-                .extractingPath("$.combinations[0].totalAmount")
+                .extractingPath("$.data.combinations[0].totalAmount")
                 .isEqualTo(4800000);
     }
 
@@ -75,7 +75,7 @@ class RentPolicyControllerTest {
                                 """))
                 .hasStatusOk()
                 .bodyJson()
-                .extractingPath("$.combinations[0].recommended")
+                .extractingPath("$.data.combinations[0].recommended")
                 .isEqualTo(true);
     }
 
@@ -88,7 +88,7 @@ class RentPolicyControllerTest {
                         .content("{\"eligibleSupports\":[]}"))
                 .hasStatusOk()
                 .bodyJson()
-                .extractingPath("$.combinations")
+                .extractingPath("$.data.combinations")
                 .asList()
                 .isEmpty();
     }
@@ -107,7 +107,7 @@ class RentPolicyControllerTest {
                 .hasStatus(400)
                 .bodyJson()
                 .extractingPath("$.code")
-                .isEqualTo("INVALID_REQUEST");
+                .isEqualTo("COMMON_002");
     }
 
     @Test
@@ -126,7 +126,7 @@ class RentPolicyControllerTest {
                                 """))
                 .hasStatusOk()
                 .bodyJson()
-                .extractingPath("$.refund")
+                .extractingPath("$.data.refund")
                 .isEqualTo(612000);
     }
 
@@ -145,7 +145,7 @@ class RentPolicyControllerTest {
                                 """))
                 .hasStatusOk()
                 .bodyJson()
-                .extractingPath("$.eligible")
+                .extractingPath("$.data.eligible")
                 .isEqualTo(false);
     }
 
@@ -165,8 +165,7 @@ class RentPolicyControllerTest {
     @Test
     @DisplayName("확정되지 않은 기준 수치를 만나면 422 로 끊고 팩트코드를 알려준다")
     void should_return_unprocessable_on_unusable_fact() {
-        when(effectiveRentCalculator.calculate(any()))
-                .thenThrow(new UnusableFactException("FCT-004", Confidence.CONFLICT));
+        when(effectiveRentCalculator.calculate(any())).thenThrow(new BusinessException(ErrorCode.UNUSABLE_FACT));
 
         assertThat(mvc.post()
                         .uri("/api/v1/policies/rent/effective-cost")
@@ -179,7 +178,7 @@ class RentPolicyControllerTest {
                 .hasStatus(422)
                 .bodyJson()
                 .extractingPath("$.code")
-                .isEqualTo("UNUSABLE_FACT");
+                .isEqualTo("FACT_001");
     }
 
     @Test
@@ -206,7 +205,7 @@ class RentPolicyControllerTest {
                                 """))
                 .hasStatusOk()
                 .bodyJson()
-                .extractingPath("$.effectiveHousingCost")
+                .extractingPath("$.data.effectiveHousingCost")
                 .isEqualTo(485000);
     }
 }

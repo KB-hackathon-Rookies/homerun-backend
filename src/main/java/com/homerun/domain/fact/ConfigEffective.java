@@ -1,4 +1,4 @@
-package com.homerun.fact;
+package com.homerun.domain.fact;
 
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;

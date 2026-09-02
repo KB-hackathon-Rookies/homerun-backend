@@ -1,4 +1,4 @@
-package com.homerun.rent;
+package com.homerun.domain.rent;
 
 /** 월세 관련 지원금 종류. 상호배타 관계가 있어 동시에 다 받을 수는 없다. */
 public enum RentSupportType {

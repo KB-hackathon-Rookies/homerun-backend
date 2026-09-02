@@ -1,9 +1,11 @@
-package com.homerun.fact;
+package com.homerun.domain.fact;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import com.homerun.TestcontainersConfiguration;
+import com.homerun.global.exception.BusinessException;
+import com.homerun.global.exception.ErrorCode;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -39,15 +41,15 @@ class FactRegistryTest {
     void should_reject_conflicting_fact() {
         // FCT-004 버팀목 순자산 기준. 3.37억과 3.45억이 엇갈린다
         assertThatThrownBy(() -> registry.require("FCT-004"))
-                .isInstanceOf(UnusableFactException.class)
-                .hasMessageContaining("CONFLICT");
+                .isInstanceOf(BusinessException.class)
+                .satisfies(e -> assertThat(((BusinessException) e).errorCode()).isEqualTo(ErrorCode.UNUSABLE_FACT));
     }
 
     @Test
     @DisplayName("확정도가 UNKNOWN 인 수치도 막는다")
     void should_reject_unknown_fact() {
         // FCT-136 청년월세 × 전세자금대출 중복 여부. 공식 원문 미확인
-        assertThatThrownBy(() -> registry.require("FCT-136")).isInstanceOf(UnusableFactException.class);
+        assertThatThrownBy(() -> registry.require("FCT-136")).isInstanceOf(BusinessException.class);
     }
 
     @Test
@@ -60,7 +62,9 @@ class FactRegistryTest {
     @Test
     @DisplayName("없는 코드는 찾지 못했다고 알린다")
     void should_fail_on_unknown_code() {
-        assertThatThrownBy(() -> registry.require("FCT-999")).isInstanceOf(FactNotFoundException.class);
+        assertThatThrownBy(() -> registry.require("FCT-999"))
+                .isInstanceOf(BusinessException.class)
+                .satisfies(e -> assertThat(((BusinessException) e).errorCode()).isEqualTo(ErrorCode.FACT_NOT_FOUND));
     }
 
     @Test

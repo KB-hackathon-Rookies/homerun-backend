@@ -1,5 +1,7 @@
-package com.homerun.fact;
+package com.homerun.domain.fact;
 
+import com.homerun.global.exception.BusinessException;
+import com.homerun.global.exception.ErrorCode;
 import java.time.Clock;
 import java.time.LocalDate;
 import org.springframework.stereotype.Service;
@@ -24,16 +26,15 @@ public class FactRegistry {
     /**
      * 판정에 쓸 수 있는 수치를 가져온다.
      *
-     * @throws FactNotFoundException 레지스트리에 없는 코드
-     * @throws UnusableFactException 확정도가 CONFLICT·UNKNOWN·RETIRED 인 경우
+     * @throws BusinessException 레지스트리에 없거나 확정도가 CONFLICT·UNKNOWN·RETIRED 인 경우
      */
     public Fact require(String factCode) {
         ConfigEffective row = repository
                 .findEffective(factCode, LocalDate.now(clock))
-                .orElseThrow(() -> new FactNotFoundException(factCode));
+                .orElseThrow(() -> new BusinessException(ErrorCode.FACT_NOT_FOUND));
 
         if (!row.confidence().usable()) {
-            throw new UnusableFactException(factCode, row.confidence());
+            throw new BusinessException(ErrorCode.UNUSABLE_FACT);
         }
         return new Fact(
                 row.factCode(),

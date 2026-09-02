@@ -29,7 +29,10 @@ public enum ErrorCode {
     PLAN_STEP_NOT_FOUND(HttpStatus.NOT_FOUND, "PLAN_004", "계획 단계를 찾을 수 없습니다."),
     PLAN_STEP_LOCKED(HttpStatus.CONFLICT, "PLAN_005", "잠긴 단계는 완료할 수 없습니다."),
     INVALID_STAGE_TRANSITION(HttpStatus.CONFLICT, "PLAN_006", "현재 단계에서는 이동할 수 없습니다."),
-    PLAN_NOT_ACTIVE(HttpStatus.CONFLICT, "PLAN_007", "진행 중인 계획만 변경할 수 있습니다.");
+    PLAN_NOT_ACTIVE(HttpStatus.CONFLICT, "PLAN_007", "진행 중인 계획만 변경할 수 있습니다."),
+
+    UNUSABLE_FACT(HttpStatus.UNPROCESSABLE_ENTITY, "FACT_001", "기준 수치가 확정되지 않아 판정할 수 없습니다."),
+    FACT_NOT_FOUND(HttpStatus.INTERNAL_SERVER_ERROR, "FACT_002", "기준 수치를 찾을 수 없습니다.");
 
     private final HttpStatus status;
     private final String code;

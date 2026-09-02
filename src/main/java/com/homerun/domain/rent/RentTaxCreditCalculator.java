@@ -1,6 +1,6 @@
-package com.homerun.rent;
+package com.homerun.domain.rent;
 
-import com.homerun.fact.FactRegistry;
+import com.homerun.domain.fact.FactRegistry;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import org.springframework.stereotype.Service;

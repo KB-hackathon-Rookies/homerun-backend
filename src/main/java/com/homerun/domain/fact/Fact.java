@@ -1,4 +1,4 @@
-package com.homerun.fact;
+package com.homerun.domain.fact;
 
 import java.math.BigDecimal;
 
