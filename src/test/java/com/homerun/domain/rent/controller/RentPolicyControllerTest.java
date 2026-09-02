@@ -12,6 +12,8 @@ import com.homerun.domain.rent.dto.response.TaxCreditResult;
 import com.homerun.domain.rent.handler.RentExceptionHandler;
 import com.homerun.domain.rent.model.RentSupportCombination;
 import com.homerun.domain.rent.service.EffectiveRentCalculator;
+import com.homerun.domain.rent.service.HousingBenefitEvaluator;
+import com.homerun.domain.rent.service.RentLoanCalculator;
 import com.homerun.domain.rent.service.RentSupportResolver;
 import com.homerun.domain.rent.service.RentTaxCreditCalculator;
 import java.math.BigDecimal;
@@ -26,9 +28,16 @@ class RentPolicyControllerTest {
     private final RentSupportResolver supportResolver = new RentSupportResolver();
     private final RentTaxCreditCalculator taxCreditCalculator = mock(RentTaxCreditCalculator.class);
     private final EffectiveRentCalculator effectiveRentCalculator = mock(EffectiveRentCalculator.class);
+    private final RentLoanCalculator loanCalculator = mock(RentLoanCalculator.class);
+    private final HousingBenefitEvaluator housingBenefitEvaluator = mock(HousingBenefitEvaluator.class);
 
     private final MockMvcTester mvc = MockMvcTester.of(
-            List.of(new RentPolicyController(supportResolver, taxCreditCalculator, effectiveRentCalculator)),
+            List.of(new RentPolicyController(
+                    supportResolver,
+                    taxCreditCalculator,
+                    effectiveRentCalculator,
+                    loanCalculator,
+                    housingBenefitEvaluator)),
             builder -> builder.setControllerAdvice(new RentExceptionHandler()).build());
 
     @Test

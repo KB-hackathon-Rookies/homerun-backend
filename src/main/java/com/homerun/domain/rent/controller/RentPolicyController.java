@@ -1,17 +1,24 @@
 package com.homerun.domain.rent.controller;
 
 import com.homerun.domain.rent.dto.request.EffectiveRentRequest;
+import com.homerun.domain.rent.dto.request.HousingBenefitRequest;
+import com.homerun.domain.rent.dto.request.RentLoanRequest;
 import com.homerun.domain.rent.dto.request.RentSupportResolveRequest;
 import com.homerun.domain.rent.dto.request.TaxCreditRequest;
 import com.homerun.domain.rent.dto.response.EffectiveRentResult;
+import com.homerun.domain.rent.dto.response.HousingBenefitResult;
+import com.homerun.domain.rent.dto.response.RentLoanQuote;
 import com.homerun.domain.rent.dto.response.RentSupportResolveResponse;
 import com.homerun.domain.rent.dto.response.TaxCreditResult;
 import com.homerun.domain.rent.service.EffectiveRentCalculator;
+import com.homerun.domain.rent.service.HousingBenefitEvaluator;
+import com.homerun.domain.rent.service.RentLoanCalculator;
 import com.homerun.domain.rent.service.RentSupportResolver;
 import com.homerun.domain.rent.service.RentTaxCreditCalculator;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
+import java.util.List;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -30,14 +37,20 @@ public class RentPolicyController {
     private final RentSupportResolver supportResolver;
     private final RentTaxCreditCalculator taxCreditCalculator;
     private final EffectiveRentCalculator effectiveRentCalculator;
+    private final RentLoanCalculator loanCalculator;
+    private final HousingBenefitEvaluator housingBenefitEvaluator;
 
     public RentPolicyController(
             RentSupportResolver supportResolver,
             RentTaxCreditCalculator taxCreditCalculator,
-            EffectiveRentCalculator effectiveRentCalculator) {
+            EffectiveRentCalculator effectiveRentCalculator,
+            RentLoanCalculator loanCalculator,
+            HousingBenefitEvaluator housingBenefitEvaluator) {
         this.supportResolver = supportResolver;
         this.taxCreditCalculator = taxCreditCalculator;
         this.effectiveRentCalculator = effectiveRentCalculator;
+        this.loanCalculator = loanCalculator;
+        this.housingBenefitEvaluator = housingBenefitEvaluator;
     }
 
     @PostMapping("/supports")
@@ -60,5 +73,17 @@ public class RentPolicyController {
     @Operation(summary = "실질 월 주거비 계산", description = "지원금과 세액공제를 반영한 실질 월세를 계산합니다. 전세와 월세를 같은 기준으로 비교할 때 씁니다.")
     public EffectiveRentResult calculateEffectiveCost(@Valid @RequestBody EffectiveRentRequest request) {
         return effectiveRentCalculator.calculate(request);
+    }
+
+    @PostMapping("/loan-comparison")
+    @Operation(summary = "월세대출 총비용 비교", description = "요청 자금을 채우는 상품을 먼저 놓고 총 이자로 정렬합니다. 표면 금리만 보면 대출 구조 차이를 놓칩니다.")
+    public List<RentLoanQuote> compareLoans(@Valid @RequestBody RentLoanRequest request) {
+        return loanCalculator.compare(request);
+    }
+
+    @PostMapping("/housing-benefit")
+    @Operation(summary = "주거급여 판정", description = "주거급여와 청년 분리지급 대상 여부를 판정합니다. 금액은 지급액이 아니라 상한입니다.")
+    public HousingBenefitResult evaluateHousingBenefit(@Valid @RequestBody HousingBenefitRequest request) {
+        return housingBenefitEvaluator.evaluate(request);
     }
 }
