@@ -10,6 +10,7 @@ import com.homerun.domain.plan.entity.PlanStep;
 import com.homerun.domain.plan.policy.PlanStageTransitionPolicy;
 import com.homerun.domain.plan.repository.PlanRepository;
 import com.homerun.domain.plan.repository.PlanStepRepository;
+import com.homerun.domain.plan.type.PlanStage;
 import com.homerun.domain.plan.type.PlanStepStatus;
 import com.homerun.global.exception.BusinessException;
 import com.homerun.global.exception.ErrorCode;
@@ -56,6 +57,14 @@ public class PlanService {
     public PlanResponse updateLastLocation(Long memberId, Long planId, UpdatePlanLocationRequest request) {
         Plan plan = findOwnedPlan(memberId, planId);
         plan.updateLastLocation(request.locationCode());
+        return PlanResponse.from(plan, findSteps(planId));
+    }
+
+    @Transactional
+    public PlanResponse enterStage(
+            Long memberId, Long planId, PlanStage targetStage, UpdatePlanLocationRequest request) {
+        Plan plan = findOwnedPlan(memberId, planId);
+        plan.enterStage(targetStage, request.locationCode());
         return PlanResponse.from(plan, findSteps(planId));
     }
 

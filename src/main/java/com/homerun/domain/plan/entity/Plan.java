@@ -39,6 +39,10 @@ public class Plan {
     private PlanStage stage;
 
     @Enumerated(EnumType.STRING)
+    @Column(name = "last_visited_stage", nullable = false, length = 20)
+    private PlanStage lastVisitedStage;
+
+    @Enumerated(EnumType.STRING)
     @Column(nullable = false, length = 20)
     private PlanStatus status;
 
@@ -68,6 +72,7 @@ public class Plan {
         this.leaseType = leaseType;
         this.targetMoveDate = targetMoveDate;
         this.stage = PlanStage.BENCH;
+        this.lastVisitedStage = PlanStage.BENCH;
         this.status = PlanStatus.ACTIVE;
         this.ruleVersion = CURRENT_RULE_VERSION;
         this.createdAt = Instant.now();
@@ -93,6 +98,8 @@ public class Plan {
     public void advance() {
         verifyActive();
         stage = stage.next();
+        lastVisitedStage = stage;
+        lastLocationCode = null;
         touch();
     }
 
@@ -102,17 +109,30 @@ public class Plan {
             throw new BusinessException(ErrorCode.INVALID_STAGE_TRANSITION);
         }
         status = PlanStatus.DONE;
+        lastVisitedStage = PlanStage.HOME;
+        lastLocationCode = null;
         touch();
     }
 
     public void updateLastLocation(String locationCode) {
         verifyActive();
+        lastVisitedStage = stage;
+        lastLocationCode = locationCode;
+        touch();
+    }
+
+    public void enterStage(PlanStage targetStage, String locationCode) {
+        if (targetStage.ordinal() > stage.ordinal()) {
+            throw new BusinessException(ErrorCode.PLAN_STAGE_LOCKED);
+        }
+        lastVisitedStage = targetStage;
         lastLocationCode = locationCode;
         touch();
     }
 
     public void reset() {
         stage = PlanStage.BENCH;
+        lastVisitedStage = PlanStage.BENCH;
         status = PlanStatus.ACTIVE;
         lastLocationCode = null;
         ruleVersion = CURRENT_RULE_VERSION;
@@ -143,6 +163,10 @@ public class Plan {
 
     public PlanStage getStage() {
         return stage;
+    }
+
+    public PlanStage getLastVisitedStage() {
+        return lastVisitedStage;
     }
 
     public PlanStatus getStatus() {
