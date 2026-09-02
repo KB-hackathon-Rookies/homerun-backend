@@ -28,14 +28,14 @@ class MigrationTest {
     }
 
     @Test
-    @DisplayName("V1 이 47개 테이블을 만들고 V3·V6 가 두 테이블을 더해 49개가 된다")
+    @DisplayName("V1 이 47개 테이블을 만들고 후속 마이그레이션이 세 테이블을 더해 50개가 된다")
     void should_create_all_tables_when_migrated() {
         Integer count = jdbc.queryForObject(
                 "SELECT count(*) FROM information_schema.tables"
                         + " WHERE table_schema = 'public' AND table_name <> 'flyway_schema_history'",
                 Integer.class);
 
-        assertThat(count).isEqualTo(49);
+        assertThat(count).isEqualTo(50);
     }
 
     @Test
@@ -55,6 +55,7 @@ class MigrationTest {
                         "consent_token",
                         "plan_step",
                         "deadline",
+                        "open_banking_connection",
                         "knowledge_card",
                         "config_effective");
     }
@@ -107,6 +108,20 @@ class MigrationTest {
     void should_add_localEmailAuth_when_v8IsApplied() {
         assertThat(columnNames("app_user")).contains("password_hash", "email_verified_at");
         assertThat(indexNames("app_user")).contains("uq_app_user_local_email");
+    }
+
+    @Test
+    @DisplayName("V12가 오픈뱅킹 토큰 원문이 아닌 암호문 저장소를 추가한다")
+    void should_add_encryptedOpenBankingConnection_whenV12IsApplied() {
+        assertThat(columnNames("open_banking_connection"))
+                .contains(
+                        "member_id",
+                        "user_seq_no",
+                        "access_token_ciphertext",
+                        "refresh_token_ciphertext",
+                        "access_token_expires_at")
+                .doesNotContain("access_token", "refresh_token");
+        assertThat(constraintDefinition("uk_open_banking_connection_member")).contains("member_id");
     }
 
     @Test
