@@ -1,0 +1,13 @@
+ALTER TABLE plan
+    ADD COLUMN last_location_code VARCHAR(100),
+    ADD COLUMN rule_version VARCHAR(20) NOT NULL DEFAULT '1.0',
+    ADD COLUMN version BIGINT NOT NULL DEFAULT 0;
+
+ALTER TABLE plan_step
+    ADD COLUMN updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+    ADD COLUMN version BIGINT NOT NULL DEFAULT 0;
+
+ALTER TABLE plan_step DROP CONSTRAINT ck_step_status;
+ALTER TABLE plan_step
+    ADD CONSTRAINT ck_step_status
+        CHECK (status IN ('LOCKED','READY','DOING','DONE','SKIPPED','RECALC_REQUIRED'));
