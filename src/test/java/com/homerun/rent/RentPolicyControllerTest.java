@@ -19,9 +19,16 @@ class RentPolicyControllerTest {
     private final RentSupportResolver supportResolver = new RentSupportResolver();
     private final RentTaxCreditCalculator taxCreditCalculator = mock(RentTaxCreditCalculator.class);
     private final EffectiveRentCalculator effectiveRentCalculator = mock(EffectiveRentCalculator.class);
+    private final RentLoanCalculator loanCalculator = mock(RentLoanCalculator.class);
+    private final HousingBenefitEvaluator housingBenefitEvaluator = mock(HousingBenefitEvaluator.class);
 
     private final MockMvcTester mvc = MockMvcTester.of(
-            List.of(new RentPolicyController(supportResolver, taxCreditCalculator, effectiveRentCalculator)),
+            List.of(new RentPolicyController(
+                    supportResolver,
+                    taxCreditCalculator,
+                    effectiveRentCalculator,
+                    loanCalculator,
+                    housingBenefitEvaluator)),
             builder -> builder.setControllerAdvice(new RentExceptionHandler()).build());
 
     @Test
@@ -208,5 +215,59 @@ class RentPolicyControllerTest {
                 .bodyJson()
                 .extractingPath("$.effectiveHousingCost")
                 .isEqualTo(485000);
+    }
+
+    @Test
+    @DisplayName("월세대출 비교 결과를 총 이자 순으로 내려준다")
+    void should_return_loan_comparison() {
+        when(loanCalculator.compare(any()))
+                .thenReturn(List.of(
+                        new RentLoanQuote(
+                                RentLoanProduct.DEPOSIT_BACKED, 0, 500_000, 24, 250, 75_000, false, List.of()),
+                        new RentLoanQuote(
+                                RentLoanProduct.HOUSING_STABILITY, 0, 500_000, 24, 541, 162_500, true, List.of())));
+
+        assertThat(mvc.post()
+                        .uri("/api/v1/policies/rent/loan-comparison")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"deposit\":0,\"monthlyRent\":500000,\"termMonths\":24,\"preferential\":true}"))
+                .hasStatusOk()
+                .bodyJson()
+                .extractingPath("$[0].totalInterest")
+                .isEqualTo(75000);
+    }
+
+    @Test
+    @DisplayName("기준이 없는 가구원 수는 400 이 아니라 추가확인으로 온다")
+    void should_return_needs_check_for_unknown_household_size() {
+        when(housingBenefitEvaluator.evaluate(any()))
+                .thenReturn(new HousingBenefitResult(Verdict.NEEDS_CHECK, false, 0, 0, List.of("확인이 필요하다")));
+
+        assertThat(mvc.post()
+                        .uri("/api/v1/policies/rent/housing-benefit")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"householdSize":7,"recognizedIncome":1000000,"monthlyRent":400000,
+                                 "age":26,"married":false,"livesApartFromParents":true,
+                                 "parentOnHousingBenefit":true}
+                                """))
+                .hasStatusOk()
+                .bodyJson()
+                .extractingPath("$.verdict")
+                .isEqualTo("NEEDS_CHECK");
+    }
+
+    @Test
+    @DisplayName("가구원 수가 0 이면 400 이다")
+    void should_reject_zero_household_size() {
+        assertThat(mvc.post()
+                        .uri("/api/v1/policies/rent/housing-benefit")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"householdSize":0,"recognizedIncome":1000000,"monthlyRent":400000,
+                                 "age":26,"married":false,"livesApartFromParents":true,
+                                 "parentOnHousingBenefit":true}
+                                """))
+                .hasStatus(400);
     }
 }
