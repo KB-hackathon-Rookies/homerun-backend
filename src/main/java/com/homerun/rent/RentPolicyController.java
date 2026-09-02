@@ -3,6 +3,7 @@ package com.homerun.rent;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
+import java.util.List;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -21,14 +22,20 @@ public class RentPolicyController {
     private final RentSupportResolver supportResolver;
     private final RentTaxCreditCalculator taxCreditCalculator;
     private final EffectiveRentCalculator effectiveRentCalculator;
+    private final RentLoanCalculator loanCalculator;
+    private final HousingBenefitEvaluator housingBenefitEvaluator;
 
     public RentPolicyController(
             RentSupportResolver supportResolver,
             RentTaxCreditCalculator taxCreditCalculator,
-            EffectiveRentCalculator effectiveRentCalculator) {
+            EffectiveRentCalculator effectiveRentCalculator,
+            RentLoanCalculator loanCalculator,
+            HousingBenefitEvaluator housingBenefitEvaluator) {
         this.supportResolver = supportResolver;
         this.taxCreditCalculator = taxCreditCalculator;
         this.effectiveRentCalculator = effectiveRentCalculator;
+        this.loanCalculator = loanCalculator;
+        this.housingBenefitEvaluator = housingBenefitEvaluator;
     }
 
     @PostMapping("/supports")
@@ -51,5 +58,19 @@ public class RentPolicyController {
     @Operation(summary = "실질 월 주거비 계산", description = "지원금과 세액공제를 반영한 실질 월세를 계산합니다. 전세와 월세를 같은 기준으로 비교할 때 씁니다.")
     public EffectiveRentResult calculateEffectiveCost(@Valid @RequestBody EffectiveRentRequest request) {
         return effectiveRentCalculator.calculate(request);
+    }
+
+    @PostMapping("/loan-comparison")
+    @Operation(
+            summary = "월세대출 총비용 비교",
+            description = "보증부월세와 주거안정을 총 이자가 적은 순으로 비교합니다. 둘 다 만기일시상환이라 월 부담은 이자뿐이고, 표면 금리만 보면 대출 구조 차이를 놓칩니다.")
+    public List<RentLoanQuote> compareLoans(@Valid @RequestBody RentLoanRequest request) {
+        return loanCalculator.compare(request);
+    }
+
+    @PostMapping("/housing-benefit")
+    @Operation(summary = "주거급여 판정", description = "주거급여와 청년 분리지급 대상 여부를 판정합니다. 기준이 없는 가구원 수는 불가가 아니라 추가확인으로 넘깁니다.")
+    public HousingBenefitResult evaluateHousingBenefit(@Valid @RequestBody HousingBenefitRequest request) {
+        return housingBenefitEvaluator.evaluate(request);
     }
 }
