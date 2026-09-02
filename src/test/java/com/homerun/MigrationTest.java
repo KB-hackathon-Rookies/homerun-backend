@@ -110,11 +110,11 @@ class MigrationTest {
     }
 
     @Test
-    @DisplayName("V2 가 팩트 레지스트리 141행을 넣는다")
+    @DisplayName("팩트 레지스트리가 155행이다 (V2 141 + V9 월세대출 분해 14)")
     void should_seed_config_effective_when_migrated() {
         Integer count = jdbc.queryForObject("SELECT count(*) FROM config_effective", Integer.class);
 
-        assertThat(count).isEqualTo(141);
+        assertThat(count).isEqualTo(155);
     }
 
     @Test
