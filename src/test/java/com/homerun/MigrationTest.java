@@ -82,6 +82,17 @@ class MigrationTest {
     }
 
     @Test
+    @DisplayName("V5 가 필수 약관 두 버전과 사용자별 동의 유일 제약을 추가한다")
+    void should_add_requiredTerms_when_v5IsApplied() {
+        Integer requiredTerms = jdbc.queryForObject(
+                "SELECT count(*) FROM terms WHERE is_required = true AND code IN ('SERVICE_TERMS', 'PRIVACY_POLICY')",
+                Integer.class);
+
+        assertThat(requiredTerms).isEqualTo(2);
+        assertThat(constraintDefinition("uq_user_agreement_user_terms")).contains("user_id", "terms_id");
+    }
+
+    @Test
     @DisplayName("V2 가 팩트 레지스트리 141행을 넣는다")
     void should_seed_config_effective_when_migrated() {
         Integer count = jdbc.queryForObject("SELECT count(*) FROM config_effective", Integer.class);
