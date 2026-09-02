@@ -36,7 +36,8 @@ public class SecurityConfig {
                                 "/api/v1/auth/google/login",
                                 "/api/v1/auth/google/callback",
                                 "/api/v1/auth/kakao/login",
-                                "/api/v1/auth/kakao/callback")
+                                "/api/v1/auth/kakao/callback",
+                                "/api/v1/open-banking/callback")
                         .permitAll()
                         .requestMatchers(HttpMethod.POST, "/api/v1/auth/refresh", "/api/v1/auth/logout")
                         .permitAll()

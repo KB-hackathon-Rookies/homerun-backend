@@ -49,6 +49,15 @@ external-api:
       apartment: /1613000/RTMSDataSvcAptRent/getRTMSDataSvcAptRent
       officetel: /1613000/RTMSDataSvcOffiRent/getRTMSDataSvcOffiRent
       row-house: /1613000/RTMSDataSvcRHRent/getRTMSDataSvcRHRent
+  open-banking:
+    oauth-base-url: ${OPEN_BANKING_OAUTH_BASE_URL:https://testapi.openbanking.or.kr}
+    api-base-url: ${OPEN_BANKING_API_BASE_URL:https://testapi.openbanking.or.kr}
+    client-id: ${OPEN_BANKING_CLIENT_ID:}
+    client-secret: ${OPEN_BANKING_CLIENT_SECRET:}
+    client-use-code: ${OPEN_BANKING_CLIENT_USE_CODE:}
+    redirect-uri: ${OPEN_BANKING_REDIRECT_URI:http://localhost:8080/api/v1/open-banking/callback}
+    scope: ${OPEN_BANKING_SCOPE:login inquiry}
+    token-encryption-key: ${OPEN_BANKING_TOKEN_ENCRYPTION_KEY:}
 
 oauth:
   google:
