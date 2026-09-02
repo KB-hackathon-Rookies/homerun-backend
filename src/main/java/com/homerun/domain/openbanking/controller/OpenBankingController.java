@@ -1,6 +1,7 @@
 package com.homerun.domain.openbanking.controller;
 
 import com.homerun.domain.openbanking.dto.response.OpenBankingAccountResponse;
+import com.homerun.domain.openbanking.dto.response.OpenBankingAuthorizationResponse;
 import com.homerun.domain.openbanking.dto.response.OpenBankingBalanceResponse;
 import com.homerun.domain.openbanking.dto.response.OpenBankingConnectionResponse;
 import com.homerun.domain.openbanking.dto.response.OpenBankingTransactionPageResponse;
@@ -20,8 +21,6 @@ import java.time.LocalDate;
 import java.util.Base64;
 import java.util.List;
 import org.springframework.format.annotation.DateTimeFormat;
-import org.springframework.http.HttpStatus;
-import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -47,15 +46,14 @@ public class OpenBankingController {
     }
 
     @GetMapping("/connect")
-    @Operation(summary = "오픈뱅킹 연결 시작", description = "금융결제원 계좌등록·동의 화면으로 이동합니다.")
-    public ResponseEntity<Void> connect(@AuthenticationPrincipal MemberPrincipal principal, HttpSession session) {
+    @Operation(summary = "오픈뱅킹 연결 시작", description = "반환된 URL을 같은 브라우저에서 열어 금융결제원 계좌등록·동의를 진행합니다.")
+    public ApiResponse<OpenBankingAuthorizationResponse> connect(
+            @AuthenticationPrincipal MemberPrincipal principal, HttpSession session) {
         String state = createState();
         session.setAttribute(STATE_KEY, state);
         session.setAttribute(MEMBER_KEY, principal.memberId());
         URI authorizationUri = service.authorizationUri(state);
-        return ResponseEntity.status(HttpStatus.FOUND)
-                .location(authorizationUri)
-                .build();
+        return ApiResponse.success(new OpenBankingAuthorizationResponse(authorizationUri.toString()));
     }
 
     @GetMapping("/callback")
