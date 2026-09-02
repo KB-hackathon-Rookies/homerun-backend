@@ -20,6 +20,9 @@ import org.springframework.transaction.annotation.Transactional;
 @Service
 public class ApplicationService {
 
+    /** V11 에서 만든 (plan_id, policy_id) 유니크 제약 이름. */
+    private static final String DUPLICATE_CONSTRAINT = "uq_application_plan_policy";
+
     private final PolicyApplicationRepository applications;
     private final PlanRepository plans;
     private final Clock clock;
@@ -50,7 +53,12 @@ public class ApplicationService {
             return toView(
                     applications.saveAndFlush(new PolicyApplication(planId, request.policyId(), request.channel())));
         } catch (DataIntegrityViolationException e) {
-            throw new BusinessException(ErrorCode.APPLICATION_ALREADY_EXISTS, e);
+            // 무결성 오류를 전부 중복으로 바꾸면, 없는 정책을 신청한 사람에게도
+            // "이미 신청한 정책"이라고 답하게 된다. 제약 이름으로 갈라낸다.
+            if (violates(e, DUPLICATE_CONSTRAINT)) {
+                throw new BusinessException(ErrorCode.APPLICATION_ALREADY_EXISTS, e);
+            }
+            throw new BusinessException(ErrorCode.POLICY_NOT_FOUND, e);
         }
     }
 
@@ -89,6 +97,18 @@ public class ApplicationService {
             application.recordApproval(request.approvedAmount(), request.approvedRate());
         }
         return toView(application);
+    }
+
+    private boolean violates(DataIntegrityViolationException e, String constraintName) {
+        Throwable current = e;
+        while (current != null) {
+            String message = current.getMessage();
+            if (message != null && message.contains(constraintName)) {
+                return true;
+            }
+            current = current.getCause() == current ? null : current.getCause();
+        }
+        return false;
     }
 
     private static ApplicationView toView(PolicyApplication application) {

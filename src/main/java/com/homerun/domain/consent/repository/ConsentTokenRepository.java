@@ -15,6 +15,9 @@ public interface ConsentTokenRepository extends JpaRepository<ConsentToken, Long
 
     List<ConsentToken> findByPlanIdOrderByIdDesc(Long planId);
 
+    /** 경로의 계획에 실제로 속한 건만 찾는다. 남의 동의 건 ID 를 끼워 넣는 것을 막는다. */
+    Optional<ConsentToken> findByIdAndPlanId(Long id, Long planId);
+
     List<ConsentToken> findByMemberIdOrderByIdDesc(Long memberId);
 
     /**

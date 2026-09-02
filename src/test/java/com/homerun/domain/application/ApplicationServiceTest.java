@@ -14,6 +14,7 @@ import com.homerun.domain.application.type.ApplicationStatus;
 import com.homerun.domain.application.type.RejectStage;
 import com.homerun.domain.plan.repository.PlanRepository;
 import com.homerun.global.exception.BusinessException;
+import com.homerun.global.exception.ErrorCode;
 import jakarta.persistence.EntityManager;
 import java.math.BigDecimal;
 import java.time.Clock;
@@ -292,5 +293,13 @@ class ApplicationServiceTest {
                 ownerId, planId, created.id(), new UpdateRequest(ApplicationStatus.PREPARING, null, null, null, null));
 
         assertThat(back.approvedAmount()).isNull();
+    }
+
+    @Test
+    @DisplayName("없는 정책을 신청하면 중복이 아니라 정책 없음으로 알린다")
+    void should_not_disguise_missing_policy_as_duplicate() {
+        assertThatThrownBy(() -> service.create(ownerId, planId, new CreateRequest(999_999L, null)))
+                .isInstanceOf(BusinessException.class)
+                .satisfies(e -> assertThat(((BusinessException) e).errorCode()).isEqualTo(ErrorCode.POLICY_NOT_FOUND));
     }
 }

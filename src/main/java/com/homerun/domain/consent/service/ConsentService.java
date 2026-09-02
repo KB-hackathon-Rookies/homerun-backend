@@ -25,6 +25,7 @@ import java.util.Comparator;
 import java.util.HexFormat;
 import java.util.List;
 import java.util.Optional;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -85,10 +86,15 @@ public class ConsentService {
 
         String raw = newToken();
         Instant expiresAt = now.plus(TOKEN_TTL);
-        ConsentToken token = tokens.save(new ConsentToken(
-                planId, request.memberId(), request.policyId(), hash(raw), request.purpose(), expiresAt));
-
-        return new IssueResponse(token.id(), raw, expiresAt);
+        try {
+            ConsentToken token = tokens.saveAndFlush(new ConsentToken(
+                    planId, request.memberId(), request.policyId(), hash(raw), request.purpose(), expiresAt));
+            return new IssueResponse(token.id(), raw, expiresAt);
+        } catch (DataIntegrityViolationException e) {
+            // uq_consent_token_active 위반. 폐기와 발급 사이에 다른 요청이 먼저 만들었다.
+            // 링크가 둘이 되는 것보다 한쪽을 실패시키는 편이 안전하다.
+            throw new BusinessException(ErrorCode.CONCURRENT_UPDATE, e);
+        }
     }
 
     /**
@@ -136,8 +142,14 @@ public class ConsentService {
     @Transactional
     public IssueResponse reissue(Long memberId, Long planId, Long consentId) {
         verifyOwner(memberId, planId);
-        ConsentToken previous =
-                tokens.findById(consentId).orElseThrow(() -> new BusinessException(ErrorCode.CONSENT_NOT_FOUND));
+        ConsentToken previous = tokens.findByIdAndPlanId(consentId, planId)
+                .orElseThrow(() -> new BusinessException(ErrorCode.CONSENT_NOT_FOUND));
+
+        // 이미 응답이 끝난 건을 다시 발급하면 새 PENDING 토큰이 생기는데 가구원의 확인
+        // 상태는 그대로라, 현황에 verified=true 와 PENDING 이 함께 나온다.
+        if (previous.usedAt() != null) {
+            throw new BusinessException(ErrorCode.CONSENT_ALREADY_RESPONDED);
+        }
         previous.revoke(Instant.now(clock));
 
         return issue(

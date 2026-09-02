@@ -291,4 +291,32 @@ class ConsentServiceTest {
         assertThatThrownBy(() -> service.view(first.token())).isInstanceOf(BusinessException.class);
         assertThat(service.view(second.token()).purpose()).isEqualTo("소득 확인");
     }
+
+    @Test
+    @DisplayName("응답이 끝난 건은 재발급할 수 없다")
+    void should_reject_reissue_after_response() {
+        Long planId = newPlan();
+        HouseholdMember member = newMember(planId);
+        IssueResponse issued = service.issue(ownerId, planId, new IssueRequest(member.id(), null, "소득 확인"));
+        service.respond(issued.token(), true);
+        em.flush();
+
+        // 재발급을 허용하면 verified=true 인데 최신 토큰은 PENDING 인 모순이 생긴다
+        assertThatThrownBy(() -> service.reissue(ownerId, planId, issued.consentId()))
+                .isInstanceOf(BusinessException.class);
+    }
+
+    @Test
+    @DisplayName("다른 계획의 동의 건은 재발급할 수 없다")
+    void should_reject_reissue_from_other_plan() {
+        Long planId = newPlan();
+        Long owner = ownerId;
+        HouseholdMember member = newMember(planId);
+        IssueResponse issued = service.issue(owner, planId, new IssueRequest(member.id(), null, "소득 확인"));
+        Long otherPlanId = anotherPlanOf(owner);
+        em.flush();
+
+        assertThatThrownBy(() -> service.reissue(owner, otherPlanId, issued.consentId()))
+                .isInstanceOf(BusinessException.class);
+    }
 }
