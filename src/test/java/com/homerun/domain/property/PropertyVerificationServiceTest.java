@@ -309,6 +309,121 @@ class PropertyVerificationServiceTest {
         assertThat(result.overall()).isEqualTo(CheckResult.UNKNOWN);
         assertThat(result.contractable()).isTrue();
         assertThat(result.findings()).allSatisfy(f -> assertThat(f.result()).isEqualTo(CheckResult.UNKNOWN));
+        // 항목이 목록에서 빠지면 전체 판정이 PASS 로 보인다. 개수까지 확인한다.
+        assertThat(result.findings())
+                .extracting(CheckFinding::checkCode)
+                .contains("OWNER_MATCH", "VIOLATION_BUILDING", "TRUST_REGISTRATION", "MULTI_HOUSEHOLD", "LANDLORD_TAX");
+    }
+
+    @Test
+    @DisplayName("선순위채권을 모르면 전세가율을 계산하지 않는다")
+    void should_not_compute_ratio_without_senior_debt() {
+        PropertyFacts facts = new PropertyFacts(
+                LeaseType.JEONSE,
+                200_000_000L,
+                "11620",
+                300_000_000L,
+                250_000_000L,
+                null,
+                true,
+                false,
+                false,
+                false,
+                false);
+
+        CheckFinding finding = find(service.verify(facts), "JEONSE_RATIO");
+
+        assertThat(finding.result()).isEqualTo(CheckResult.UNKNOWN);
+        assertThat(finding.summary()).contains("선순위채권");
+    }
+
+    @Test
+    @DisplayName("다가구 여부를 모르면 목록에서 빠지지 않고 UNKNOWN 으로 남는다")
+    void should_keep_unknown_multi_household_in_findings() {
+        PropertyFacts facts = new PropertyFacts(
+                LeaseType.JEONSE,
+                200_000_000L,
+                "11620",
+                300_000_000L,
+                250_000_000L,
+                0L,
+                true,
+                false,
+                false,
+                null,
+                false);
+
+        PropertyVerification result = service.verify(facts);
+
+        assertThat(find(result, "MULTI_HOUSEHOLD").result()).isEqualTo(CheckResult.UNKNOWN);
+        assertThat(result.overall()).isNotEqualTo(CheckResult.PASS);
+    }
+
+    @Test
+    @DisplayName("선순위채권이 크면 담보인정비율에서 막힌다")
+    void should_block_when_ltv_exceeded() {
+        // 시세 3억 × 90% = 2.7억. 보증금 2억 + 선순위 1억 = 3억 초과
+        PropertyFacts facts = new PropertyFacts(
+                LeaseType.JEONSE,
+                200_000_000L,
+                "11620",
+                300_000_000L,
+                250_000_000L,
+                100_000_000L,
+                true,
+                false,
+                false,
+                false,
+                false);
+
+        CheckFinding finding = find(service.verify(facts), "OFFICIAL_PRICE_126");
+
+        assertThat(finding.result()).isEqualTo(CheckResult.BLOCK);
+        assertThat(finding.summary()).contains("선순위채권 합계");
+        assertThat(service.verify(facts).contractable()).isFalse();
+    }
+
+    @Test
+    @DisplayName("보증금만 낮아도 선순위채권이 크면 통과시키지 않는다")
+    void should_not_pass_on_deposit_alone() {
+        // 공시가 2.5억 × 1.26 = 3.15억 이라 보증금 2억은 통과하지만
+        // 담보인정 2.7억을 보증금+선순위 3억이 넘는다
+        PropertyFacts facts = new PropertyFacts(
+                LeaseType.JEONSE,
+                200_000_000L,
+                "11620",
+                300_000_000L,
+                250_000_000L,
+                100_000_000L,
+                true,
+                false,
+                false,
+                false,
+                false);
+
+        assertThat(find(service.verify(facts), "OFFICIAL_PRICE_126").result()).isNotEqualTo(CheckResult.PASS);
+    }
+
+    @Test
+    @DisplayName("충북 같은 그 밖의 지역은 OTHER 구간으로 판정한다")
+    void should_classify_other_region() {
+        PropertyFacts facts = new PropertyFacts(
+                LeaseType.WOLSE,
+                50_000_000L,
+                "43111",
+                300_000_000L,
+                250_000_000L,
+                0L,
+                true,
+                false,
+                false,
+                false,
+                false);
+
+        CheckFinding finding = find(service.verify(facts), "SMALL_TENANT");
+
+        assertThat(finding.result()).isNotEqualTo(CheckResult.UNKNOWN);
+        assertThat(finding.summary()).contains("그 밖의 지역");
     }
 
     @Test

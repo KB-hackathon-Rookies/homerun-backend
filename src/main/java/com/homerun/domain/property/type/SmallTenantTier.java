@@ -39,9 +39,12 @@ public enum SmallTenantTier {
     /**
      * 법정동코드 앞 두 자리로 구간을 고른다.
      *
-     * <p>경기도(41)는 과밀억제권역인지 아닌지가 시·군마다 갈리는데 코드만으로는 알 수 없다.
-     * region 테이블에 시드가 들어오기 전까지는 판정하지 않고 비워 둔다. 틀린 구간으로
-     * 판정하면 보호받는 금액을 잘못 알려주게 된다.
+     * <p>경기도(41)만 판정하지 않는다. 안산·광주·파주·이천·평택은 광역시 구간이고
+     * 용인·화성·김포는 과밀억제 구간이라, 도 코드만으로는 어느 쪽인지 알 수 없다. 틀린
+     * 구간으로 판정하면 보호받는 금액을 잘못 알려주게 된다.
+     *
+     * <p>나머지 도 지역은 조문상 "그 밖의 지역"이 확실하므로 OTHER 로 본다. 알 수 없다고
+     * 두면 명백한 지역까지 안내를 못 하게 된다.
      */
     public static SmallTenantTier of(String regionCode) {
         if (regionCode == null || regionCode.length() < 2) {
@@ -51,6 +54,9 @@ public enum SmallTenantTier {
             case "11" -> SEOUL;
             case "36" -> OVERCROWDED;
             case "26", "27", "28", "29", "30", "31" -> METRO;
+            // 경기도는 시·군마다 구간이 갈린다. region 시드가 들어오면 정확해진다.
+            case "41" -> null;
+            case "42", "43", "44", "45", "46", "47", "48", "50", "51", "52" -> OTHER;
             default -> null;
         };
     }

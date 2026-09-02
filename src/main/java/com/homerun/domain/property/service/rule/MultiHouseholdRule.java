@@ -28,7 +28,17 @@ class MultiHouseholdRule implements PropertyRiskRule {
     @Override
     public Optional<CheckFinding> evaluate(PropertyFacts facts) {
         if (facts.multiHousehold() == null) {
-            return Optional.empty();
+            // 빈 결과로 버리면 항목이 목록에서 사라져 전체 판정이 PASS 로 보인다.
+            // 확인하지 않은 것도 결과로 남겨야 누락이 드러난다.
+            return Optional.of(new CheckFinding(
+                    "MULTI_HOUSEHOLD",
+                    "다가구주택 여부",
+                    CheckResult.UNKNOWN,
+                    "건축물대장에서 다가구주택 여부를 아직 확인하지 않았다.",
+                    "건축물대장의 주택 유형을 확인한다. 다가구면 전세자금대출 취급 은행이 제한된다.",
+                    FACT,
+                    null,
+                    false));
         }
         if (!facts.multiHousehold()) {
             return Optional.of(new CheckFinding(

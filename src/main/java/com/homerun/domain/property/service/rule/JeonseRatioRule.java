@@ -38,6 +38,13 @@ class JeonseRatioRule implements PropertyRiskRule {
             return Optional.of(finding(CheckResult.UNKNOWN, "시세를 확인하지 못해 전세가율을 계산할 수 없다.", "실거래가나 KB시세로 시세를 확인한다."));
         }
 
+        // 선순위채권을 모르면 0으로 보지 않는다. 0으로 두면 근저당을 확인하지 않은 매물이
+        // 낮은 전세가율로 계산돼 안전하다고 잘못 알려주게 된다.
+        if (facts.seniorDebt() == null) {
+            return Optional.of(
+                    finding(CheckResult.UNKNOWN, "선순위채권을 확인하지 못해 전세가율을 계산할 수 없다.", "등기사항전부증명서 을구에서 근저당 채권최고액을 확인한다."));
+        }
+
         BigDecimal ratio = ratio(facts);
         JeonseRatioLevel level = level(ratio);
         String percent = ratio.toPlainString();
@@ -55,10 +62,9 @@ class JeonseRatioRule implements PropertyRiskRule {
         };
     }
 
-    /** 선순위채권을 모르면 0으로 보지 않는다. 없는 것과 모르는 것은 다르다. */
+    /** 선순위채권이 확인된 뒤에만 부른다. null 검사는 evaluate 에서 이미 끝났다. */
     BigDecimal ratio(PropertyFacts facts) {
-        long senior = facts.seniorDebt() == null ? 0L : facts.seniorDebt();
-        return BigDecimal.valueOf(senior + facts.deposit())
+        return BigDecimal.valueOf(facts.seniorDebt() + facts.deposit())
                 .multiply(HUNDRED)
                 .divide(BigDecimal.valueOf(facts.marketPrice()), 1, RoundingMode.HALF_UP);
     }

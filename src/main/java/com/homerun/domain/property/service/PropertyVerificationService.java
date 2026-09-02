@@ -3,10 +3,15 @@ package com.homerun.domain.property.service;
 import com.homerun.domain.property.dto.request.PropertyFacts;
 import com.homerun.domain.property.dto.response.CheckFinding;
 import com.homerun.domain.property.dto.response.PropertyVerification;
+import com.homerun.domain.property.entity.PropertyCheck;
+import com.homerun.domain.property.repository.PropertyCheckRepository;
 import com.homerun.domain.property.type.CheckResult;
+import java.time.Clock;
+import java.time.Instant;
 import java.util.Comparator;
 import java.util.List;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 /**
  * 매물 검증(PRP-01).
@@ -22,11 +27,42 @@ public class PropertyVerificationService {
             List.of(CheckResult.BLOCK, CheckResult.WARN, CheckResult.UNKNOWN, CheckResult.PASS);
 
     private final List<PropertyRiskRule> rules;
+    private final PropertyCheckRepository checks;
+    private final Clock clock;
 
-    public PropertyVerificationService(List<PropertyRiskRule> rules) {
+    public PropertyVerificationService(List<PropertyRiskRule> rules, PropertyCheckRepository checks, Clock clock) {
         this.rules = List.copyOf(rules);
+        this.checks = checks;
+        this.clock = clock;
     }
 
+    /**
+     * 검증하고 결과를 남긴다(PRP-01).
+     *
+     * <p>다시 검증하면 이전 기록을 지우고 새로 쓴다. 등기부를 다시 뗀 뒤에도 옛 판정이 남아
+     * 있으면 어느 쪽이 지금 상태인지 알 수 없다.
+     */
+    @Transactional
+    public PropertyVerification verifyAndRecord(Long propertyId, PropertyFacts facts) {
+        PropertyVerification verification = verify(facts);
+        Instant now = Instant.now(clock);
+
+        checks.deleteByPropertyId(propertyId);
+        checks.saveAll(verification.findings().stream()
+                .map(finding -> new PropertyCheck(
+                        propertyId,
+                        finding.checkCode(),
+                        finding.checkLabel(),
+                        finding.result(),
+                        finding.factCode(),
+                        finding.sourceUrl(),
+                        now))
+                .toList());
+
+        return verification;
+    }
+
+    /** 저장 없이 판정만 한다. 계약 전 화면처럼 매물을 아직 등록하지 않은 경우에 쓴다. */
     public PropertyVerification verify(PropertyFacts facts) {
         List<CheckFinding> findings = rules.stream()
                 .filter(rule -> rule.appliesTo(facts))
