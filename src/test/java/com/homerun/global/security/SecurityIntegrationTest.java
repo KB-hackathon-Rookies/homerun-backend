@@ -5,8 +5,9 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import com.homerun.TestcontainersConfiguration;
-import com.homerun.domain.terms.TermsService;
+import com.homerun.domain.terms.service.TermsService;
 import com.homerun.global.response.ApiResponse;
+import com.homerun.global.security.principal.MemberPrincipal;
 import io.jsonwebtoken.Jwts;
 import io.jsonwebtoken.security.Keys;
 import java.nio.charset.StandardCharsets;
