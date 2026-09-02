@@ -6,6 +6,7 @@ import com.homerun.domain.plan.dto.request.UpdatePlanLocationRequest;
 import com.homerun.domain.plan.dto.response.PlanProgressResponse;
 import com.homerun.domain.plan.dto.response.PlanResponse;
 import com.homerun.domain.plan.service.PlanService;
+import com.homerun.domain.plan.type.PlanStage;
 import com.homerun.global.response.ApiResponse;
 import com.homerun.global.security.principal.MemberPrincipal;
 import io.swagger.v3.oas.annotations.Operation;
@@ -62,6 +63,16 @@ public class PlanController {
             @PathVariable Long planId,
             @Valid @RequestBody UpdatePlanLocationRequest request) {
         return ApiResponse.success(planService.updateLastLocation(principal.memberId(), planId, request));
+    }
+
+    @PostMapping("/{planId}/stages/{targetStage}/enter")
+    @Operation(summary = "현재 또는 완료한 이전 단계 진입")
+    public ApiResponse<PlanResponse> enterStage(
+            @AuthenticationPrincipal MemberPrincipal principal,
+            @PathVariable Long planId,
+            @PathVariable PlanStage targetStage,
+            @Valid @RequestBody UpdatePlanLocationRequest request) {
+        return ApiResponse.success(planService.enterStage(principal.memberId(), planId, targetStage, request));
     }
 
     @PostMapping("/{planId}/steps/{stepCode}/complete")

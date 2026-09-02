@@ -10,6 +10,7 @@ import java.util.List;
 public record PlanProgressResponse(
         Long planId,
         PlanStage currentStage,
+        PlanStage lastVisitedStage,
         PlanStatus planStatus,
         String lastLocationCode,
         int completedSteps,
@@ -25,6 +26,7 @@ public record PlanProgressResponse(
         return new PlanProgressResponse(
                 plan.getId(),
                 plan.getStage(),
+                plan.getLastVisitedStage(),
                 plan.getStatus(),
                 plan.getLastLocationCode(),
                 completed,
