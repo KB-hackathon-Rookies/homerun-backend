@@ -1,5 +1,11 @@
-package com.homerun.auth;
+package com.homerun.domain.auth;
 
+import com.homerun.domain.member.Member;
+import com.homerun.domain.member.MemberRepository;
+import com.homerun.global.exception.BusinessException;
+import com.homerun.global.exception.ErrorCode;
+import com.homerun.global.response.ApiResponse;
+import com.homerun.global.security.MemberPrincipal;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.servlet.http.HttpSession;
@@ -11,18 +17,17 @@ import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseCookie;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.CookieValue;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
-import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
-import org.springframework.web.server.ResponseStatusException;
 import org.springframework.web.util.UriComponentsBuilder;
 
 @RestController
-@RequestMapping("/api/auth")
+@RequestMapping("/api/v1/auth")
 @Tag(name = "인증", description = "Google·Kakao OAuth 로그인")
 public class AuthController {
 
@@ -33,7 +38,6 @@ public class AuthController {
     private final RefreshTokenService refreshTokenService;
     private final RefreshTokenProperties refreshTokenProperties;
     private final AuthCookieProperties authCookieProperties;
-    private final JwtTokenService jwtTokenService;
     private final MemberRepository memberRepository;
 
     public AuthController(
@@ -42,14 +46,12 @@ public class AuthController {
             RefreshTokenService refreshTokenService,
             RefreshTokenProperties refreshTokenProperties,
             AuthCookieProperties authCookieProperties,
-            JwtTokenService jwtTokenService,
             MemberRepository memberRepository) {
         this.properties = properties;
         this.oauthLoginService = oauthLoginService;
         this.refreshTokenService = refreshTokenService;
         this.refreshTokenProperties = refreshTokenProperties;
         this.authCookieProperties = authCookieProperties;
-        this.jwtTokenService = jwtTokenService;
         this.memberRepository = memberRepository;
     }
 
@@ -88,7 +90,7 @@ public class AuthController {
 
     @GetMapping("/google/callback")
     @Operation(summary = "Google 로그인 콜백")
-    public ResponseEntity<LoginResponse> googleCallback(
+    public ResponseEntity<ApiResponse<LoginResponse>> googleCallback(
             @RequestParam(required = false) String code,
             @RequestParam(required = false) String state,
             @RequestParam(required = false) String error,
@@ -99,7 +101,7 @@ public class AuthController {
 
     @GetMapping("/kakao/callback")
     @Operation(summary = "Kakao 로그인 콜백")
-    public ResponseEntity<LoginResponse> kakaoCallback(
+    public ResponseEntity<ApiResponse<LoginResponse>> kakaoCallback(
             @RequestParam(required = false) String code,
             @RequestParam(required = false) String state,
             @RequestParam(required = false) String error,
@@ -110,10 +112,10 @@ public class AuthController {
 
     @PostMapping("/refresh")
     @Operation(summary = "Access Token 갱신", description = "Refresh Token 쿠키를 회전하고 새 Access Token을 발급합니다.")
-    public ResponseEntity<LoginResponse> refresh(
+    public ResponseEntity<ApiResponse<LoginResponse>> refresh(
             @CookieValue(name = "refresh_token", required = false) String refreshToken) {
         if (isBlank(refreshToken)) {
-            throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Refresh Token이 필요합니다.");
+            throw new BusinessException(ErrorCode.REFRESH_TOKEN_REQUIRED);
         }
         return loginResponse(refreshTokenService.rotate(refreshToken));
     }
@@ -129,12 +131,11 @@ public class AuthController {
 
     @GetMapping("/me")
     @Operation(summary = "현재 로그인 사용자 조회")
-    public LoginResponse.MemberResponse me(@RequestHeader(HttpHeaders.AUTHORIZATION) String authorizationHeader) {
-        Long memberId = jwtTokenService.getMemberId(authorizationHeader);
+    public ApiResponse<LoginResponse.MemberResponse> me(@AuthenticationPrincipal MemberPrincipal principal) {
         Member member = memberRepository
-                .findById(memberId)
-                .orElseThrow(() -> new ResponseStatusException(HttpStatus.UNAUTHORIZED, "존재하지 않는 사용자입니다."));
-        return LoginResponse.MemberResponse.from(member);
+                .findById(principal.memberId())
+                .orElseThrow(() -> new BusinessException(ErrorCode.MEMBER_NOT_FOUND));
+        return ApiResponse.success(LoginResponse.MemberResponse.from(member));
     }
 
     private OAuthProperties.Provider requireProvider(OAuthProperties.Provider provider, String providerName) {
@@ -142,8 +143,7 @@ public class AuthController {
                 || isBlank(provider.clientId())
                 || isBlank(provider.clientSecret())
                 || isBlank(provider.redirectUri())) {
-            throw new ResponseStatusException(
-                    HttpStatus.INTERNAL_SERVER_ERROR, providerName + " OAuth 환경변수가 설정되지 않았습니다.");
+            throw new BusinessException(ErrorCode.OAUTH_CONFIGURATION_ERROR);
         }
         return provider;
     }
@@ -158,20 +158,20 @@ public class AuthController {
 
     private void validateCallback(AuthProvider provider, String code, String state, String error, HttpSession session) {
         if (!isBlank(error)) {
-            throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "사용자가 소셜 로그인을 취소했거나 거부했습니다.");
+            throw new BusinessException(ErrorCode.OAUTH_LOGIN_REJECTED);
         }
         String expectedState = (String) session.getAttribute(stateKey(provider));
         session.removeAttribute(stateKey(provider));
         if (isBlank(code) || isBlank(state) || !state.equals(expectedState)) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "유효하지 않은 OAuth 로그인 요청입니다.");
+            throw new BusinessException(ErrorCode.INVALID_OAUTH_REQUEST);
         }
     }
 
-    private ResponseEntity<LoginResponse> loginResponse(Member member) {
+    private ResponseEntity<ApiResponse<LoginResponse>> loginResponse(Member member) {
         String refreshToken = refreshTokenService.issue(member);
         return ResponseEntity.ok()
                 .header(HttpHeaders.SET_COOKIE, refreshCookie(refreshToken).toString())
-                .body(oauthLoginService.createLoginResponse(member));
+                .body(ApiResponse.success(oauthLoginService.createLoginResponse(member)));
     }
 
     private ResponseCookie refreshCookie(String refreshToken) {
@@ -179,7 +179,7 @@ public class AuthController {
                 .httpOnly(true)
                 .secure(authCookieProperties.secure())
                 .sameSite("Lax")
-                .path("/api/auth")
+                .path("/api/v1/auth")
                 .maxAge(Duration.ofDays(refreshTokenProperties.expirationDays()))
                 .build();
     }
@@ -189,7 +189,7 @@ public class AuthController {
                 .httpOnly(true)
                 .secure(authCookieProperties.secure())
                 .sameSite("Lax")
-                .path("/api/auth")
+                .path("/api/v1/auth")
                 .maxAge(Duration.ZERO)
                 .build();
     }

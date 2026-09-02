@@ -1,4 +1,4 @@
-package com.homerun.auth;
+package com.homerun.domain.auth;
 
 import org.springframework.boot.context.properties.ConfigurationProperties;
 

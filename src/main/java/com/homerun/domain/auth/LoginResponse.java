@@ -1,4 +1,6 @@
-package com.homerun.auth;
+package com.homerun.domain.auth;
+
+import com.homerun.domain.member.Member;
 
 public record LoginResponse(String accessToken, String tokenType, long expiresIn, MemberResponse member) {
     public record MemberResponse(Long id, String provider, String email, String nickname) {

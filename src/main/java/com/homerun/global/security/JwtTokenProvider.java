@@ -1,21 +1,23 @@
-package com.homerun.auth;
+package com.homerun.global.security;
 
+import com.homerun.domain.member.Member;
+import com.homerun.global.exception.BusinessException;
+import com.homerun.global.exception.ErrorCode;
+import io.jsonwebtoken.ExpiredJwtException;
 import io.jsonwebtoken.Jwts;
 import io.jsonwebtoken.security.Keys;
 import java.nio.charset.StandardCharsets;
 import java.time.Instant;
 import java.util.Date;
 import javax.crypto.SecretKey;
-import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
-import org.springframework.web.server.ResponseStatusException;
 
 @Service
-public class JwtTokenService {
+public class JwtTokenProvider {
 
     private final JwtProperties properties;
 
-    public JwtTokenService(JwtProperties properties) {
+    public JwtTokenProvider(JwtProperties properties) {
         this.properties = properties;
     }
 
@@ -34,22 +36,21 @@ public class JwtTokenService {
         return properties.accessTokenExpirationSeconds();
     }
 
-    public Long getMemberId(String authorizationHeader) {
-        if (authorizationHeader == null || !authorizationHeader.startsWith("Bearer ")) {
-            throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Access Token이 필요합니다.");
-        }
+    public Long getMemberId(String token) {
         try {
             String subject = Jwts.parser()
                     .verifyWith(signingKey())
                     .build()
-                    .parseSignedClaims(authorizationHeader.substring("Bearer ".length()))
+                    .parseSignedClaims(token)
                     .getPayload()
                     .getSubject();
             return Long.valueOf(subject);
-        } catch (ResponseStatusException exception) {
+        } catch (ExpiredJwtException exception) {
+            throw new BusinessException(ErrorCode.EXPIRED_ACCESS_TOKEN, exception);
+        } catch (BusinessException exception) {
             throw exception;
         } catch (Exception exception) {
-            throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "유효하지 않은 Access Token입니다.", exception);
+            throw new BusinessException(ErrorCode.INVALID_ACCESS_TOKEN, exception);
         }
     }
 

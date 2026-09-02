@@ -1,4 +1,4 @@
-package com.homerun.auth;
+package com.homerun.domain.auth;
 
 public enum AuthProvider {
     GOOGLE,
