@@ -47,6 +47,7 @@ public class EmailAuthService {
         Member member = memberRepository
                 .findByProviderAndProviderUserId(AuthProvider.LOCAL, email)
                 .orElseThrow(() -> new BusinessException(ErrorCode.INVALID_EMAIL_CREDENTIALS));
+        member.requireActive();
         if (member.getPasswordHash() == null || !passwordEncoder.matches(password, member.getPasswordHash())) {
             throw new BusinessException(ErrorCode.INVALID_EMAIL_CREDENTIALS);
         }

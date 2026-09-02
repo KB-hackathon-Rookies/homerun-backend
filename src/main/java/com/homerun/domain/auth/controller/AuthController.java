@@ -142,6 +142,7 @@ public class AuthController {
         Member member = memberRepository
                 .findById(principal.memberId())
                 .orElseThrow(() -> new BusinessException(ErrorCode.MEMBER_NOT_FOUND));
+        member.requireActive();
         return ApiResponse.success(LoginResponse.MemberResponse.from(member));
     }
 

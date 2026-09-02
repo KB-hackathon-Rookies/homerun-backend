@@ -50,6 +50,7 @@ public class RequiredTermsAgreementFilter extends OncePerRequestFilter {
     protected boolean shouldNotFilter(HttpServletRequest request) {
         String path = request.getRequestURI();
         return path.startsWith("/api/v1/auth/")
+                || path.equals("/api/v1/members/me")
                 || path.equals("/api/v1/terms")
                 || path.startsWith("/api/v1/agreements")
                 || path.startsWith("/swagger-ui/")

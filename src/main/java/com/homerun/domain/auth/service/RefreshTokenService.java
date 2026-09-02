@@ -29,6 +29,7 @@ public class RefreshTokenService {
 
     @Transactional
     public String issue(Member member) {
+        member.requireActive();
         String token = createToken();
         refreshTokenRepository.save(RefreshToken.create(member, hash(token), expiresAt()));
         return token;
@@ -43,6 +44,7 @@ public class RefreshTokenService {
             refreshToken.revoke();
             throw new BusinessException(ErrorCode.EXPIRED_REFRESH_TOKEN);
         }
+        refreshToken.getMember().requireActive();
         refreshToken.revoke();
         return refreshToken.getMember();
     }
@@ -53,6 +55,11 @@ public class RefreshTokenService {
             return;
         }
         refreshTokenRepository.findByTokenHash(hash(token)).ifPresent(RefreshToken::revoke);
+    }
+
+    @Transactional
+    public void revokeAll(Long memberId) {
+        refreshTokenRepository.findAllByMemberIdAndRevokedAtIsNull(memberId).forEach(RefreshToken::revoke);
     }
 
     private String createToken() {
