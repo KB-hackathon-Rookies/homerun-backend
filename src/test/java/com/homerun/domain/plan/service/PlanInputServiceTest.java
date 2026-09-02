@@ -20,6 +20,7 @@ import com.homerun.domain.plan.repository.PlanStepRepository;
 import com.homerun.domain.plan.type.LeaseType;
 import com.homerun.domain.plan.type.PlanGate;
 import com.homerun.domain.plan.type.PlanStepStatus;
+import com.homerun.domain.region.repository.RegionRepository;
 import com.homerun.global.exception.BusinessException;
 import com.homerun.global.exception.ErrorCode;
 import java.math.BigDecimal;
@@ -51,13 +52,18 @@ class PlanInputServiceTest {
     @Mock
     private PlanStepRepository stepRepository;
 
+    @Mock
+    private RegionRepository regionRepository;
+
     private PlanInputService inputService;
     private Plan plan;
 
     @BeforeEach
     void setUp() {
-        inputService = new PlanInputService(planRepository, inputRepository, historyRepository, stepRepository);
+        inputService = new PlanInputService(
+                planRepository, inputRepository, historyRepository, stepRepository, regionRepository);
         plan = Plan.create(MEMBER_ID, LeaseType.JEONSE, null);
+        org.mockito.Mockito.lenient().when(regionRepository.existsById(1L)).thenReturn(true);
     }
 
     @Test
@@ -158,18 +164,34 @@ class PlanInputServiceTest {
                         exception -> assertThat(exception.errorCode()).isEqualTo(ErrorCode.PLAN_ACCESS_DENIED));
     }
 
+    @Test
+    void should_rejectInput_when_regionDoesNotExist() {
+        givenOwnedPlan();
+        PlanInputRequest request = request(100_000_000L, 500_000L, 999L, Set.of());
+
+        assertThatThrownBy(() -> inputService.save(MEMBER_ID, PLAN_ID, request))
+                .isInstanceOfSatisfying(
+                        BusinessException.class,
+                        exception -> assertThat(exception.errorCode()).isEqualTo(ErrorCode.PLAN_REGION_NOT_FOUND));
+        verifyNoInteractions(inputRepository);
+    }
+
     private void givenOwnedPlan() {
         when(planRepository.findById(PLAN_ID)).thenReturn(Optional.of(plan));
     }
 
     private PlanInputRequest request(Long hopeDeposit, Long monthlyRent, Set<String> unknownFields) {
+        return request(hopeDeposit, monthlyRent, 1L, unknownFields);
+    }
+
+    private PlanInputRequest request(Long hopeDeposit, Long monthlyRent, Long regionId, Set<String> unknownFields) {
         return new PlanInputRequest(
                 hopeDeposit,
                 20_000_000L,
                 monthlyRent,
                 null,
                 800_000L,
-                1L,
+                regionId,
                 new BigDecimal("84.92"),
                 "APARTMENT",
                 true,
