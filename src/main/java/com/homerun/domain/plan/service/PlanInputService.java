@@ -11,6 +11,7 @@ import com.homerun.domain.plan.repository.PlanInputRepository;
 import com.homerun.domain.plan.repository.PlanRepository;
 import com.homerun.domain.plan.repository.PlanStepRepository;
 import com.homerun.domain.plan.type.PlanGate;
+import com.homerun.domain.region.repository.RegionRepository;
 import com.homerun.global.exception.BusinessException;
 import com.homerun.global.exception.ErrorCode;
 import java.util.List;
@@ -41,22 +42,26 @@ public class PlanInputService {
     private final PlanInputRepository inputRepository;
     private final PlanInputHistoryRepository historyRepository;
     private final PlanStepRepository stepRepository;
+    private final RegionRepository regionRepository;
 
     public PlanInputService(
             PlanRepository planRepository,
             PlanInputRepository inputRepository,
             PlanInputHistoryRepository historyRepository,
-            PlanStepRepository stepRepository) {
+            PlanStepRepository stepRepository,
+            RegionRepository regionRepository) {
         this.planRepository = planRepository;
         this.inputRepository = inputRepository;
         this.historyRepository = historyRepository;
         this.stepRepository = stepRepository;
+        this.regionRepository = regionRepository;
     }
 
     @Transactional
     public PlanInputResponse save(Long memberId, Long planId, PlanInputRequest request) {
         validateUnknownFields(request);
         findOwnedPlan(memberId, planId);
+        validateRegion(request.regionId());
         PlanInput input = inputRepository.findByPlanId(planId).orElse(null);
         if (input == null) {
             return PlanInputResponse.from(inputRepository.save(PlanInput.create(planId, request)));
@@ -91,6 +96,12 @@ public class PlanInputService {
         steps.stream()
                 .filter(step -> step.getSequence() >= PlanGate.FIRST_DIAGNOSIS.sequence())
                 .forEach(PlanStep::requireRecalculation);
+    }
+
+    private void validateRegion(Long regionId) {
+        if (regionId != null && !regionRepository.existsById(regionId)) {
+            throw new BusinessException(ErrorCode.PLAN_REGION_NOT_FOUND);
+        }
     }
 
     private void validateUnknownFields(PlanInputRequest request) {

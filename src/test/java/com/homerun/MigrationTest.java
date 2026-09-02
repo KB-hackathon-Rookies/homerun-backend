@@ -103,11 +103,18 @@ class MigrationTest {
     }
 
     @Test
-    @DisplayName("팩트 레지스트리가 149행이다 (V2 141 + V7 소액임차인 분해 8)")
+    @DisplayName("V8이 로컬 회원의 비밀번호 해시와 이메일 인증 시각을 추가한다")
+    void should_add_localEmailAuth_when_v8IsApplied() {
+        assertThat(columnNames("app_user")).contains("password_hash", "email_verified_at");
+        assertThat(indexNames("app_user")).contains("uq_app_user_local_email");
+    }
+
+    @Test
+    @DisplayName("팩트 레지스트리가 163행이다 (V2 141 + V9 월세대출 14 + V10 소액임차인 8)")
     void should_seed_config_effective_when_migrated() {
         Integer count = jdbc.queryForObject("SELECT count(*) FROM config_effective", Integer.class);
 
-        assertThat(count).isEqualTo(149);
+        assertThat(count).isEqualTo(163);
     }
 
     @Test
@@ -153,5 +160,10 @@ class MigrationTest {
     private String constraintDefinition(String constraintName) {
         return jdbc.queryForObject(
                 "SELECT pg_get_constraintdef(oid) FROM pg_constraint WHERE conname = ?", String.class, constraintName);
+    }
+
+    private java.util.List<String> indexNames(String table) {
+        return jdbc.queryForList(
+                "SELECT indexname FROM pg_indexes WHERE schemaname = 'public' AND tablename = ?", String.class, table);
     }
 }

@@ -22,7 +22,7 @@
 
 * 새로운 기능(feature)을 추가할 때는 반드시 해당 기능의 단위테스트를 함께 작성한다.
 * 테스트 프레임워크는 JUnit 5를 사용한다. 필요 시 Mockito를 함께 사용한다.
-* **테스트는 H2가 아니라 진짜 PostgreSQL에서 돈다.** Testcontainers가 빈 DB를 띄우고 Flyway 마이그레이션을 처음부터 적용한다.
+* **테스트는 H2가 아니라 진짜 PostgreSQL에서 돈다.** Redis 기능은 Redis Testcontainer로 검증한다. Testcontainers가 빈 저장소를 띄우고 Flyway 마이그레이션을 처음부터 적용한다.
 * 그래서 테스트를 돌리려면 Docker가 실행 중이어야 한다.
 * `feat` 커밋과 `test` 커밋은 같은 브랜치/PR 안에서 연속된 쌍(pair)으로 존재해야 한다.
 * 기능 구현 커밋과 테스트 작성 커밋은 하나의 커밋으로 묶지 않고 분리한다.
@@ -206,6 +206,7 @@ cd "/Users/kimyuhwan/Downloads/KB IT's Your Life 해커톤대회/homerun-backend
 * springdoc-openapi 3.0.3
 * Lombok
 * PostgreSQL 17
+* Redis 7.4 (이메일 인증번호·단기 인증 상태, 향후 알림 스트림)
 * Testcontainers 2.x (`testcontainers-junit-jupiter`, `testcontainers-postgresql`)
 * spotless + palantirJavaFormat 2.97.0 (4칸 들여쓰기)
 * `spring-boot-docker-compose` (개발 시 PostgreSQL 자동 기동)

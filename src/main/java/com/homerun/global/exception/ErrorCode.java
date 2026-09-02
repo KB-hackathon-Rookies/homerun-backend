@@ -19,6 +19,16 @@ public enum ErrorCode {
     OAUTH_PROVIDER_ERROR(HttpStatus.BAD_GATEWAY, "AUTH_010", "소셜 로그인 제공자 연동에 실패했습니다."),
     OAUTH_CONFIGURATION_ERROR(HttpStatus.INTERNAL_SERVER_ERROR, "AUTH_011", "OAuth 설정이 올바르지 않습니다."),
     ACCESS_DENIED(HttpStatus.FORBIDDEN, "AUTH_012", "접근 권한이 없습니다."),
+    EMAIL_ALREADY_REGISTERED(HttpStatus.CONFLICT, "AUTH_013", "이미 가입된 이메일입니다."),
+    EMAIL_VERIFICATION_EXPIRED(HttpStatus.BAD_REQUEST, "AUTH_014", "이메일 인증번호가 만료되었습니다."),
+    EMAIL_VERIFICATION_INVALID(HttpStatus.BAD_REQUEST, "AUTH_015", "이메일 인증번호가 올바르지 않습니다."),
+    EMAIL_VERIFICATION_ATTEMPTS_EXCEEDED(HttpStatus.TOO_MANY_REQUESTS, "AUTH_016", "이메일 인증 시도 횟수를 초과했습니다."),
+    EMAIL_VERIFICATION_RATE_LIMITED(HttpStatus.TOO_MANY_REQUESTS, "AUTH_017", "잠시 후 이메일 인증을 다시 요청해 주세요."),
+    EMAIL_VERIFICATION_TOKEN_INVALID(HttpStatus.UNAUTHORIZED, "AUTH_018", "이메일 인증이 만료되었거나 유효하지 않습니다."),
+    EMAIL_DELIVERY_FAILED(HttpStatus.BAD_GATEWAY, "AUTH_019", "인증 이메일 발송에 실패했습니다."),
+    EMAIL_AUTH_CONFIGURATION_ERROR(HttpStatus.INTERNAL_SERVER_ERROR, "AUTH_020", "이메일 인증 설정이 올바르지 않습니다."),
+    EMAIL_AUTH_UNAVAILABLE(HttpStatus.SERVICE_UNAVAILABLE, "AUTH_021", "이메일 인증 서비스를 사용할 수 없습니다."),
+    INVALID_EMAIL_CREDENTIALS(HttpStatus.UNAUTHORIZED, "AUTH_022", "이메일 또는 비밀번호가 올바르지 않습니다."),
 
     CONSENT_TOKEN_INVALID(HttpStatus.UNAUTHORIZED, "TERMS_001", "유효하지 않은 동의 토큰입니다."),
     CONSENT_TOKEN_EXPIRED(HttpStatus.UNAUTHORIZED, "TERMS_002", "동의 토큰이 만료되었습니다."),
@@ -35,6 +45,8 @@ public enum ErrorCode {
     PLAN_INPUT_NOT_FOUND(HttpStatus.NOT_FOUND, "PLAN_008", "저장된 계획 입력을 찾을 수 없습니다."),
     INVALID_UNKNOWN_FIELD(HttpStatus.BAD_REQUEST, "PLAN_009", "모름 처리할 수 없는 입력 필드가 포함되어 있습니다."),
     UNKNOWN_FIELD_HAS_VALUE(HttpStatus.BAD_REQUEST, "PLAN_010", "모름 처리한 필드에는 값을 함께 저장할 수 없습니다."),
+    PLAN_STAGE_LOCKED(HttpStatus.CONFLICT, "PLAN_011", "아직 진입할 수 없는 계획 단계입니다."),
+    PLAN_REGION_NOT_FOUND(HttpStatus.BAD_REQUEST, "PLAN_012", "존재하지 않는 지역입니다."),
     CONCURRENT_UPDATE(HttpStatus.CONFLICT, "COMMON_003", "다른 요청에서 먼저 변경했습니다. 다시 시도해 주세요.");
 
     private final HttpStatus status;

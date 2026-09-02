@@ -19,6 +19,20 @@ services:
       timeout: 5s
       retries: 10
 
+  redis:
+    image: redis:7.4-alpine
+    restart: unless-stopped
+    environment:
+      REDIS_PASSWORD: ${REDIS_PASSWORD:?Set REDIS_PASSWORD in .env}
+    command: ['sh', '-c', 'redis-server --appendonly yes --requirepass "$$REDIS_PASSWORD"']
+    volumes:
+      - redis-data:/data
+    healthcheck:
+      test: ['CMD-SHELL', 'redis-cli -a "$$REDIS_PASSWORD" ping']
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
   app:
     # IMAGE 를 주면 그 이미지를 쓰고(= CD 가 올린 태그로 롤백 가능), 없으면 로컬에서 빌드한다.
     image: ${IMAGE:-homerun-backend:local}
@@ -27,6 +41,8 @@ services:
     depends_on:
       postgres:
         condition: service_healthy
+      redis:
+        condition: service_healthy
     environment:
       SPRING_PROFILES_ACTIVE: docker
       DB_HOST: postgres
@@ -34,6 +50,17 @@ services:
       POSTGRES_DB: ${POSTGRES_DB:-homerun}
       POSTGRES_USER: ${POSTGRES_USER:-homerun}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      REDIS_PASSWORD: ${REDIS_PASSWORD:?Set REDIS_PASSWORD in .env}
+      MAIL_USERNAME: ${MAIL_USERNAME:?Set MAIL_USERNAME in .env}
+      MAIL_PASSWORD: ${MAIL_PASSWORD:?Set MAIL_PASSWORD in .env}
+      MAIL_FROM: ${MAIL_FROM:-${MAIL_USERNAME}}
+      EMAIL_VERIFICATION_SECRET: ${EMAIL_VERIFICATION_SECRET:?Set EMAIL_VERIFICATION_SECRET in .env}
+      JWT_SECRET: ${JWT_SECRET:?Set JWT_SECRET in .env}
+      JWT_ACCESS_TOKEN_EXPIRATION_SECONDS: ${JWT_ACCESS_TOKEN_EXPIRATION_SECONDS:-1800}
+      REFRESH_TOKEN_EXPIRATION_DAYS: ${REFRESH_TOKEN_EXPIRATION_DAYS:-14}
+      AUTH_COOKIE_SECURE: ${AUTH_COOKIE_SECURE:-true}
       JUSO_CONFIRM_KEY: ${JUSO_CONFIRM_KEY:?Set JUSO_CONFIRM_KEY in .env}
       DATA_GO_KR_SERVICE_KEY: ${DATA_GO_KR_SERVICE_KEY:?Set DATA_GO_KR_SERVICE_KEY in .env}
     ports:
@@ -47,3 +74,4 @@ services:
 
 volumes:
   postgres-data:
+  redis-data:
