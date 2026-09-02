@@ -1,4 +1,4 @@
-package com.homerun.domain.plan.plan_J.domain;
+package com.homerun.domain.plan.plan_jeonse.domain;
 
 import jakarta.persistence.*;
 import lombok.Data;

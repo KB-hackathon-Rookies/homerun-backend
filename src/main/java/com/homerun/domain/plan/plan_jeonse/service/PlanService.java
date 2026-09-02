@@ -1,9 +1,10 @@
-package com.homerun.domain.plan.plan_J.service;
+package com.homerun.domain.plan.plan_jeonse.service;
 
-import com.homerun.domain.plan.plan_J.domain.Plan;
-import com.homerun.domain.plan.plan_J.dto.PlanCreateRequest;
-import com.homerun.domain.plan.plan_J.dto.PlanResponse;
-import com.homerun.domain.plan.plan_J.repository.PlanRepository;
+
+import com.homerun.domain.plan.plan_jeonse.domain.Plan;
+import com.homerun.domain.plan.plan_jeonse.dto.PlanCreateRequest;
+import com.homerun.domain.plan.plan_jeonse.dto.PlanResponse;
+import com.homerun.domain.plan.plan_jeonse.repository.PlanRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;

@@ -1,4 +1,4 @@
-package com.homerun.domain.plan.plan_J.domain;
+package com.homerun.domain.plan.plan_jeonse.domain;
 
 import com.homerun.domain.plan.enums.LeaseType;
 import com.homerun.domain.plan.enums.PlanStage;

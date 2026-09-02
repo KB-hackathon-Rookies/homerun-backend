@@ -1,11 +1,7 @@
-package com.homerun.plan.dto;
+package com.homerun.domain.plan.plan_jeonse.dto;
 
-import com.homerun.domain.plan.plan_J.PlanInputUnknownField;
-import com.homerun.plan.domain.enums.CompanySize;
-import com.homerun.plan.domain.enums.EmploymentType;
-import com.homerun.plan.domain.enums.HouseType;
-import com.homerun.plan.domain.enums.HouseholderStatus;
-import com.homerun.plan.domain.enums.MaritalStatus;
+
+import com.homerun.domain.plan.enums.*;
 import lombok.Data;
 
 import java.math.BigDecimal;

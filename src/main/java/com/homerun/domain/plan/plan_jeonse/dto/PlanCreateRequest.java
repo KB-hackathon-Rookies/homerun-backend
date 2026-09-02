@@ -1,4 +1,5 @@
-package com.homerun.domain.plan.plan_J.dto;
+package com.homerun.domain.plan.plan_jeonse.dto;
+
 
 import com.homerun.domain.plan.enums.LeaseType;
 import lombok.Data;

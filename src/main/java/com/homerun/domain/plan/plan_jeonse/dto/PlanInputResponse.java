@@ -1,5 +1,10 @@
-package com.homerun.domain.plan.plan_J.dto;
+package com.homerun.domain.plan.plan_jeonse.dto;
 
+import com.homerun.domain.plan.enums.CompanySize;
+import com.homerun.domain.plan.enums.EmploymentType;
+import com.homerun.domain.plan.enums.HouseType;
+import com.homerun.domain.plan.enums.HouseholderStatus;
+import com.homerun.domain.plan.enums.MaritalStatus;
 import com.homerun.domain.plan.enums.PlanInputUnknownField;
 import lombok.Builder;
 import lombok.Data;
@@ -15,26 +20,30 @@ public class PlanInputResponse {
     private Long id;
     private Long planId;
 
+    // 주거 비용
     private Long hopeDeposit;
     private Long currentDeposit;
     private Long monthlyRent;
     private Long maintenanceFee;
     private Long maxMonthlyBurden;
 
+    // 주거 조건
     private Long regionId;
     private BigDecimal areaM2;
-    private String houseType;
+    private HouseType houseType;
 
+    // 가구 조건
     private Boolean isHomeless;
-    private String householderStatus;
-    private String maritalStatus;
+    private HouseholderStatus householderStatus;
+    private MaritalStatus maritalStatus;
 
-    private String employmentType;
+    // 직업 조건
+    private EmploymentType employmentType;
     private Integer employmentMonths;
-    private String companySize;
+    private CompanySize companySize;
 
+    // 사용자가 "모름"으로 선택한 항목
     private List<PlanInputUnknownField> unknownFields;
 
     private OffsetDateTime createdAt;
 }
-

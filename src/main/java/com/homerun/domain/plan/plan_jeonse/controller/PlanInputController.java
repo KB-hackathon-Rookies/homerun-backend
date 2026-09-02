@@ -1,8 +1,8 @@
-package com.homerun.domain.plan.plan_J.controller;
+package com.homerun.domain.plan.plan_jeonse.controller;
 
-import com.homerun.domain.plan.plan_J.dto.PlanInputRequest;
-import com.homerun.domain.plan.plan_J.dto.PlanInputResponse;
-import com.homerun.domain.plan.plan_J.service.PlanInputService;
+import com.homerun.domain.plan.plan_jeonse.dto.PlanInputRequest;
+import com.homerun.domain.plan.plan_jeonse.dto.PlanInputResponse;
+import com.homerun.domain.plan.plan_jeonse.service.PlanInputService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;

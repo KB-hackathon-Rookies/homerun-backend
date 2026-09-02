@@ -1,4 +1,4 @@
-package com.homerun.domain.plan_J.domain.enums;
+package com.homerun.domain.plan.enums;
 
 public enum PlanStatus {
 
