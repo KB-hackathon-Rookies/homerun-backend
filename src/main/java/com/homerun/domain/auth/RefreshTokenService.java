@@ -1,15 +1,15 @@
 package com.homerun.domain.auth;
 
 import com.homerun.domain.member.Member;
+import com.homerun.global.exception.BusinessException;
+import com.homerun.global.exception.ErrorCode;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.security.SecureRandom;
 import java.time.Instant;
 import java.util.Base64;
-import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-import org.springframework.web.server.ResponseStatusException;
 
 @Service
 public class RefreshTokenService {
@@ -35,10 +35,10 @@ public class RefreshTokenService {
     public Member rotate(String token) {
         RefreshToken refreshToken = refreshTokenRepository
                 .findByTokenHash(hash(token))
-                .orElseThrow(() -> unauthorized("유효하지 않은 Refresh Token입니다."));
+                .orElseThrow(() -> new BusinessException(ErrorCode.INVALID_REFRESH_TOKEN));
         if (!refreshToken.isUsableAt(Instant.now())) {
             refreshToken.revoke();
-            throw unauthorized("만료되었거나 폐기된 Refresh Token입니다.");
+            throw new BusinessException(ErrorCode.EXPIRED_REFRESH_TOKEN);
         }
         refreshToken.revoke();
         return refreshToken.getMember();
@@ -69,9 +69,5 @@ public class RefreshTokenService {
         } catch (Exception exception) {
             throw new IllegalStateException("Refresh Token 해시에 실패했습니다.", exception);
         }
-    }
-
-    private ResponseStatusException unauthorized(String reason) {
-        return new ResponseStatusException(HttpStatus.UNAUTHORIZED, reason);
     }
 }

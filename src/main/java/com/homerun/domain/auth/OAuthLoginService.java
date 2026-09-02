@@ -2,16 +2,16 @@ package com.homerun.domain.auth;
 
 import com.homerun.domain.member.Member;
 import com.homerun.domain.member.MemberRepository;
+import com.homerun.global.exception.BusinessException;
+import com.homerun.global.exception.ErrorCode;
 import com.homerun.global.security.JwtTokenProvider;
 import org.springframework.http.HttpHeaders;
-import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.LinkedMultiValueMap;
 import org.springframework.util.MultiValueMap;
 import org.springframework.web.client.RestClient;
-import org.springframework.web.server.ResponseStatusException;
 import tools.jackson.databind.JsonNode;
 import tools.jackson.databind.ObjectMapper;
 
@@ -102,7 +102,7 @@ public class OAuthLoginService {
                     .body(String.class);
             return readJson(response, "소셜 토큰");
         } catch (Exception exception) {
-            throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "소셜 로그인 토큰 발급에 실패했습니다.", exception);
+            throw new BusinessException(ErrorCode.OAUTH_PROVIDER_ERROR, exception);
         }
     }
 
@@ -116,7 +116,7 @@ public class OAuthLoginService {
                     .body(String.class);
             return readJson(response, label);
         } catch (Exception exception) {
-            throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, label + " 조회에 실패했습니다.", exception);
+            throw new BusinessException(ErrorCode.OAUTH_PROVIDER_ERROR, exception);
         }
     }
 
@@ -124,7 +124,7 @@ public class OAuthLoginService {
         try {
             return objectMapper.readTree(response);
         } catch (Exception exception) {
-            throw new ResponseStatusException(HttpStatus.BAD_GATEWAY, label + " 응답을 해석하지 못했습니다.", exception);
+            throw new BusinessException(ErrorCode.OAUTH_PROVIDER_ERROR, exception);
         }
     }
 
@@ -133,8 +133,7 @@ public class OAuthLoginService {
                 || isBlank(provider.clientId())
                 || isBlank(provider.clientSecret())
                 || isBlank(provider.redirectUri())) {
-            throw new ResponseStatusException(
-                    HttpStatus.INTERNAL_SERVER_ERROR, providerName + " OAuth 환경변수가 설정되지 않았습니다.");
+            throw new BusinessException(ErrorCode.OAUTH_CONFIGURATION_ERROR);
         }
         return provider;
     }
@@ -142,7 +141,7 @@ public class OAuthLoginService {
     private String requiredText(JsonNode node, String field, String label) {
         String value = optionalText(node, field);
         if (value.isBlank()) {
-            throw new ResponseStatusException(HttpStatus.BAD_GATEWAY, label + "에 " + field + " 값이 없습니다.");
+            throw new BusinessException(ErrorCode.OAUTH_PROVIDER_ERROR);
         }
         return value;
     }
