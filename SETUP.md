@@ -19,8 +19,11 @@ cd homerun-backend
 cp .env.example .env
 ```
 
-`.env` 의 `POSTGRES_PASSWORD` 는 비워 두면 안 된다. compose 가 바로 에러를 낸다.
+`.env`의 `POSTGRES_PASSWORD`, `REDIS_PASSWORD`는 비워 두면 안 된다. compose가 바로 에러를 낸다.
 로컬에서는 아무 값이나 넣으면 된다.
+
+이메일 인증을 직접 확인하려면 `MAIL_USERNAME`에 Gmail 주소, `MAIL_PASSWORD`에 Google 앱 비밀번호,
+`EMAIL_VERIFICATION_SECRET`에 32자 이상의 무작위 문자열을 넣는다. 실제 비밀값은 커밋하지 않는다.
 
 로컬에 이미 PostgreSQL 이 5432 를 쓰고 있으면 `.env` 의 `POSTGRES_PORT` 를 5433 등으로 바꾼다.
 
@@ -78,7 +81,7 @@ npx skills experimental_install
 ./gradlew bootRun   # 앱 실행
 ```
 
-`bootRun` 은 `compose.yaml` 의 PostgreSQL 을 자동으로 띄우고 종료 시 같이 내린다.
+`bootRun`은 `compose.yaml`의 PostgreSQL과 Redis를 자동으로 띄우고 종료 시 같이 내린다.
 컨테이너를 계속 살려 두고 싶으면 `application.yaml` 에
 `spring.docker.compose.lifecycle-management: start-only` 를 준다.
 
@@ -111,7 +114,7 @@ IMAGE=ghcr.io/kb-hackathon-rookies/homerun-backend:<커밋SHA12> \
 이 에러가 보이면 `settings.gradle` 을 먼저 확인한다.
 
 **테스트가 `Could not find a valid Docker environment` 로 실패**
-Docker 가 꺼져 있다. 테스트는 Testcontainers 로 실제 PostgreSQL 을 띄운다.
+Docker가 꺼져 있다. 테스트는 Testcontainers로 실제 PostgreSQL과 Redis를 띄운다.
 
 **`pre-commit` 에서 spotless 에 걸림**
 ```bash
@@ -123,7 +126,7 @@ Docker 가 꺼져 있다. 테스트는 Testcontainers 로 실제 PostgreSQL 을 
 타입 목록은 `commitlint.config.js` 에 있다. `npm run commit` 으로 고르는 게 안전하다.
 
 **포트 충돌**
-`.env` 의 `POSTGRES_PORT`, `APP_PORT` 를 바꾼다.
+`.env`의 `POSTGRES_PORT`, `REDIS_PORT`, `APP_PORT`를 바꾼다.
 
 **마이그레이션 체크섬 에러 (`Migration checksum mismatch`)**
 이미 적용된 마이그레이션 파일을 수정했을 때 난다. 파일을 원래대로 되돌리고 새 버전을 추가한다.

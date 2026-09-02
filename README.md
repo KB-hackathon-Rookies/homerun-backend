@@ -1,17 +1,17 @@
 # homerun-backend
 
-Spring Boot 4.1 / Java 17 / PostgreSQL 17 / Flyway 기반 백엔드.
+Spring Boot 4.1 / Java 17 / PostgreSQL 17 / Redis 7.4 / Flyway 기반 백엔드.
 
 ## 빠르게 시작하기
 
 ```bash
-cp .env.example .env      # POSTGRES_PASSWORD 는 반드시 채운다
+cp .env.example .env      # DB·Redis 비밀번호와 이메일 인증 설정을 채운다
 npm install               # husky 훅 설치
 ./gradlew build           # 컴파일 + 포맷 검사 + 테스트
-./gradlew bootRun         # 앱 실행 (PostgreSQL 은 알아서 뜬다)
+./gradlew bootRun         # 앱 실행 (PostgreSQL·Redis는 알아서 뜬다)
 ```
 
-`bootRun` 하면 `spring-boot-docker-compose` 가 `compose.yaml` 의 PostgreSQL 을 자동으로
+`bootRun` 하면 `spring-boot-docker-compose`가 `compose.yaml`의 PostgreSQL과 Redis를 자동으로
 띄우고 접속 정보를 앱에 꽂아 준다. 따로 `docker compose up` 할 필요가 없다.
 
 자세한 건 [SETUP.md](SETUP.md).
@@ -32,7 +32,7 @@ src/main/resources/
   application-docker.yaml           컨테이너로 띄울 때만 덮어쓰는 설정
   db/migration/                     Flyway 마이그레이션 (README 참고)
 src/test/java/com/homerun/
-  TestcontainersConfiguration.java  테스트용 PostgreSQL 컨테이너
+  TestcontainersConfiguration.java  테스트용 PostgreSQL·Redis 컨테이너
 compose.yaml                        로컬 개발용 의존 서비스 (앱 없음)
 compose.prod.yaml                   앱까지 묶어서 띄울 때
 skills-lock.json                    에이전트 스킬 버전 고정 (본체는 커밋 안 함)
@@ -53,7 +53,7 @@ skills-lock.json                    에이전트 스킬 버전 고정 (본체는
 
 - **스키마 변경은 전부 Flyway 마이그레이션으로.** `ddl-auto: validate` 라서 엔티티만
   추가하면 앱이 부팅되지 않는다. → [db/migration/README.md](src/main/resources/db/migration/README.md)
-- **테스트는 진짜 PostgreSQL 에서 돈다.** Testcontainers 가 빈 DB 를 띄우고 마이그레이션을
+- **테스트는 진짜 PostgreSQL·Redis에서 돈다.** Testcontainers가 두 저장소를 띄우고 마이그레이션을
   처음부터 적용한다. 그래서 테스트를 돌리려면 Docker 가 실행 중이어야 한다.
 - **커밋 메시지는 commitlint 가 검사한다.** 형식은 `✨ Feat: 내용`. `npm run commit` 이 편하다.
 - **포맷은 spotless 가 강제한다.** 커밋할 때 검사하고, 어긋나면 `./gradlew spotlessApply`.

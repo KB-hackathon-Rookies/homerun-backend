@@ -5,7 +5,9 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.Mockito.when;
 
 import com.homerun.domain.plan.dto.request.CompletePlanStepRequest;
+import com.homerun.domain.plan.dto.request.UpdatePlanLocationRequest;
 import com.homerun.domain.plan.dto.response.PlanProgressResponse;
+import com.homerun.domain.plan.dto.response.PlanResponse;
 import com.homerun.domain.plan.entity.Plan;
 import com.homerun.domain.plan.entity.PlanStep;
 import com.homerun.domain.plan.policy.PlanStageTransitionPolicy;
@@ -133,11 +135,68 @@ class PlanServiceTest {
         PlanProgressResponse response = planService.reset(MEMBER_ID, PLAN_ID);
 
         assertThat(plan.getStage()).isEqualTo(PlanStage.BENCH);
+        assertThat(plan.getLastVisitedStage()).isEqualTo(PlanStage.BENCH);
         assertThat(plan.getStatus()).isEqualTo(PlanStatus.ACTIVE);
         assertThat(plan.getLastLocationCode()).isNull();
         assertThat(steps.get(0).getStatus()).isEqualTo(PlanStepStatus.READY);
         assertThat(steps.subList(1, steps.size())).allMatch(step -> step.getStatus() == PlanStepStatus.LOCKED);
         assertThat(response.progressPercent()).isZero();
+    }
+
+    @Test
+    void should_enterCompletedPreviousStage_withoutChangingCurrentStage() {
+        givenPlanOwnedByMember();
+        completeGate("BENCH_ONBOARDING");
+        completeGate("FIRST_DIAGNOSIS");
+
+        PlanResponse response = planService.enterStage(
+                MEMBER_ID, PLAN_ID, PlanStage.BENCH, new UpdatePlanLocationRequest("BENCH_SUMMARY"));
+
+        assertThat(response.stage()).isEqualTo(PlanStage.SECOND);
+        assertThat(response.lastVisitedStage()).isEqualTo(PlanStage.BENCH);
+        assertThat(response.lastLocationCode()).isEqualTo("BENCH_SUMMARY");
+        assertThat(plan.getStage()).isEqualTo(PlanStage.SECOND);
+    }
+
+    @Test
+    void should_enterCurrentStage_when_stageIsAlreadyUnlocked() {
+        givenPlanOwnedByMember();
+        completeGate("BENCH_ONBOARDING");
+
+        PlanResponse response = planService.enterStage(
+                MEMBER_ID, PLAN_ID, PlanStage.FIRST, new UpdatePlanLocationRequest("DIA_INCOME"));
+
+        assertThat(response.stage()).isEqualTo(PlanStage.FIRST);
+        assertThat(response.lastVisitedStage()).isEqualTo(PlanStage.FIRST);
+        assertThat(response.lastLocationCode()).isEqualTo("DIA_INCOME");
+    }
+
+    @Test
+    void should_rejectEntry_when_targetStageIsStillLocked() {
+        givenPlanOwnedByMember();
+        completeGate("BENCH_ONBOARDING");
+
+        assertThatThrownBy(() -> planService.enterStage(
+                        MEMBER_ID, PLAN_ID, PlanStage.THIRD, new UpdatePlanLocationRequest("CONTRACT")))
+                .isInstanceOfSatisfying(
+                        BusinessException.class,
+                        exception -> assertThat(exception.errorCode()).isEqualTo(ErrorCode.PLAN_STAGE_LOCKED));
+        assertThat(plan.getStage()).isEqualTo(PlanStage.FIRST);
+        assertThat(plan.getLastVisitedStage()).isEqualTo(PlanStage.FIRST);
+        assertThat(plan.getLastLocationCode()).isNull();
+    }
+
+    @Test
+    void should_restorePreviousStageLocation_when_planIsReadAgain() {
+        givenPlanOwnedByMember();
+        completeGate("BENCH_ONBOARDING");
+        planService.enterStage(MEMBER_ID, PLAN_ID, PlanStage.BENCH, new UpdatePlanLocationRequest("BENCH_REVIEW"));
+
+        PlanResponse response = planService.get(MEMBER_ID, PLAN_ID);
+
+        assertThat(response.stage()).isEqualTo(PlanStage.FIRST);
+        assertThat(response.lastVisitedStage()).isEqualTo(PlanStage.BENCH);
+        assertThat(response.lastLocationCode()).isEqualTo("BENCH_REVIEW");
     }
 
     private void givenPlanOwnedByMember() {
@@ -147,5 +206,9 @@ class PlanServiceTest {
 
     private void givenPlanExists() {
         when(planRepository.findById(PLAN_ID)).thenReturn(Optional.of(plan));
+    }
+
+    private void completeGate(String stepCode) {
+        planService.completeStep(MEMBER_ID, PLAN_ID, stepCode, new CompletePlanStepRequest(Plan.CURRENT_RULE_VERSION));
     }
 }
