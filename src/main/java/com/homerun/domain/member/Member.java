@@ -1,5 +1,6 @@
-package com.homerun.auth;
+package com.homerun.domain.member;
 
+import com.homerun.domain.auth.AuthProvider;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;

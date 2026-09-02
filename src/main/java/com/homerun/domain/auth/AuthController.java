@@ -1,5 +1,8 @@
-package com.homerun.auth;
+package com.homerun.domain.auth;
 
+import com.homerun.domain.member.Member;
+import com.homerun.domain.member.MemberRepository;
+import com.homerun.global.security.JwtTokenProvider;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.servlet.http.HttpSession;
@@ -22,7 +25,7 @@ import org.springframework.web.server.ResponseStatusException;
 import org.springframework.web.util.UriComponentsBuilder;
 
 @RestController
-@RequestMapping("/api/auth")
+@RequestMapping("/api/v1/auth")
 @Tag(name = "인증", description = "Google·Kakao OAuth 로그인")
 public class AuthController {
 
@@ -33,7 +36,7 @@ public class AuthController {
     private final RefreshTokenService refreshTokenService;
     private final RefreshTokenProperties refreshTokenProperties;
     private final AuthCookieProperties authCookieProperties;
-    private final JwtTokenService jwtTokenService;
+    private final JwtTokenProvider jwtTokenProvider;
     private final MemberRepository memberRepository;
 
     public AuthController(
@@ -42,14 +45,14 @@ public class AuthController {
             RefreshTokenService refreshTokenService,
             RefreshTokenProperties refreshTokenProperties,
             AuthCookieProperties authCookieProperties,
-            JwtTokenService jwtTokenService,
+            JwtTokenProvider jwtTokenProvider,
             MemberRepository memberRepository) {
         this.properties = properties;
         this.oauthLoginService = oauthLoginService;
         this.refreshTokenService = refreshTokenService;
         this.refreshTokenProperties = refreshTokenProperties;
         this.authCookieProperties = authCookieProperties;
-        this.jwtTokenService = jwtTokenService;
+        this.jwtTokenProvider = jwtTokenProvider;
         this.memberRepository = memberRepository;
     }
 
@@ -130,7 +133,7 @@ public class AuthController {
     @GetMapping("/me")
     @Operation(summary = "현재 로그인 사용자 조회")
     public LoginResponse.MemberResponse me(@RequestHeader(HttpHeaders.AUTHORIZATION) String authorizationHeader) {
-        Long memberId = jwtTokenService.getMemberId(authorizationHeader);
+        Long memberId = jwtTokenProvider.getMemberId(authorizationHeader);
         Member member = memberRepository
                 .findById(memberId)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.UNAUTHORIZED, "존재하지 않는 사용자입니다."));
@@ -179,7 +182,7 @@ public class AuthController {
                 .httpOnly(true)
                 .secure(authCookieProperties.secure())
                 .sameSite("Lax")
-                .path("/api/auth")
+                .path("/api/v1/auth")
                 .maxAge(Duration.ofDays(refreshTokenProperties.expirationDays()))
                 .build();
     }
@@ -189,7 +192,7 @@ public class AuthController {
                 .httpOnly(true)
                 .secure(authCookieProperties.secure())
                 .sameSite("Lax")
-                .path("/api/auth")
+                .path("/api/v1/auth")
                 .maxAge(Duration.ZERO)
                 .build();
     }

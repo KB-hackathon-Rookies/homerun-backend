@@ -1,5 +1,6 @@
-package com.homerun.auth;
+package com.homerun.global.security;
 
+import com.homerun.domain.member.Member;
 import io.jsonwebtoken.Jwts;
 import io.jsonwebtoken.security.Keys;
 import java.nio.charset.StandardCharsets;
@@ -11,11 +12,11 @@ import org.springframework.stereotype.Service;
 import org.springframework.web.server.ResponseStatusException;
 
 @Service
-public class JwtTokenService {
+public class JwtTokenProvider {
 
     private final JwtProperties properties;
 
-    public JwtTokenService(JwtProperties properties) {
+    public JwtTokenProvider(JwtProperties properties) {
         this.properties = properties;
     }
 

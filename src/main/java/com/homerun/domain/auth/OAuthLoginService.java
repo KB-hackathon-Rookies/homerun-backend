@@ -1,5 +1,8 @@
-package com.homerun.auth;
+package com.homerun.domain.auth;
 
+import com.homerun.domain.member.Member;
+import com.homerun.domain.member.MemberRepository;
+import com.homerun.global.security.JwtTokenProvider;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
@@ -23,18 +26,18 @@ public class OAuthLoginService {
     private final OAuthProperties properties;
     private final ObjectMapper objectMapper;
     private final MemberRepository memberRepository;
-    private final JwtTokenService jwtTokenService;
+    private final JwtTokenProvider jwtTokenProvider;
     private final RestClient restClient;
 
     public OAuthLoginService(
             OAuthProperties properties,
             ObjectMapper objectMapper,
             MemberRepository memberRepository,
-            JwtTokenService jwtTokenService) {
+            JwtTokenProvider jwtTokenProvider) {
         this.properties = properties;
         this.objectMapper = objectMapper;
         this.memberRepository = memberRepository;
-        this.jwtTokenService = jwtTokenService;
+        this.jwtTokenProvider = jwtTokenProvider;
         this.restClient = RestClient.create();
     }
 
@@ -52,9 +55,12 @@ public class OAuthLoginService {
     }
 
     public LoginResponse createLoginResponse(Member member) {
-        String token = jwtTokenService.createAccessToken(member);
+        String token = jwtTokenProvider.createAccessToken(member);
         return new LoginResponse(
-                token, "Bearer", propertiesAccessTokenExpirationSeconds(), LoginResponse.MemberResponse.from(member));
+                token,
+                "Bearer",
+                jwtTokenProvider.accessTokenExpirationSeconds(),
+                LoginResponse.MemberResponse.from(member));
     }
 
     private SocialProfile fetchGoogleProfile(String authorizationCode) {
@@ -147,10 +153,5 @@ public class OAuthLoginService {
 
     private boolean isBlank(String value) {
         return value == null || value.isBlank();
-    }
-
-    private long propertiesAccessTokenExpirationSeconds() {
-        // JWT 응답의 만료 시간은 JwtTokenService와 같은 설정을 사용한다.
-        return jwtTokenService.accessTokenExpirationSeconds();
     }
 }

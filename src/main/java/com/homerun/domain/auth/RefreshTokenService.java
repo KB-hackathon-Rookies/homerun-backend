@@ -1,5 +1,6 @@
-package com.homerun.auth;
+package com.homerun.domain.auth;
 
+import com.homerun.domain.member.Member;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.security.SecureRandom;
