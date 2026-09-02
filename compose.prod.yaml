@@ -11,6 +11,8 @@ services:
       POSTGRES_DB: ${POSTGRES_DB:-homerun}
       POSTGRES_USER: ${POSTGRES_USER:-homerun}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}
+    ports:
+      - '127.0.0.1:${POSTGRES_PORT:-5432}:5432'
     volumes:
       - postgres-data:/var/lib/postgresql/data
     healthcheck:
