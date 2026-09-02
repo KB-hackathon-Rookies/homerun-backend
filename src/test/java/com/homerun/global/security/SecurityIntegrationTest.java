@@ -5,6 +5,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import com.homerun.TestcontainersConfiguration;
+import com.homerun.domain.terms.TermsService;
 import com.homerun.global.response.ApiResponse;
 import io.jsonwebtoken.Jwts;
 import io.jsonwebtoken.security.Keys;
@@ -12,6 +13,7 @@ import java.nio.charset.StandardCharsets;
 import java.time.Instant;
 import java.util.Date;
 import javax.crypto.SecretKey;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
@@ -19,6 +21,7 @@ import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.context.annotation.Import;
 import org.springframework.http.HttpHeaders;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RestController;
@@ -36,6 +39,15 @@ class SecurityIntegrationTest {
 
     @Autowired
     private MockMvc mockMvc;
+
+    @MockitoBean
+    private TermsService termsService;
+
+    @BeforeEach
+    void allowRequiredTerms() {
+        org.mockito.Mockito.when(termsService.hasAgreedAllRequired(org.mockito.ArgumentMatchers.anyLong()))
+                .thenReturn(true);
+    }
 
     @Test
     void should_return401_when_accessTokenIsMissing() throws Exception {
@@ -70,6 +82,18 @@ class SecurityIntegrationTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.success").value(true))
                 .andExpect(jsonPath("$.data").value(42));
+    }
+
+    @Test
+    void should_return403_when_requiredTermsAreNotAgreed() throws Exception {
+        org.mockito.Mockito.when(termsService.hasAgreedAllRequired(42L)).thenReturn(false);
+
+        mockMvc.perform(get("/api/v1/test/protected")
+                        .header(
+                                HttpHeaders.AUTHORIZATION,
+                                "Bearer " + token(42L, Instant.now().plusSeconds(60))))
+                .andExpect(status().isForbidden())
+                .andExpect(jsonPath("$.code").value("TERMS_005"));
     }
 
     private String token(Long memberId, Instant expiresAt) {
