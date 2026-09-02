@@ -31,7 +31,11 @@ public enum ErrorCode {
     PLAN_STEP_NOT_FOUND(HttpStatus.NOT_FOUND, "PLAN_004", "계획 단계를 찾을 수 없습니다."),
     PLAN_STEP_LOCKED(HttpStatus.CONFLICT, "PLAN_005", "잠긴 단계는 완료할 수 없습니다."),
     INVALID_STAGE_TRANSITION(HttpStatus.CONFLICT, "PLAN_006", "현재 단계에서는 이동할 수 없습니다."),
-    PLAN_NOT_ACTIVE(HttpStatus.CONFLICT, "PLAN_007", "진행 중인 계획만 변경할 수 있습니다.");
+    PLAN_NOT_ACTIVE(HttpStatus.CONFLICT, "PLAN_007", "진행 중인 계획만 변경할 수 있습니다."),
+    PLAN_INPUT_NOT_FOUND(HttpStatus.NOT_FOUND, "PLAN_008", "저장된 계획 입력을 찾을 수 없습니다."),
+    INVALID_UNKNOWN_FIELD(HttpStatus.BAD_REQUEST, "PLAN_009", "모름 처리할 수 없는 입력 필드가 포함되어 있습니다."),
+    UNKNOWN_FIELD_HAS_VALUE(HttpStatus.BAD_REQUEST, "PLAN_010", "모름 처리한 필드에는 값을 함께 저장할 수 없습니다."),
+    CONCURRENT_UPDATE(HttpStatus.CONFLICT, "COMMON_003", "다른 요청에서 먼저 변경했습니다. 다시 시도해 주세요.");
 
     private final HttpStatus status;
     private final String code;

@@ -8,6 +8,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.http.ResponseEntity;
 import org.springframework.http.converter.HttpMessageNotReadableException;
+import org.springframework.orm.ObjectOptimisticLockingFailureException;
 import org.springframework.validation.BindException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
@@ -56,6 +57,12 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(HttpMessageNotReadableException.class)
     public ResponseEntity<ErrorResponse> handleNotReadable() {
         ErrorCode errorCode = ErrorCode.MALFORMED_REQUEST;
+        return ResponseEntity.status(errorCode.status()).body(ErrorResponse.of(errorCode));
+    }
+
+    @ExceptionHandler(ObjectOptimisticLockingFailureException.class)
+    public ResponseEntity<ErrorResponse> handleOptimisticLock() {
+        ErrorCode errorCode = ErrorCode.CONCURRENT_UPDATE;
         return ResponseEntity.status(errorCode.status()).body(ErrorResponse.of(errorCode));
     }
 
