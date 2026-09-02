@@ -7,6 +7,7 @@ import com.homerun.domain.property.entity.PropertyCheck;
 import com.homerun.domain.property.repository.PropertyCheckRepository;
 import com.homerun.domain.property.type.CheckResult;
 import java.util.ArrayList;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -19,7 +20,8 @@ import org.springframework.stereotype.Component;
  * <p>계약금을 보내기 전에 끝나 있어야 하는 것만 모은다. 앞의 셋은 PRP-01 매물 검증이 남긴
  * 판정을 서류 단위로 다시 묶은 것이고, 마지막 하나는 은행 상담이다.
  *
- * <p>검증을 아직 안 돌렸으면 TODO 다. 검증을 안 돌린 것과 돌려서 문제가 없는 것은 다르다.
+ * <p>서류가 통과하려면 그 서류로 봐야 할 항목이 <b>전부</b> 있어야 한다. 일부만 있는 상태를
+ * 통과로 보면 빠진 항목이 영영 드러나지 않는다. 검증을 아예 안 돌린 것도 마찬가지다.
  */
 @Component
 class PreContractChecklist {
@@ -29,14 +31,17 @@ class PreContractChecklist {
             new DocumentGroup(
                     "REGISTRY",
                     "등기사항전부증명서",
-                    Set.of("OWNER_MATCH", "TRUST_REGISTRATION", "JEONSE_RATIO"),
+                    Set.of("OWNER_MATCH", "TRUST_REGISTRATION"),
+                    Set.of("JEONSE_RATIO"),
                     "인터넷등기소에서 등기사항전부증명서를 떼어 소유자와 선순위채권을 확인한다."),
             new DocumentGroup(
                     "BUILDING_LEDGER",
                     "건축물대장",
                     Set.of("VIOLATION_BUILDING", "MULTI_HOUSEHOLD"),
+                    Set.of(),
                     "정부24에서 건축물대장을 떼어 위반건축물 여부를 확인한다."),
-            new DocumentGroup("OFFICIAL_PRICE", "공시가격", Set.of("OFFICIAL_PRICE_126"), "부동산공시가격 알리미에서 공시가격을 확인한다."));
+            new DocumentGroup(
+                    "OFFICIAL_PRICE", "공시가격", Set.of(), Set.of("OFFICIAL_PRICE_126"), "부동산공시가격 알리미에서 공시가격을 확인한다."));
 
     private final PropertyCheckRepository checks;
 
@@ -46,13 +51,33 @@ class PreContractChecklist {
 
     List<ChecklistItem> build(LeaseContract contract) {
         Map<String, CheckResult> results = results(contract);
+        boolean depositAtStake = depositAtStake(contract);
 
         List<ChecklistItem> items = new ArrayList<>();
         for (DocumentGroup group : GROUPS) {
-            items.add(group.toItem(results));
+            Set<String> required = group.requiredCodes(depositAtStake);
+            if (required.isEmpty()) {
+                // 보증금이 없으면 반환보증을 따질 일이 없다. 할 필요가 없는 것을 할 일로
+                // 세우면 체크리스트가 끝나지 않는다.
+                continue;
+            }
+            items.add(group.toItem(required, results));
         }
         items.add(bankConsult(contract));
         return items;
+    }
+
+    /**
+     * 보증금이 걸린 계약으로 볼 것인가.
+     *
+     * <p>계약 정보를 아직 안 넣었으면 걸린 것으로 본다. 모른다는 이유로 확인 항목을 빼면
+     * 그것이 곧 모름을 통과로 취급하는 일이다(NFR-01-06).
+     *
+     * <p>보증금 유무로 갈리는 항목 목록은 {@code PropertyRiskRule} 구현들의 {@code appliesTo}
+     * 와 같아야 한다. 규칙을 더할 때 여기도 같이 본다.
+     */
+    private boolean depositAtStake(LeaseContract contract) {
+        return contract == null || contract.hasDeposit();
     }
 
     private Map<String, CheckResult> results(LeaseContract contract) {
@@ -77,22 +102,23 @@ class PreContractChecklist {
     /**
      * 서류 한 장과 그 서류로 확인하는 검증 항목들.
      *
-     * @param requiredCodes 이 서류로 확인하는 항목 코드. 매물에 해당 없는 항목은 검증 결과에
-     *     아예 없으므로 확인 못 한 것으로 치지 않는다
+     * @param alwaysCodes 계약 조건과 무관하게 항상 확인하는 항목
+     * @param depositCodes 보증금이 걸린 계약에서만 확인하는 항목
      */
-    private record DocumentGroup(String code, String label, Set<String> requiredCodes, String action) {
+    private record DocumentGroup(
+            String code, String label, Set<String> alwaysCodes, Set<String> depositCodes, String action) {
 
-        ChecklistItem toItem(Map<String, CheckResult> results) {
-            List<CheckResult> mine = requiredCodes.stream()
-                    .map(results::get)
-                    .filter(java.util.Objects::nonNull)
-                    .toList();
-
-            if (mine.isEmpty()) {
-                return new ChecklistItem(
-                        code, label, ChecklistStatus.TODO, "%s 를 아직 확인하지 않았다.".formatted(label), action);
+        Set<String> requiredCodes(boolean depositAtStake) {
+            if (!depositAtStake) {
+                return alwaysCodes;
             }
-            if (mine.contains(CheckResult.BLOCK)) {
+            Set<String> all = new LinkedHashSet<>(alwaysCodes);
+            all.addAll(depositCodes);
+            return all;
+        }
+
+        ChecklistItem toItem(Set<String> required, Map<String, CheckResult> results) {
+            if (required.stream().map(results::get).anyMatch(result -> result == CheckResult.BLOCK)) {
                 return new ChecklistItem(
                         code,
                         label,
@@ -100,18 +126,34 @@ class PreContractChecklist {
                         "%s 확인에서 계약을 막아야 하는 문제가 나왔다.".formatted(label),
                         "매물 검증 결과에서 막힌 항목을 먼저 해결한다.");
             }
-            if (mine.contains(CheckResult.UNKNOWN)) {
-                // 모른다고 통과시키지 않는다(NFR-01-06). 확인이 남았다고만 말한다.
+
+            List<String> unresolved = required.stream()
+                    .filter(checkCode -> {
+                        CheckResult result = results.get(checkCode);
+                        // 결과가 없는 것과 모른다는 결과는 똑같이 확인이 안 끝난 것이다.
+                        return result == null || result == CheckResult.UNKNOWN;
+                    })
+                    .toList();
+
+            if (unresolved.size() == required.size()) {
                 return new ChecklistItem(
-                        code, label, ChecklistStatus.TODO, "%s 에서 확인하지 못한 항목이 남아 있다.".formatted(label), action);
+                        code, label, ChecklistStatus.TODO, "%s 를 아직 확인하지 않았다.".formatted(label), action);
             }
+            if (!unresolved.isEmpty()) {
+                return new ChecklistItem(
+                        code,
+                        label,
+                        ChecklistStatus.TODO,
+                        "%s 에서 확인하지 못한 항목이 %d건 남아 있다.".formatted(label, unresolved.size()),
+                        action);
+            }
+
+            boolean warned = required.stream().map(results::get).anyMatch(result -> result == CheckResult.WARN);
             return new ChecklistItem(
                     code,
                     label,
                     ChecklistStatus.DONE,
-                    mine.contains(CheckResult.WARN)
-                            ? "%s 확인을 마쳤다. 알아 둘 점이 있다.".formatted(label)
-                            : "%s 확인을 마쳤고 문제가 없다.".formatted(label),
+                    warned ? "%s 확인을 마쳤다. 알아 둘 점이 있다.".formatted(label) : "%s 확인을 마쳤고 문제가 없다.".formatted(label),
                     null);
         }
     }

@@ -58,7 +58,8 @@ public enum ErrorCode {
     REJECT_STAGE_REQUIRED(HttpStatus.BAD_REQUEST, "APP_003", "거절은 막힌 단계를 함께 기록해야 합니다."),
     POLICY_NOT_FOUND(HttpStatus.NOT_FOUND, "APP_004", "존재하지 않는 정책입니다."),
 
-    CONTRACT_NOT_FOUND(HttpStatus.NOT_FOUND, "PRP_001", "계약 정보를 찾을 수 없습니다.");
+    CONTRACT_NOT_FOUND(HttpStatus.NOT_FOUND, "PRP_001", "계약 정보를 찾을 수 없습니다."),
+    PROPERTY_NOT_IN_PLAN(HttpStatus.BAD_REQUEST, "PRP_002", "이 계획의 매물이 아닙니다.");
 
     private final HttpStatus status;
     private final String code;

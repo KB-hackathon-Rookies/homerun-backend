@@ -51,13 +51,17 @@ class PreConsultAdvisor {
                     List.of(START_FACT, DEADLINE_FACT));
         }
         if (balanceDate == null) {
+            // 상담 착수일은 잔금일에서만 나오지만 신청 마감은 전입일로도 계산된다. 마감을
+            // 같이 지우면 잔금일만 안 정한 사람에게 절대 기한을 숨기게 된다.
             return new PreConsultGuide(
                     false,
                     null,
-                    null,
+                    deadline,
                     "잔금일이 정해지지 않아 상담 시점을 계산할 수 없다.",
-                    "계약서를 쓰기 전에 은행에서 이 매물로 대출이 되는지 먼저 확인한다.",
-                    List.of(START_FACT));
+                    deadline == null
+                            ? "계약서를 쓰기 전에 은행에서 이 매물로 대출이 되는지 먼저 확인한다."
+                            : "대출 신청 마감은 %s 다. 그 전에 은행 상담을 마쳐야 한다.".formatted(deadline),
+                    deadline == null ? List.of(START_FACT) : List.of(START_FACT, DEADLINE_FACT));
         }
         return new PreConsultGuide(
                 false,
