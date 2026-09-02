@@ -35,6 +35,9 @@ public class SecurityConfig {
                         .permitAll()
                         .requestMatchers(HttpMethod.POST, "/api/v1/auth/refresh", "/api/v1/auth/logout")
                         .permitAll()
+                        // 가구원은 우리 서비스 회원이 아니다. 세션 토큰 없이 동의 토큰만 들고 온다.
+                        .requestMatchers("/api/v1/consents/**")
+                        .permitAll()
                         .anyRequest()
                         .authenticated())
                 .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class)
