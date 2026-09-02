@@ -69,6 +69,7 @@ public class PlanStep {
         this.sequence = gate.sequence();
         this.status = gate.dependencies().isEmpty() ? PlanStepStatus.READY : PlanStepStatus.LOCKED;
         this.dependsOn = List.copyOf(gate.dependencies());
+        this.irreversible = gate.irreversible();
         this.updatedAt = Instant.now();
     }
 

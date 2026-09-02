@@ -102,6 +102,20 @@ class DashboardServiceTest {
     }
 
     @Test
+    void should_prioritizeStatusBeforeIrreversibility_when_tasksHaveNoDeadline() {
+        PlanStep readyIrreversible = step("READY_IRREVERSIBLE", PlanStepStatus.READY, 1);
+        ReflectionTestUtils.setField(readyIrreversible, "irreversible", true);
+        PlanStep recalcReversible = step("RECALC_REVERSIBLE", PlanStepStatus.RECALC_REQUIRED, 2);
+        givenPlanAndSteps(List.of(readyIrreversible, recalcReversible));
+
+        DashboardResponse response = dashboardService.get(MEMBER_ID, PLAN_ID);
+
+        assertThat(response.prioritizedTasks())
+                .extracting(task -> task.stepCode())
+                .containsExactly("RECALC_REVERSIBLE", "READY_IRREVERSIBLE");
+    }
+
+    @Test
     void should_orderBySequence_when_tasksHaveSameStatus() {
         givenPlanAndSteps(
                 List.of(step("READY_FOUR", PlanStepStatus.READY, 4), step("READY_TWO", PlanStepStatus.READY, 2)));
@@ -167,6 +181,32 @@ class DashboardServiceTest {
             assertThat(task.daysUntilDue()).isEqualTo(-2);
             assertThat(task.priorityReason()).isEqualTo(DashboardTaskPriorityReason.OVERDUE);
         });
+    }
+
+    @Test
+    void should_chooseDeadlineTypeDeterministically_when_datesAndAbsoluteFlagsAreSame() {
+        PlanStep ready = step("READY", PlanStepStatus.READY, 1);
+        givenPlanAndSteps(List.of(ready));
+        Deadline processing = deadline(2L, ready, "은행 처리", DeadlineType.PROCESSING, TODAY.plusDays(3), false);
+        Deadline legal = deadline(3L, ready, "법정 마감", DeadlineType.LEGAL, TODAY.plusDays(3), false);
+        when(deadlineRepository.findAllByPlanIdAndStepIdIsNotNull(PLAN_ID)).thenReturn(List.of(processing, legal));
+
+        DashboardResponse response = dashboardService.get(MEMBER_ID, PLAN_ID);
+
+        assertThat(response.prioritizedTasks().get(0).deadlineLabel()).isEqualTo("법정 마감");
+    }
+
+    @Test
+    void should_chooseLowestDeadlineId_when_otherPriorityFieldsAreSame() {
+        PlanStep ready = step("READY", PlanStepStatus.READY, 1);
+        givenPlanAndSteps(List.of(ready));
+        Deadline laterId = deadline(20L, ready, "나중 ID", DeadlineType.RECOMMENDED, TODAY.plusDays(3), false);
+        Deadline earlierId = deadline(10L, ready, "먼저 ID", DeadlineType.RECOMMENDED, TODAY.plusDays(3), false);
+        when(deadlineRepository.findAllByPlanIdAndStepIdIsNotNull(PLAN_ID)).thenReturn(List.of(laterId, earlierId));
+
+        DashboardResponse response = dashboardService.get(MEMBER_ID, PLAN_ID);
+
+        assertThat(response.prioritizedTasks().get(0).deadlineLabel()).isEqualTo("먼저 ID");
     }
 
     @Test
@@ -236,9 +276,15 @@ class DashboardServiceTest {
     }
 
     private Deadline deadline(PlanStep step, String label, LocalDate dueDate, boolean absolute) {
+        return deadline(null, step, label, absolute ? DeadlineType.LEGAL : DeadlineType.RECOMMENDED, dueDate, absolute);
+    }
+
+    private Deadline deadline(
+            Long id, PlanStep step, String label, DeadlineType type, LocalDate dueDate, boolean absolute) {
         Deadline deadline = mock(Deadline.class, withSettings().lenient());
+        when(deadline.getId()).thenReturn(id);
         when(deadline.getStepId()).thenReturn(step.getId());
-        when(deadline.getType()).thenReturn(absolute ? DeadlineType.LEGAL : DeadlineType.RECOMMENDED);
+        when(deadline.getType()).thenReturn(type);
         when(deadline.getLabel()).thenReturn(label);
         when(deadline.getDueDate()).thenReturn(dueDate);
         when(deadline.isAbsolute()).thenReturn(absolute);

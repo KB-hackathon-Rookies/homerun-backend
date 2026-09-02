@@ -38,7 +38,58 @@ public class Deadline {
     @Column(name = "is_absolute", nullable = false)
     private boolean absolute;
 
+    @Column(name = "base_event", nullable = false, length = 50)
+    private String baseEvent;
+
+    @Column(name = "base_date")
+    private LocalDate baseDate;
+
+    @Column(name = "offset_days", nullable = false)
+    private int offsetDays;
+
+    @Column(name = "fact_code", length = 20)
+    private String factCode;
+
     protected Deadline() {}
+
+    private Deadline(
+            Long planId,
+            Long stepId,
+            DeadlineType type,
+            String label,
+            String baseEvent,
+            LocalDate baseDate,
+            int offsetDays,
+            boolean absolute,
+            String factCode) {
+        this.planId = planId;
+        this.stepId = stepId;
+        this.type = type;
+        this.label = label;
+        this.baseEvent = baseEvent;
+        this.baseDate = baseDate;
+        this.offsetDays = offsetDays;
+        this.dueDate = baseDate.plusDays(offsetDays);
+        this.absolute = absolute;
+        this.factCode = factCode;
+    }
+
+    public static Deadline movePreparation(Long planId, Long stepId, LocalDate targetMoveDate) {
+        return new Deadline(
+                planId,
+                stepId,
+                DeadlineType.RECOMMENDED,
+                "은행 상담 시작 권장일",
+                "TARGET_MOVE_DATE",
+                targetMoveDate,
+                -21,
+                false,
+                "FCT-104");
+    }
+
+    public Long getId() {
+        return id;
+    }
 
     public Long getStepId() {
         return stepId;

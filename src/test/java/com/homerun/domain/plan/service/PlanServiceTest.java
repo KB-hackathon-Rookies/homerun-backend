@@ -4,6 +4,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.Mockito.when;
 
+import com.homerun.domain.dashboard.repository.DeadlineRepository;
 import com.homerun.domain.plan.dto.request.CompletePlanStepRequest;
 import com.homerun.domain.plan.dto.request.UpdatePlanLocationRequest;
 import com.homerun.domain.plan.dto.response.PlanProgressResponse;
@@ -41,13 +42,17 @@ class PlanServiceTest {
     @Mock
     private PlanStepRepository planStepRepository;
 
+    @Mock
+    private DeadlineRepository deadlineRepository;
+
     private PlanService planService;
     private Plan plan;
     private List<PlanStep> steps;
 
     @BeforeEach
     void setUp() {
-        planService = new PlanService(planRepository, planStepRepository, new PlanStageTransitionPolicy());
+        planService = new PlanService(
+                planRepository, planStepRepository, deadlineRepository, new PlanStageTransitionPolicy());
         plan = Plan.create(MEMBER_ID, LeaseType.JEONSE, LocalDate.of(2027, 2, 1));
         steps = PlanStep.defaultSteps(PLAN_ID);
     }
