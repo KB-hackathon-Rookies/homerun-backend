@@ -74,6 +74,14 @@ class MigrationTest {
     }
 
     @Test
+    @DisplayName("V4 가 계획 진행 상태의 버전과 마지막 위치 컬럼을 추가한다")
+    void should_add_plan_progress_columns_when_v4IsApplied() {
+        assertThat(columnNames("plan")).contains("last_location_code", "rule_version", "version");
+        assertThat(columnNames("plan_step")).contains("updated_at", "version");
+        assertThat(constraintDefinition("ck_step_status")).contains("RECALC_REQUIRED");
+    }
+
+    @Test
     @DisplayName("V2 가 팩트 레지스트리 141행을 넣는다")
     void should_seed_config_effective_when_migrated() {
         Integer count = jdbc.queryForObject("SELECT count(*) FROM config_effective", Integer.class);
@@ -119,5 +127,10 @@ class MigrationTest {
     private String confidenceOf(String factCode) {
         return jdbc.queryForObject(
                 "SELECT confidence FROM config_effective WHERE fact_code = ?", String.class, factCode);
+    }
+
+    private String constraintDefinition(String constraintName) {
+        return jdbc.queryForObject(
+                "SELECT pg_get_constraintdef(oid) FROM pg_constraint WHERE conname = ?", String.class, constraintName);
     }
 }
