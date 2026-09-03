@@ -32,8 +32,9 @@ class ErrorCodeTest {
     @Test
     @DisplayName("코드는 도메인 접두사와 세 자리 번호로 이뤄진다")
     void should_follow_code_format() {
+        // 접두사에 언더스코어가 들어갈 수 있다 (OPEN_BANKING_001).
         assertThat(Arrays.stream(ErrorCode.values()).map(ErrorCode::code))
-                .allMatch(code -> code.matches("[A-Z]+_\\d{3}"));
+                .allMatch(code -> code.matches("[A-Z]+(?:_[A-Z]+)*_\\d{3}"));
     }
 
     @Test
