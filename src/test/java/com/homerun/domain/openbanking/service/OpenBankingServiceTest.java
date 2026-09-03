@@ -7,6 +7,7 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import com.homerun.domain.openbanking.config.OpenBankingTokenCipher;
+import com.homerun.domain.openbanking.dto.response.FinancialSummaryStatus;
 import com.homerun.domain.openbanking.dto.response.OpenBankingConnectionResponse;
 import com.homerun.domain.openbanking.dto.response.OpenBankingFinancialSummaryResponse;
 import com.homerun.domain.openbanking.entity.OpenBankingConnection;
@@ -181,6 +182,62 @@ class OpenBankingServiceTest {
         assertThat(response.incomplete()).isTrue();
         assertThat(response.calculationFromDate()).isEqualTo(fromDate);
         assertThat(response.calculationToDate()).isEqualTo(toDate);
+    }
+
+    @Test
+    void should_returnPartialSummary_whenOneDataSourceFails() {
+        OpenBankingConnection connection = connection(NOW.plusSeconds(3600), NOW.plusSeconds(7200));
+        OpenBankingResponses.Account account = account("004", "국민은행", "111111111111111111111111");
+        LocalDate fromDate = LocalDate.of(2026, 6, 1);
+        LocalDate toDate = LocalDate.of(2026, 8, 31);
+        when(repository.findByMemberIdForUpdate(MEMBER_ID)).thenReturn(Optional.of(connection));
+        when(cipher.decrypt(MEMBER_ID, "encrypted-access")).thenReturn("access");
+        when(client.userInfo("access", "1100000000"))
+                .thenReturn(new OpenBankingResponses.UserInfo("1100000000", "홍길동", List.of(account)));
+        when(client.balance("access", account.fintechUseNumber()))
+                .thenThrow(new BusinessException(ErrorCode.OPEN_BANKING_PROVIDER_ERROR));
+        when(client.transactions("access", account.fintechUseNumber(), fromDate, toDate, null))
+                .thenReturn(transactionPage(false, "", salary(LocalDate.of(2026, 8, 25), "3000000")));
+        when(client.loans("access", "1100000000", "004", null))
+                .thenReturn(new OpenBankingResponses.LoanPage(false, "", List.of(), NOW));
+
+        OpenBankingFinancialSummaryResponse response = service.financialSummary(MEMBER_ID, null);
+
+        assertThat(response.status()).isEqualTo(FinancialSummaryStatus.PARTIAL);
+        assertThat(response.accountBalanceCoverage().requested()).isEqualTo(1);
+        assertThat(response.accountBalanceCoverage().succeeded()).isZero();
+        assertThat(response.accountTransactionCoverage().succeeded()).isEqualTo(1);
+        assertThat(response.averageMonthlyNetIncome()).isEqualByComparingTo("3000000");
+        assertThat(response.warnings())
+                .singleElement()
+                .satisfies(warning -> assertThat(warning.code()).isEqualTo("BALANCE_UNAVAILABLE"));
+    }
+
+    @Test
+    void should_returnUnavailableSummary_whenAllRequestedSourcesFail() {
+        OpenBankingConnection connection = connection(NOW.plusSeconds(3600), NOW.plusSeconds(7200));
+        OpenBankingResponses.Account account = account("004", "국민은행", "111111111111111111111111");
+        LocalDate fromDate = LocalDate.of(2026, 6, 1);
+        LocalDate toDate = LocalDate.of(2026, 8, 31);
+        when(repository.findByMemberIdForUpdate(MEMBER_ID)).thenReturn(Optional.of(connection));
+        when(cipher.decrypt(MEMBER_ID, "encrypted-access")).thenReturn("access");
+        when(client.userInfo("access", "1100000000"))
+                .thenReturn(new OpenBankingResponses.UserInfo("1100000000", "홍길동", List.of(account)));
+        when(client.balance("access", account.fintechUseNumber()))
+                .thenThrow(new BusinessException(ErrorCode.OPEN_BANKING_PROVIDER_ERROR));
+        when(client.transactions("access", account.fintechUseNumber(), fromDate, toDate, null))
+                .thenThrow(new BusinessException(ErrorCode.OPEN_BANKING_PROVIDER_ERROR));
+        when(client.loans("access", "1100000000", "004", null))
+                .thenThrow(new BusinessException(ErrorCode.OPEN_BANKING_PROVIDER_ERROR));
+
+        OpenBankingFinancialSummaryResponse response = service.financialSummary(MEMBER_ID, null);
+
+        assertThat(response.status()).isEqualTo(FinancialSummaryStatus.UNAVAILABLE);
+        assertThat(response.totalAccountBalance()).isEqualByComparingTo(BigDecimal.ZERO);
+        assertThat(response.averageMonthlyNetIncome()).isNull();
+        assertThat(response.averageMonthlyLoanRepayment()).isNull();
+        assertThat(response.warnings()).hasSize(3);
+        assertThat(response.incomplete()).isTrue();
     }
 
     private OpenBankingResponses.Account account(String bankCode, String bankName, String fintechUseNumber) {
