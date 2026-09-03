@@ -7,6 +7,7 @@ import com.homerun.TestcontainersConfiguration;
 import com.homerun.domain.document.dto.DocumentDtos.DocumentIssueGuide;
 import com.homerun.domain.document.dto.DocumentDtos.DocumentSummary;
 import com.homerun.domain.document.dto.DocumentDtos.IssueMethodView;
+import com.homerun.domain.document.repository.DocumentTypeRepository;
 import com.homerun.domain.document.service.DocumentIssueGuideService;
 import com.homerun.domain.document.type.IssueMethod;
 import com.homerun.global.exception.BusinessException;
@@ -23,9 +24,12 @@ import org.springframework.context.annotation.Import;
 class DocumentIssueGuideServiceTest {
 
     private final DocumentIssueGuideService service;
+    private final DocumentTypeRepository documents;
 
-    DocumentIssueGuideServiceTest(@Autowired DocumentIssueGuideService service) {
+    DocumentIssueGuideServiceTest(
+            @Autowired DocumentIssueGuideService service, @Autowired DocumentTypeRepository documents) {
         this.service = service;
+        this.documents = documents;
     }
 
     private static IssueMethodView method(DocumentIssueGuide guide, IssueMethod method) {
@@ -129,6 +133,16 @@ class DocumentIssueGuideServiceTest {
     }
 
     @Test
+    @DisplayName("지역마다 갈리는 수수료는 갈린다는 사실을 함께 알린다")
+    void should_flag_locally_varying_fee() {
+        // 정부24 안내가 무인발급기 수수료는 자치단체 조례에 따라 달라진다고만 말한다.
+        // 전국 공통 카탈로그가 하나로 못 박으면 지역에 따라 틀린 안내가 된다.
+        IssueMethodView kiosk = method(service.guide("BUILDING_LEDGER"), IssueMethod.KIOSK);
+
+        assertThat(kiosk.feeNote()).contains("자치단체");
+    }
+
+    @Test
     @DisplayName("수수료가 조건에 따라 갈리면 그 조건을 함께 준다")
     void should_explain_conditional_fee() {
         assertThat(method(service.guide("RESIDENT_REGISTRATION"), IssueMethod.VISIT)
@@ -165,7 +179,6 @@ class DocumentIssueGuideServiceTest {
     @DisplayName("정부24 링크는 포털 홈이 아니라 해당 민원 화면으로 간다")
     void should_deep_link_into_gov_kr_service_page() {
         // 정부24 는 민원이 수천 개라 홈으로 보내면 사용자가 거기서 다시 검색해야 한다.
-        // 홈택스·위택스·인터넷등기소는 사이트 자체가 그 업무 전용이라 최상위가 곧 입구다.
         assertThat(service.list().documents())
                 .filteredOn(DocumentSummary::onlineAvailable)
                 .allSatisfy(summary -> {
@@ -173,6 +186,24 @@ class DocumentIssueGuideServiceTest {
                             .url();
                     if (url.contains("gov.kr")) {
                         assertThat(url).as(summary.code()).contains("CappBizCD=");
+                    }
+                });
+    }
+
+    @Test
+    @DisplayName("최상위 주소로 보내는 곳은 메뉴 경로를 함께 준다")
+    void should_give_menu_path_when_url_is_a_site_root() {
+        // 홈택스·위택스는 신고·납부·상담까지 하는 종합 사이트다. 최상위로 보내면 사용자가
+        // 메뉴를 다시 찾아야 하므로, 직접 링크가 없으면 경로라도 적어 준다.
+        assertThat(service.list().documents())
+                .filteredOn(DocumentSummary::onlineAvailable)
+                .allSatisfy(summary -> {
+                    IssueMethodView online = method(service.guide(summary.code()), IssueMethod.ONLINE);
+                    boolean deepLink =
+                            online.url().replaceFirst("^https://[^/]+", "").length() > 1;
+
+                    if (!deepLink) {
+                        assertThat(online.note()).as(summary.code()).contains(">");
                     }
                 });
     }
@@ -245,14 +276,18 @@ class DocumentIssueGuideServiceTest {
     // 시드 정합성
 
     @Test
-    @DisplayName("목록의 수수료가 실제 발급방법의 최저가와 어긋나지 않는다")
-    void should_keep_list_fee_consistent_with_methods() {
+    @DisplayName("document_type 의 대표 수수료가 발급방법의 최저가와 어긋나지 않는다")
+    void should_keep_catalog_fee_consistent_with_methods() {
+        // 응답만 비교하면 양쪽 다 document_issue_method 에서 나오므로 document_type.fee 가
+        // 아무 값이어도 통과한다. 시드 컬럼을 직접 읽어야 실제로 확인이 된다.
         for (DocumentSummary summary : service.list().documents()) {
             int cheapest = service.guide(summary.code()).methods().stream()
                     .mapToInt(IssueMethodView::fee)
                     .min()
                     .orElse(0);
+            int catalogFee = documents.findByCode(summary.code()).orElseThrow().getFee();
 
+            assertThat(catalogFee).as(summary.code()).isEqualTo(cheapest);
             assertThat(summary.cheapestFee()).as(summary.code()).isEqualTo(cheapest);
         }
     }
