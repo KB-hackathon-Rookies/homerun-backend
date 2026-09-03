@@ -49,7 +49,8 @@ class DocumentFeeFactTest {
     @Test
     @DisplayName("어느 쪽 수수료인지 항목 이름만 봐도 알 수 있다")
     void should_name_which_fee_it_is() {
-        for (String code : java.util.List.of("FCT-099", "FCT-100", "FCT-164", "FCT-165", "FCT-166", "FCT-167")) {
+        for (String code :
+                java.util.List.of("FCT-099", "FCT-100", "FCT-164", "FCT-165", "FCT-166", "FCT-167", "FCT-168")) {
             String item = facts.require(code).item();
 
             assertThat(item).as(code).containsAnyOf("열람", "교부", "발급");
@@ -57,10 +58,28 @@ class DocumentFeeFactTest {
     }
 
     @Test
-    @DisplayName("지역마다 갈리는 수수료는 확정으로 두지 않는다")
-    void should_not_confirm_locally_varying_fee() {
-        // 건축물대장 무인발급기 수수료는 자치단체 조례에 따라 달라진다. CONFIRMED 로 두면
-        // 판정이 이 값을 확정치로 쓴다.
-        assertThat(facts.require("FCT-167").provisional()).isTrue();
+    @DisplayName("건축물대장은 등본·초본이 아니라 발급·열람으로 갈린다")
+    void should_separate_building_ledger_issuance_from_inspection() {
+        // 등본과 초본은 같은 값이다. 300원은 초본가가 아니라 열람가다.
+        assertThat(facts.require("FCT-167").requireWon()).isEqualTo(500);
+        assertThat(facts.require("FCT-168").requireWon()).isEqualTo(300);
+        assertThat(facts.require("FCT-167").item()).contains("발급");
+        assertThat(facts.require("FCT-168").item()).contains("열람");
+    }
+
+    @Test
+    @DisplayName("지역마다 갈리는 수수료만 확정에서 뺀다")
+    void should_not_confirm_only_the_locally_varying_fee() {
+        // 무인발급기 수수료는 자치단체 조례에 따라 달라진다. 그렇다고 확인된 방문 발급까지
+        // provisional 로 내리면 화면이 전부 "바뀔 수 있음"으로 덮인다.
+        assertThat(facts.require("FCT-169").provisional()).isTrue();
+        assertThat(facts.require("FCT-167").provisional()).isFalse();
+        assertThat(facts.require("FCT-168").provisional()).isFalse();
+    }
+
+    @Test
+    @DisplayName("전국 공통값이 없는 수수료는 수치를 두지 않는다")
+    void should_omit_number_when_there_is_no_nationwide_value() {
+        assertThat(facts.require("FCT-169").number()).isNull();
     }
 }
