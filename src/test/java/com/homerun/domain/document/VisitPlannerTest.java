@@ -36,29 +36,37 @@ class VisitPlannerTest {
     @Test
     @DisplayName("온라인을 못 쓰면 같은 곳에서 끝나는 서류를 한 번의 방문으로 묶는다")
     void should_merge_documents_issued_at_the_same_place() {
-        // 공동인증서나 프린터가 없는 경우다. 등본과 가족관계증명서는 무인발급기 한 대에서
-        // 같이 끝나고 전입세대확인서만 창구로 가야 한다. 서류 단위로 안내하면 걸음이
-        // 셋으로 보인다.
+        // 공동인증서나 프린터가 없는 경우다. 셋 다 주민센터에서 끝나므로 한 걸음이면 된다.
+        //
+        // 서류마다 최선을 따로 고르면 이게 안 된다. 등본과 가족관계증명서는 무인발급기가
+        // 더 싸서 각자 그쪽을 고르고, 전입세대확인서만 창구로 남아 걸음이 둘이 된다.
         VisitPlan plan = planner.plan(List.of("RESIDENT_LIST", "RESIDENT_REGISTRATION", "FAMILY_RELATION"), false);
 
-        assertThat(plan.visits()).hasSize(2);
-        assertThat(visit(plan, "무인민원발급기").tasks())
-                .extracting(VisitTask::documentCode)
-                .containsExactly("RESIDENT_REGISTRATION", "FAMILY_RELATION");
+        assertThat(plan.visits()).hasSize(1);
         assertThat(visit(plan, "주민센터").tasks())
                 .extracting(VisitTask::documentCode)
-                .containsExactly("RESIDENT_LIST");
+                .containsExactly("RESIDENT_LIST", "RESIDENT_REGISTRATION", "FAMILY_RELATION");
+    }
+
+    @Test
+    @DisplayName("한 곳으로 못 묶으면 걸음 수를 최소로 나눈다")
+    void should_minimize_visit_count_when_one_place_is_not_enough() {
+        // 등기부는 법원, 나머지는 민원 쪽이라 한 곳으로는 안 된다. 그래도 둘이면 충분하다.
+        VisitPlan plan = planner.plan(
+                List.of("REGISTRY_CERT", "RESIDENT_LIST", "RESIDENT_REGISTRATION", "FAMILY_RELATION"), false);
+
+        assertThat(plan.visits()).hasSize(2);
     }
 
     @Test
     @DisplayName("표기가 달라도 같은 걸음이면 묶인다")
     void should_group_by_normalized_agency_not_display_text() {
         // 지방세 납세증명과 소득금액증명은 발급처 표기가 '주민센터·구청' 과 '세무서·주민센터'
-        // 로 달랐다. 표기로 묶으면 한 대에서 끝날 일을 두 번 가게 만든다.
+        // 로 달랐다. 표기로 묶으면 한 번에 끝날 일을 두 번 가게 만든다.
         VisitPlan plan = planner.plan(List.of("LOCAL_TAX_PAYMENT", "INCOME_CERT"), false);
 
         assertThat(plan.visits()).hasSize(1);
-        assertThat(visit(plan, "무인민원발급기").tasks()).hasSize(2);
+        assertThat(visit(plan, "주민센터").tasks()).hasSize(2);
     }
 
     @Test
@@ -164,7 +172,7 @@ class VisitPlannerTest {
     @Test
     @DisplayName("여러 서류가 같은 준비물을 요구해도 한 번만 적는다")
     void should_not_repeat_shared_requirements() {
-        AgencyVisit visit = visit(planner.plan(List.of("LOCAL_TAX_PAYMENT", "INCOME_CERT"), false), "무인민원발급기");
+        AgencyVisit visit = visit(planner.plan(List.of("LOCAL_TAX_PAYMENT", "INCOME_CERT"), false), "주민센터");
 
         assertThat(visit.checklist()).filteredOn("신분증"::equals).hasSize(1);
     }
@@ -203,12 +211,36 @@ class VisitPlannerTest {
     }
 
     @Test
-    @DisplayName("회사나 본인 보관에는 길찾기를 만들지 않는다")
+    @DisplayName("회사는 가야 하지만 길찾기를 만들지 않는다")
     void should_not_link_directions_when_place_is_personal() {
-        VisitPlan plan = planner.plan(List.of("EMPLOYMENT_CERT", "LEASE_AGREEMENT"));
+        // 방문 여부와 길찾기 가능 여부를 한 플래그로 묶으면 회사 방문이 목록에서 사라진다.
+        VisitPlan plan = planner.plan(List.of("EMPLOYMENT_CERT"));
 
-        assertThat(plan.visits())
-                .allSatisfy(item ->
-                        assertThat(item.directionsUrl()).as(item.agency()).isNull());
+        assertThat(plan.visits()).extracting(AgencyVisit::agency).containsExactly("재직 회사");
+        assertThat(plan.visits().get(0).directionsUrl()).isNull();
+    }
+
+    // 이미 가지고 있는 것
+
+    @Test
+    @DisplayName("이미 가진 서류는 방문으로 세지 않는다")
+    void should_not_count_already_held_document_as_a_visit() {
+        // 임대차계약서는 계약할 때 받아 손에 있다. 이걸 방문으로 세면 갈 곳이 하나 늘어난다.
+        VisitPlan plan = planner.plan(List.of("LEASE_AGREEMENT"));
+
+        assertThat(plan.visits()).isEmpty();
+        assertThat(plan.alreadyHeldDocuments())
+                .extracting(VisitTask::documentCode)
+                .containsExactly("LEASE_AGREEMENT");
+        assertThat(plan.totalFee()).isZero();
+    }
+
+    @Test
+    @DisplayName("이미 가진 것과 가야 할 곳을 함께 준다")
+    void should_separate_already_held_from_visits() {
+        VisitPlan plan = planner.plan(List.of("LEASE_AGREEMENT", "RESIDENT_LIST"));
+
+        assertThat(plan.alreadyHeldDocuments()).hasSize(1);
+        assertThat(plan.visits()).extracting(AgencyVisit::agency).containsExactly("주민센터");
     }
 }
