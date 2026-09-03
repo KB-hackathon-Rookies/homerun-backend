@@ -69,6 +69,9 @@ public enum ErrorCode {
     UNKNOWN_FIELD_HAS_VALUE(HttpStatus.BAD_REQUEST, "PLAN_010", "모름 처리한 필드에는 값을 함께 저장할 수 없습니다."),
     PLAN_STAGE_LOCKED(HttpStatus.CONFLICT, "PLAN_011", "아직 진입할 수 없는 계획 단계입니다."),
     PLAN_REGION_NOT_FOUND(HttpStatus.BAD_REQUEST, "PLAN_012", "존재하지 않는 지역입니다."),
+    PLAN_TASK_NOT_FOUND(HttpStatus.NOT_FOUND, "PLAN_013", "계획 할 일을 찾을 수 없습니다."),
+    INVALID_TASK_STATUS_TRANSITION(HttpStatus.CONFLICT, "PLAN_014", "변경할 수 없는 할 일 상태입니다."),
+    PLAN_TASK_SKIP_NOT_ALLOWED(HttpStatus.CONFLICT, "PLAN_015", "건너뛸 수 없는 할 일입니다."),
 
     HOUSEHOLD_MEMBER_NOT_FOUND(HttpStatus.NOT_FOUND, "FAM_001", "가구원을 찾을 수 없습니다."),
     CONSENT_NOT_FOUND(HttpStatus.NOT_FOUND, "FAM_002", "동의 건을 찾을 수 없습니다."),

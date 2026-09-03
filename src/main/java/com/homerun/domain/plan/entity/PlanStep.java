@@ -79,6 +79,16 @@ public class PlanStep {
                 .toList();
     }
 
+    public void start() {
+        if (status == PlanStepStatus.LOCKED) {
+            throw new BusinessException(ErrorCode.PLAN_STEP_LOCKED);
+        }
+        if (status == PlanStepStatus.READY || status == PlanStepStatus.RECALC_REQUIRED) {
+            status = PlanStepStatus.DOING;
+            updatedAt = Instant.now();
+        }
+    }
+
     public boolean complete() {
         if (status == PlanStepStatus.DONE) {
             return false;
