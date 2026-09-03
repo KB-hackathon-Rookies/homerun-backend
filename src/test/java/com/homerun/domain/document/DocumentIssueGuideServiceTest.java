@@ -11,6 +11,7 @@ import com.homerun.domain.document.service.DocumentIssueGuideService;
 import com.homerun.domain.document.type.IssueMethod;
 import com.homerun.global.exception.BusinessException;
 import com.homerun.global.exception.ErrorCode;
+import java.util.List;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -101,7 +102,38 @@ class DocumentIssueGuideServiceTest {
         DocumentIssueGuide guide = service.guide("RESIDENT_REGISTRATION");
 
         assertThat(method(guide, IssueMethod.ONLINE).fee()).isZero();
+        // 주민등록법 시행규칙 — 무인발급기는 방문 교부의 절반이다.
+        assertThat(method(guide, IssueMethod.KIOSK).fee()).isEqualTo(200);
         assertThat(method(guide, IssueMethod.VISIT).fee()).isEqualTo(400);
+    }
+
+    @Test
+    @DisplayName("등기부는 무인발급기와 방문 수수료가 다르다")
+    void should_separate_registry_kiosk_from_visit() {
+        DocumentIssueGuide guide = service.guide("REGISTRY_CERT");
+
+        // 등기사항증명서 등 수수료규칙 — 인터넷·무인 1,000원, 방문 1,200원.
+        assertThat(method(guide, IssueMethod.ONLINE).fee()).isEqualTo(1000);
+        assertThat(method(guide, IssueMethod.KIOSK).fee()).isEqualTo(1000);
+        assertThat(method(guide, IssueMethod.VISIT).fee()).isEqualTo(1200);
+    }
+
+    @Test
+    @DisplayName("전입세대확인서는 열람가가 아니라 교부 수수료를 안내한다")
+    void should_quote_issuance_fee_not_inspection_fee() {
+        IssueMethodView visit = method(service.guide("RESIDENT_LIST"), IssueMethod.VISIT);
+
+        // FCT-100 의 300원은 열람 수수료다. 제출용은 교부라 400원부터다.
+        assertThat(visit.fee()).isEqualTo(400);
+        assertThat(visit.feeNote()).contains("열람");
+    }
+
+    @Test
+    @DisplayName("수수료가 조건에 따라 갈리면 그 조건을 함께 준다")
+    void should_explain_conditional_fee() {
+        assertThat(method(service.guide("RESIDENT_REGISTRATION"), IssueMethod.VISIT)
+                        .feeNote())
+                .isNotBlank();
     }
 
     @Test
@@ -125,7 +157,23 @@ class DocumentIssueGuideServiceTest {
                 .filteredOn(DocumentSummary::onlineAvailable)
                 .allSatisfy(summary -> {
                     IssueMethodView online = method(service.guide(summary.code()), IssueMethod.ONLINE);
-                    assertThat(online.url()).as(summary.code()).startsWith("http");
+                    assertThat(online.url()).as(summary.code()).startsWith("https://");
+                });
+    }
+
+    @Test
+    @DisplayName("정부24 링크는 포털 홈이 아니라 해당 민원 화면으로 간다")
+    void should_deep_link_into_gov_kr_service_page() {
+        // 정부24 는 민원이 수천 개라 홈으로 보내면 사용자가 거기서 다시 검색해야 한다.
+        // 홈택스·위택스·인터넷등기소는 사이트 자체가 그 업무 전용이라 최상위가 곧 입구다.
+        assertThat(service.list().documents())
+                .filteredOn(DocumentSummary::onlineAvailable)
+                .allSatisfy(summary -> {
+                    String url = method(service.guide(summary.code()), IssueMethod.ONLINE)
+                            .url();
+                    if (url.contains("gov.kr")) {
+                        assertThat(url).as(summary.code()).contains("CappBizCD=");
+                    }
                 });
     }
 
@@ -168,7 +216,46 @@ class DocumentIssueGuideServiceTest {
         assertThat(guide.methods().get(0).method()).isEqualTo(IssueMethod.VISIT);
     }
 
+    // 서류 유효기간
+
+    @Test
+    @DisplayName("근거가 있는 서류에만 인정 기간을 넣는다")
+    void should_set_validity_only_where_grounded() {
+        // FCT-112 의 적용 조건은 등기부·주민등록등본·가족관계증명서 셋뿐이다.
+        for (String code : List.of("REGISTRY_CERT", "RESIDENT_REGISTRATION", "FAMILY_RELATION")) {
+            assertThat(service.guide(code).validityDays()).as(code).isEqualTo(30);
+        }
+    }
+
+    @Test
+    @DisplayName("근거가 없으면 기간을 지어내지 않고 확인하라고 알린다")
+    void should_not_invent_validity_without_ground() {
+        DocumentIssueGuide guide = service.guide("INCOME_CERT");
+
+        assertThat(guide.validityDays()).isNull();
+        assertThat(guide.validityNote()).isNotBlank();
+    }
+
+    @Test
+    @DisplayName("인정 기간을 아는 서류에는 확인 안내를 붙이지 않는다")
+    void should_omit_validity_note_when_known() {
+        assertThat(service.guide("REGISTRY_CERT").validityNote()).isNull();
+    }
+
     // 시드 정합성
+
+    @Test
+    @DisplayName("목록의 수수료가 실제 발급방법의 최저가와 어긋나지 않는다")
+    void should_keep_list_fee_consistent_with_methods() {
+        for (DocumentSummary summary : service.list().documents()) {
+            int cheapest = service.guide(summary.code()).methods().stream()
+                    .mapToInt(IssueMethodView::fee)
+                    .min()
+                    .orElse(0);
+
+            assertThat(summary.cheapestFee()).as(summary.code()).isEqualTo(cheapest);
+        }
+    }
 
     @Test
     @DisplayName("모든 서류에 발급방법이 최소 하나 있다")
