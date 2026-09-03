@@ -20,7 +20,7 @@ import jakarta.validation.constraints.Size;
 import java.net.URI;
 import java.security.SecureRandom;
 import java.time.LocalDate;
-import java.util.Base64;
+import java.util.HexFormat;
 import java.util.List;
 import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
@@ -136,9 +136,9 @@ public class OpenBankingController {
     }
 
     private String createState() {
-        byte[] bytes = new byte[32];
+        byte[] bytes = new byte[16];
         SECURE_RANDOM.nextBytes(bytes);
-        return Base64.getUrlEncoder().withoutPadding().encodeToString(bytes);
+        return HexFormat.of().formatHex(bytes);
     }
 
     private void clearOAuthSession(HttpSession session) {
