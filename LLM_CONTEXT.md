@@ -242,17 +242,55 @@ Tailwind v4 는 `postcss.config` 도 `tailwind.config.js` 도 쓰지 않는다. 
 
 # 실행 명령
 
-설치와 실행은 `README.md` 와 `SETUP.md` 에 있다. 여기서는 자주 쓰는 것만 둔다.
+## Backend
+
+```bash
+cd homerun-backend
+cp .env.example .env      # POSTGRES_PASSWORD 는 반드시 채운다
+npm install               # husky 훅 설치
+./gradlew bootRun         # PostgreSQL 은 spring-boot-docker-compose 가 알아서 띄운다
+```
+
+`docker compose up` 을 따로 할 필요가 없다.
 
 | 명령 | 하는 일 |
 |---|---|
-| `./gradlew build` | 컴파일 + 포맷 + 테스트. CI·pre-push와 같다 |
+| `./gradlew build` | 컴파일 + spotlessCheck + test. CI 및 pre-push 와 같다 |
+| `./gradlew test` | 테스트만. Docker 가 떠 있어야 한다 |
 | `./gradlew spotlessApply` | 포맷 검사에 걸렸을 때 고치는 명령 |
-| `npm run commit` | 타입을 골라 컨벤션에 맞는 메시지로 커밋 |
+| `npm run commit` | 커밋 타입을 골라 컨벤션에 맞는 메시지로 커밋 |
+| `docker compose -f compose.prod.yaml up -d --build` | 앱까지 컨테이너로 |
 
-`./gradlew bootRun` 이면 PostgreSQL 은 `spring-boot-docker-compose` 가 알아서 띄운다. `docker compose up` 을 따로 할 필요가 없다.
+| 확인 | 주소 |
+|---|---|
+| API 문서 | `http://localhost:8080/swagger-ui.html` |
+| 헬스체크 | `http://localhost:8080/actuator/health` |
 
-API 문서는 `http://localhost:8080/swagger-ui.html`.
+## Frontend
+
+```bash
+cd homerun-frontend
+cp .env.example .env      # NUXT_PUBLIC_API_BASE=http://localhost:8080
+pnpm install
+pnpm dev
+```
+
+| 명령 | 하는 일 |
+|---|---|
+| `pnpm dev` | 개발 서버 |
+| `pnpm lint` / `pnpm lint:fix` | ESLint |
+| `pnpm typecheck` | vue-tsc 타입체크 |
+| `pnpm verify` | lint + typecheck + build. 푸시 전 전체 검증 |
+| `pnpm commit` | 컨벤션 커밋 |
+
+## 팀원 로컬 초기 설정
+
+```bash
+cd homerun-backend  && npm install
+cd homerun-frontend && pnpm install
+```
+
+`husky` 는 `prepare` 스크립트에서 자동 설치된다.
 
 ---
 
@@ -289,7 +327,21 @@ commitlint 가 검사한다.
 {이모지} {Type}: 한글 설명
 ```
 
-**허용 type 은 `commitlint.config.js` 의 `type-enum` 이 단일 출처다.** 여기에 옮겨 적지 않는다 — 두 곳에 두면 갈라진다. 자주 쓰는 것은 `✨ Feat` · `🚨 Fix` · `✅ Test` · `♻️ Refactor` · `📦 Chore` · `📝 Docs` 다.
+**허용 type 의 단일 출처는 `commitlint.config.js` 의 `type-enum` 이다.** 아래 표와 어긋나면 설정이 맞다.
+
+| 커밋 타입 | 용도 |
+|---|---|
+| `✨ Feat` | 새로운 기능 |
+| `🚨 Fix` | 버그 수정 |
+| `📝 Docs` | 문서 수정 |
+| `♻️ Refactor` | 리팩토링 |
+| `✅ Test` / `🧪 Test` | 테스트 코드 |
+| `📦 Chore` | 설정, 빌드, 기타 |
+| `💄 Design` | 디자인 수정 |
+| `🎨 Style` | 코드 스타일 |
+| `🔒 Security` | 보안 |
+| `🎉 Init` | 초기 설정 |
+| `🚑 Hotfix` | 긴급 수정 |
 
 ```text
 ✨ Feat: 정책 자격 3단계 판정 API 구현
