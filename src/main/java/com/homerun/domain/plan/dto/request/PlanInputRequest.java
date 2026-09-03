@@ -2,14 +2,17 @@ package com.homerun.domain.plan.dto.request;
 
 import com.homerun.domain.plan.type.CompanySize;
 import com.homerun.domain.plan.type.EmploymentType;
+import com.homerun.domain.plan.type.FinancialValueSource;
 import com.homerun.domain.plan.type.HouseType;
 import com.homerun.domain.plan.type.HouseholderStatus;
 import com.homerun.domain.plan.type.MaritalStatus;
 import com.homerun.domain.plan.type.PlanInputUnknownField;
 import jakarta.validation.constraints.DecimalMin;
+import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.Positive;
 import jakarta.validation.constraints.PositiveOrZero;
 import java.math.BigDecimal;
+import java.time.LocalDate;
 import java.util.Set;
 
 public record PlanInputRequest(
@@ -27,6 +30,16 @@ public record PlanInputRequest(
         EmploymentType employmentType,
         @PositiveOrZero Integer employmentMonths,
         CompanySize companySize,
+        Boolean householdHomeless,
+        LocalDate birthDate,
+        @PositiveOrZero @Max(60) Integer militaryMonths,
+        @PositiveOrZero Long monthlyIncome,
+        @PositiveOrZero Long netAssets,
+        @PositiveOrZero Long availableCash,
+        Boolean existingJeonseLoan,
+        FinancialValueSource incomeSource,
+        FinancialValueSource assetSource,
+        Boolean financialDataConfirmed,
         Set<PlanInputUnknownField> unknownFields) {
 
     public Set<PlanInputUnknownField> normalizedUnknownFields() {

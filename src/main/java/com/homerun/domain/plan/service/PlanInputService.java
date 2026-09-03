@@ -114,6 +114,16 @@ public class PlanInputService {
             case EMPLOYMENT_TYPE -> request.employmentType();
             case EMPLOYMENT_MONTHS -> request.employmentMonths();
             case COMPANY_SIZE -> request.companySize();
+            case HOUSEHOLD_HOMELESS -> request.householdHomeless();
+            case BIRTH_DATE -> request.birthDate();
+            case MILITARY_MONTHS -> request.militaryMonths();
+            case MONTHLY_INCOME -> request.monthlyIncome();
+            case NET_ASSETS -> request.netAssets();
+            case AVAILABLE_CASH -> request.availableCash();
+            case EXISTING_JEONSE_LOAN -> request.existingJeonseLoan();
+            case INCOME_SOURCE -> request.incomeSource();
+            case ASSET_SOURCE -> request.assetSource();
+            case FINANCIAL_DATA_CONFIRMED -> request.financialDataConfirmed();
         };
     }
 }
