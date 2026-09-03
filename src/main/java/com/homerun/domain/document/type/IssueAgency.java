@@ -6,42 +6,60 @@ package com.homerun.domain.document.type;
  * <p>{@code document_issue_method.agency} 는 화면에 그대로 쓰는 자유 문자열이라 묶는 기준이
  * 못 된다. '주민센터'와 '주민센터·구청'과 '세무서·주민센터'는 같은 걸음인데 문자열로는
  * 다르다. 묶는 것은 이 코드로 한다.
+ *
+ * <p>"가야 하는가"와 "길찾기를 만들 수 있는가"는 다른 물음이다. 재직 회사는 가야 하지만
+ * 어디로 갈지는 사람마다 다르다. 본인 보관은 애초에 갈 데가 없다.
  */
 public enum IssueAgency {
-    ONLINE("온라인", false),
-    COMMUNITY_CENTER("주민센터", true),
-    CIVIL_KIOSK("무인민원발급기", true),
-    COURT_KIOSK("법원 무인발급기", true),
-    REGISTRY_OFFICE("등기소", true),
-    TAX_OFFICE("세무서", true),
-    /** 재직 회사. 어디로 갈지는 사람마다 달라 길찾기를 만들 수 없다. */
-    EMPLOYER("재직 회사", false),
-    /** 이미 가지고 있는 것. 어디로도 가지 않는다. */
-    SELF("본인 보관", false);
+    /** 집에서 끝난다. */
+    ONLINE(false, null),
+    /** 이미 가지고 있다. 챙기기만 하면 된다. */
+    SELF(false, null),
+    /** 가야 하지만 어디로 갈지는 사람마다 다르다. */
+    EMPLOYER(true, null),
 
-    private final String label;
+    COMMUNITY_CENTER(true, "주민센터"),
+    CIVIL_KIOSK(true, "무인민원발급기"),
+    COURT_KIOSK(true, "법원 무인발급기"),
+    REGISTRY_OFFICE(true, "등기소"),
+    TAX_OFFICE(true, "세무서");
+
+    private static final String ONLINE_LABEL = "온라인";
+    private static final String SELF_LABEL = "본인 보관";
+    private static final String EMPLOYER_LABEL = "재직 회사";
+
+    private final boolean visitRequired;
     private final String directionsQuery;
 
-    IssueAgency(String label, boolean searchable) {
-        this.label = label;
-        this.directionsQuery = searchable ? label : null;
+    IssueAgency(boolean visitRequired, String directionsQuery) {
+        this.visitRequired = visitRequired;
+        this.directionsQuery = directionsQuery;
     }
 
     public String label() {
-        return label;
+        return switch (this) {
+            case ONLINE -> ONLINE_LABEL;
+            case SELF -> SELF_LABEL;
+            case EMPLOYER -> EMPLOYER_LABEL;
+            default -> directionsQuery;
+        };
     }
 
-    /** 갈 곳이 정해진 유형인가. 회사나 본인 보관은 길찾기를 만들지 않는다. */
+    /** 발걸음이 필요한가. 방문 횟수를 셀 때 이것만 센다. */
+    public boolean visitRequired() {
+        return visitRequired;
+    }
+
+    /**
+     * 지도 앱으로 안내할 수 있는가.
+     *
+     * <p>재직 회사는 가야 하지만 여기서는 false 다. 방문 여부와 길찾기 가능 여부를 한
+     * 플래그로 묶으면 회사 방문이 목록에서 사라진다.
+     */
     public boolean navigable() {
         return directionsQuery != null;
     }
 
-    /**
-     * 지도 앱 검색 링크(PLC-01-04).
-     *
-     * <p>좌표를 모르므로 목적지를 찍어 주지는 못하고 이름으로 검색해 준다. 정확한 지점은
-     * 주변 기관 검색(PLC-01-01)이 붙어야 나온다.
-     */
     public String directionsQuery() {
         return directionsQuery;
     }
