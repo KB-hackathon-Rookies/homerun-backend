@@ -137,7 +137,6 @@ public class PlanStep {
 
     /**
      * 새로운 PlanStep을 생성한다.
-     *
      * Plan 생성 시 기본 Step 1~4를 생성할 때 사용한다.
      *
      * @param planId    Step이 속한 Plan ID
@@ -189,6 +188,7 @@ public class PlanStep {
         step.updatedAt = Instant.now();
 
         return step;
+
     }
 
     public static List<PlanStep> defaultSteps(Long planId) {

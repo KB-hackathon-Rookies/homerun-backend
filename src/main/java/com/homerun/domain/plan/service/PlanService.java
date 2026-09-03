@@ -1,6 +1,7 @@
 package com.homerun.domain.plan.service;
 
 import com.homerun.domain.plan.dto.request.PlanCreateRequest;
+import com.homerun.domain.dashboard.entity.Deadline;
 import com.homerun.domain.plan.dto.request.UpdatePlanLocationRequest;
 import com.homerun.domain.plan.dto.response.PlanProgressResponse;
 import com.homerun.domain.plan.dto.response.PlanResponse;
@@ -510,4 +511,6 @@ public class PlanService {
                 .findFirst()
                 .ifPresent(PlanStep::ready);
     }
+
 }
+
