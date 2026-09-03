@@ -51,6 +51,8 @@ class OpenBankingClientTest {
                 .startsWith("https://oauth.example.com/oauth/2.0/authorize?")
                 .contains("response_type=code")
                 .contains("client_id=client-id")
+                .contains("redirect_uri=https%3A%2F%2Fapp.example.com%2Fcallback")
+                .contains("scope=login%20inquiry")
                 .contains("state=state-value")
                 .contains("auth_type=0");
     }

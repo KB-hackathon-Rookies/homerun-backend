@@ -14,6 +14,7 @@ import com.homerun.global.external.openbanking.OpenBankingResponses.TransactionP
 import com.homerun.global.external.openbanking.OpenBankingResponses.UserInfo;
 import java.math.BigDecimal;
 import java.net.URI;
+import java.nio.charset.StandardCharsets;
 import java.security.SecureRandom;
 import java.time.Clock;
 import java.time.Instant;
@@ -31,6 +32,7 @@ import org.springframework.util.LinkedMultiValueMap;
 import org.springframework.util.MultiValueMap;
 import org.springframework.web.client.RestClient;
 import org.springframework.web.util.UriComponentsBuilder;
+import org.springframework.web.util.UriUtils;
 import tools.jackson.databind.JsonNode;
 import tools.jackson.databind.ObjectMapper;
 
@@ -66,12 +68,11 @@ public class OpenBankingClient {
                 .path("/oauth/2.0/authorize")
                 .queryParam("response_type", "code")
                 .queryParam("client_id", properties.clientId())
-                .queryParam("redirect_uri", properties.redirectUri())
-                .queryParam("scope", properties.scope())
+                .queryParam("redirect_uri", UriUtils.encode(properties.redirectUri(), StandardCharsets.UTF_8))
+                .queryParam("scope", UriUtils.encode(properties.scope(), StandardCharsets.UTF_8))
                 .queryParam("state", state)
                 .queryParam("auth_type", "0")
-                .build()
-                .encode()
+                .build(true)
                 .toUri();
     }
 
