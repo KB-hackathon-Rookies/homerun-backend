@@ -1,6 +1,8 @@
 package com.homerun.domain.member.entity;
 
 import com.homerun.domain.auth.type.AuthProvider;
+import com.homerun.global.exception.BusinessException;
+import com.homerun.global.exception.ErrorCode;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;
@@ -29,7 +31,7 @@ public class Member {
     @Column(length = 320)
     private String email;
 
-    @Column(length = 100)
+    @Column(length = 50)
     private String nickname;
 
     @Column(name = "password_hash", length = 100)
@@ -43,6 +45,9 @@ public class Member {
 
     @Column(name = "updated_at", nullable = false)
     private Instant updatedAt;
+
+    @Column(name = "deleted_at")
+    private Instant deletedAt;
 
     protected Member() {}
 
@@ -64,6 +69,24 @@ public class Member {
         member.passwordHash = passwordHash;
         member.emailVerifiedAt = Instant.now();
         return member;
+    }
+
+    public void updateNickname(String nickname) {
+        requireActive();
+        this.nickname = nickname;
+        this.updatedAt = Instant.now();
+    }
+
+    public void withdraw() {
+        requireActive();
+        this.deletedAt = Instant.now();
+        this.updatedAt = this.deletedAt;
+    }
+
+    public void requireActive() {
+        if (deletedAt != null) {
+            throw new BusinessException(ErrorCode.MEMBER_WITHDRAWN);
+        }
     }
 
     public Long getId() {
@@ -88,5 +111,17 @@ public class Member {
 
     public Instant getEmailVerifiedAt() {
         return emailVerifiedAt;
+    }
+
+    public Instant getCreatedAt() {
+        return createdAt;
+    }
+
+    public Instant getUpdatedAt() {
+        return updatedAt;
+    }
+
+    public Instant getDeletedAt() {
+        return deletedAt;
     }
 }

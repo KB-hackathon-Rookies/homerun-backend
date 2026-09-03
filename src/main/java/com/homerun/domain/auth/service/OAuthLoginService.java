@@ -53,10 +53,11 @@ public class OAuthLoginService {
                     case KAKAO -> fetchKakaoProfile(authorizationCode);
                     case LOCAL -> throw new BusinessException(ErrorCode.INVALID_OAUTH_REQUEST);
                 };
-        return memberRepository
-                .findByProviderAndProviderUserId(provider, profile.providerId())
+        Member member = memberRepository
+                .findByProviderAndProviderUserIdAndDeletedAtIsNull(provider, profile.providerId())
                 .orElseGet(() -> memberRepository.save(
                         Member.create(provider, profile.providerId(), profile.email(), profile.nickname())));
+        return member;
     }
 
     public LoginResponse createLoginResponse(Member member) {

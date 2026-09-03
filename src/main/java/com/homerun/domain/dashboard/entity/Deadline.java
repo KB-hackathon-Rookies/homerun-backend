@@ -25,6 +25,10 @@ public class Deadline {
     @Column(name = "step_id")
     private Long stepId;
 
+    // 마감은 관문이 아니라 할 일에 붙는다. 대시보드는 이 값으로만 마감을 찾는다.
+    @Column(name = "task_id")
+    private Long taskId;
+
     @Enumerated(EnumType.STRING)
     @Column(name = "deadline_type", nullable = false, length = 20)
     private DeadlineType type;
@@ -54,7 +58,7 @@ public class Deadline {
 
     private Deadline(
             Long planId,
-            Long stepId,
+            Long taskId,
             DeadlineType type,
             String label,
             String baseEvent,
@@ -63,7 +67,7 @@ public class Deadline {
             boolean absolute,
             String factCode) {
         this.planId = planId;
-        this.stepId = stepId;
+        this.taskId = taskId;
         this.type = type;
         this.label = label;
         this.baseEvent = baseEvent;
@@ -74,10 +78,10 @@ public class Deadline {
         this.factCode = factCode;
     }
 
-    public static Deadline movePreparation(Long planId, Long stepId, LocalDate targetMoveDate) {
+    public static Deadline movePreparation(Long planId, Long taskId, LocalDate targetMoveDate) {
         return new Deadline(
                 planId,
-                stepId,
+                taskId,
                 DeadlineType.RECOMMENDED,
                 "은행 상담 시작 권장일",
                 "TARGET_MOVE_DATE",
@@ -93,6 +97,10 @@ public class Deadline {
 
     public Long getStepId() {
         return stepId;
+    }
+
+    public Long getTaskId() {
+        return taskId;
     }
 
     public DeadlineType getType() {

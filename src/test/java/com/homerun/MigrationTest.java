@@ -28,14 +28,14 @@ class MigrationTest {
     }
 
     @Test
-    @DisplayName("V1 이 47개 테이블을 만들고 후속 마이그레이션이 세 테이블을 더해 50개가 된다")
+    @DisplayName("V1 이 47개 테이블을 만들고 후속 마이그레이션이 다섯 테이블을 더해 52개가 된다")
     void should_create_all_tables_when_migrated() {
         Integer count = jdbc.queryForObject(
                 "SELECT count(*) FROM information_schema.tables"
                         + " WHERE table_schema = 'public' AND table_name <> 'flyway_schema_history'",
                 Integer.class);
 
-        assertThat(count).isEqualTo(50);
+        assertThat(count).isEqualTo(52);
     }
 
     @Test
@@ -111,8 +111,8 @@ class MigrationTest {
     }
 
     @Test
-    @DisplayName("V12가 오픈뱅킹 토큰 원문이 아닌 암호문 저장소를 추가한다")
-    void should_add_encryptedOpenBankingConnection_whenV12IsApplied() {
+    @DisplayName("V14가 오픈뱅킹 토큰 원문이 아닌 암호문 저장소를 추가한다")
+    void should_add_encryptedOpenBankingConnection_whenV14IsApplied() {
         assertThat(columnNames("open_banking_connection"))
                 .contains(
                         "member_id",

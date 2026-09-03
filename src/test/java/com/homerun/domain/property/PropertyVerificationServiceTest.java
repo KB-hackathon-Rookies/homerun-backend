@@ -464,4 +464,33 @@ class PropertyVerificationServiceTest {
 
         assertThat(service.verify(facts).findings().get(0).result()).isEqualTo(CheckResult.BLOCK);
     }
+
+    @Test
+    @DisplayName("보증금이 있는 월세도 공시가격 기준으로 반환보증 가능성을 본다")
+    void should_check_official_price_for_wolse_with_deposit() {
+        PropertyFacts facts = new PropertyFacts(
+                LeaseType.WOLSE,
+                200_000_000L,
+                "11620",
+                300_000_000L,
+                100_000_000L,
+                0L,
+                true,
+                false,
+                false,
+                false,
+                false);
+
+        assertThat(find(service.verify(facts), "OFFICIAL_PRICE_126").result()).isEqualTo(CheckResult.BLOCK);
+    }
+
+    @Test
+    @DisplayName("보증금이 없는 순수 월세는 반환보증을 따지지 않는다")
+    void should_skip_official_price_without_deposit() {
+        PropertyFacts facts = new PropertyFacts(
+                LeaseType.WOLSE, 0L, "11620", 300_000_000L, 250_000_000L, 0L, true, false, false, false, false);
+
+        assertThat(service.verify(facts).findings())
+                .noneMatch(f -> f.checkCode().equals("OFFICIAL_PRICE_126"));
+    }
 }

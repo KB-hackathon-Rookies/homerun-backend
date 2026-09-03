@@ -93,7 +93,7 @@ public class EmailVerificationService {
     }
 
     private void rejectRegisteredEmail(String email) {
-        if (memberRepository.existsByEmailIgnoreCase(email)) {
+        if (memberRepository.existsByEmailIgnoreCaseAndDeletedAtIsNull(email)) {
             throw new BusinessException(ErrorCode.EMAIL_ALREADY_REGISTERED);
         }
     }

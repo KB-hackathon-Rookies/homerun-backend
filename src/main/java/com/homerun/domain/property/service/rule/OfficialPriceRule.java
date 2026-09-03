@@ -1,7 +1,6 @@
 package com.homerun.domain.property.service.rule;
 
 import com.homerun.domain.fact.service.FactRegistry;
-import com.homerun.domain.plan.type.LeaseType;
 import com.homerun.domain.property.dto.request.PropertyFacts;
 import com.homerun.domain.property.dto.response.CheckFinding;
 import com.homerun.domain.property.service.PropertyRiskRule;
@@ -41,8 +40,10 @@ class OfficialPriceRule implements PropertyRiskRule {
 
     @Override
     public boolean appliesTo(PropertyFacts propertyFacts) {
-        // 보증금이 커야 반환보증 실익이 있다. 순수 월세는 소액임차인 규칙이 맡는다.
-        return propertyFacts.leaseType() != LeaseType.WOLSE && propertyFacts.deposit() > 0;
+        // PRP-02-07. 임대차 유형이 아니라 보증금이 있느냐로 가른다. 보증부월세도 돌려받아야
+        // 할 보증금이 있고 반환보증 심사 기준도 전세와 같다. 보증금이 없는 순수 월세만
+        // 빠지고, 그쪽은 소액임차인 규칙이 맡는다.
+        return propertyFacts.deposit() > 0;
     }
 
     @Override

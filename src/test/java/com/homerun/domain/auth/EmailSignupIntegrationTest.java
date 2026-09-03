@@ -117,7 +117,7 @@ class EmailSignupIntegrationTest {
                 .andExpect(jsonPath("$.data.member.email").value("newuser@example.com"));
 
         Member saved = memberRepository
-                .findByProviderAndProviderUserId(AuthProvider.LOCAL, "newuser@example.com")
+                .findByProviderAndProviderUserIdAndDeletedAtIsNull(AuthProvider.LOCAL, "newuser@example.com")
                 .orElseThrow();
         assertThat(saved.getEmailVerifiedAt()).isNotNull();
         assertThat(passwordEncoder.matches("password123", saved.getPasswordHash()))

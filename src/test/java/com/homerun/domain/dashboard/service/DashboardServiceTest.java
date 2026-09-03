@@ -15,11 +15,15 @@ import com.homerun.domain.dashboard.type.DashboardTaskPriorityReason;
 import com.homerun.domain.dashboard.type.DeadlineType;
 import com.homerun.domain.plan.entity.Plan;
 import com.homerun.domain.plan.entity.PlanStep;
+import com.homerun.domain.plan.entity.StepTask;
 import com.homerun.domain.plan.repository.PlanRepository;
 import com.homerun.domain.plan.repository.PlanStepRepository;
+import com.homerun.domain.plan.repository.StepTaskRepository;
 import com.homerun.domain.plan.type.LeaseType;
 import com.homerun.domain.plan.type.PlanStage;
 import com.homerun.domain.plan.type.PlanStepStatus;
+import com.homerun.domain.plan.type.StepTaskStatus;
+import com.homerun.domain.plan.type.StepTaskTemplate;
 import com.homerun.global.exception.BusinessException;
 import com.homerun.global.exception.ErrorCode;
 import java.time.Clock;
@@ -29,6 +33,7 @@ import java.time.ZoneOffset;
 import java.util.List;
 import java.util.Optional;
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
@@ -40,6 +45,8 @@ class DashboardServiceTest {
 
     private static final Long MEMBER_ID = 1L;
     private static final Long PLAN_ID = 10L;
+    private static final Long OPEN_STEP_ID = 100L;
+    private static final Long LOCKED_STEP_ID = 200L;
     private static final LocalDate TODAY = LocalDate.of(2026, 9, 2);
     private static final Clock CLOCK = Clock.fixed(Instant.parse("2026-09-02T00:00:00Z"), ZoneOffset.UTC);
 
@@ -50,6 +57,9 @@ class DashboardServiceTest {
     private PlanStepRepository planStepRepository;
 
     @Mock
+    private StepTaskRepository stepTaskRepository;
+
+    @Mock
     private DeadlineRepository deadlineRepository;
 
     private DashboardService dashboardService;
@@ -57,68 +67,69 @@ class DashboardServiceTest {
 
     @BeforeEach
     void setUp() {
-        dashboardService = new DashboardService(planRepository, planStepRepository, deadlineRepository, CLOCK);
+        dashboardService =
+                new DashboardService(planRepository, planStepRepository, stepTaskRepository, deadlineRepository, CLOCK);
         plan = Plan.create(MEMBER_ID, LeaseType.WOLSE, LocalDate.of(2027, 2, 1));
         ReflectionTestUtils.setField(plan, "id", PLAN_ID);
     }
 
     @Test
-    void should_countDoneAndSkippedSteps_when_calculatingProgress() {
-        givenPlanAndSteps(List.of(
-                step("DONE", PlanStepStatus.DONE, 1),
-                step("SKIPPED", PlanStepStatus.SKIPPED, 2),
-                step("READY", PlanStepStatus.READY, 3)));
+    @DisplayName("진행률은 관문이 아니라 할 일 기준으로 센다")
+    void should_countSettledTasks_when_calculatingProgress() {
+        givenPlanAndTasks(List.of(
+                task("DONE", StepTaskStatus.DONE, 1),
+                task("SKIPPED", StepTaskStatus.SKIPPED, 2),
+                task("TODO", StepTaskStatus.TODO, 3)));
 
         DashboardResponse response = dashboardService.get(MEMBER_ID, PLAN_ID);
 
-        assertThat(response.progress().completedSteps()).isEqualTo(2);
-        assertThat(response.progress().totalSteps()).isEqualTo(3);
+        assertThat(response.progress().completedTasks()).isEqualTo(2);
+        assertThat(response.progress().totalTasks()).isEqualTo(3);
         assertThat(response.progress().progressPercent()).isEqualTo(66);
     }
 
     @Test
-    void should_returnZeroProgress_when_planHasNoSteps() {
-        givenPlanAndSteps(List.of());
+    void should_returnZeroProgress_when_planHasNoTasks() {
+        givenPlanAndTasks(List.of());
 
         DashboardResponse response = dashboardService.get(MEMBER_ID, PLAN_ID);
 
-        assertThat(response.progress().completedSteps()).isZero();
-        assertThat(response.progress().totalSteps()).isZero();
+        assertThat(response.progress().completedTasks()).isZero();
+        assertThat(response.progress().totalTasks()).isZero();
         assertThat(response.progress().progressPercent()).isZero();
     }
 
     @Test
-    void should_prioritizeRecalculationThenDoingThenReady_when_tasksHaveDifferentStatuses() {
-        givenPlanAndSteps(List.of(
-                step("READY", PlanStepStatus.READY, 1),
-                step("RECALC", PlanStepStatus.RECALC_REQUIRED, 3),
-                step("DOING", PlanStepStatus.DOING, 2)));
+    void should_prioritizeRecalculationThenDoingThenTodo_when_tasksHaveDifferentStatuses() {
+        givenPlanAndTasks(List.of(
+                task("TODO", StepTaskStatus.TODO, 1),
+                task("RECALC", StepTaskStatus.RECALC_REQUIRED, 3),
+                task("DOING", StepTaskStatus.DOING, 2)));
 
         DashboardResponse response = dashboardService.get(MEMBER_ID, PLAN_ID);
 
         assertThat(response.prioritizedTasks())
-                .extracting(task -> task.status())
-                .containsExactly(PlanStepStatus.RECALC_REQUIRED, PlanStepStatus.DOING, PlanStepStatus.READY);
+                .extracting(DashboardTaskResponseStatus::of)
+                .containsExactly(StepTaskStatus.RECALC_REQUIRED, StepTaskStatus.DOING, StepTaskStatus.TODO);
     }
 
     @Test
     void should_prioritizeStatusBeforeIrreversibility_when_tasksHaveNoDeadline() {
-        PlanStep readyIrreversible = step("READY_IRREVERSIBLE", PlanStepStatus.READY, 1);
-        ReflectionTestUtils.setField(readyIrreversible, "irreversible", true);
-        PlanStep recalcReversible = step("RECALC_REVERSIBLE", PlanStepStatus.RECALC_REQUIRED, 2);
-        givenPlanAndSteps(List.of(readyIrreversible, recalcReversible));
+        StepTask todoIrreversible = task("TODO_IRREVERSIBLE", StepTaskStatus.TODO, 1);
+        ReflectionTestUtils.setField(todoIrreversible, "irreversible", true);
+        StepTask recalcReversible = task("RECALC_REVERSIBLE", StepTaskStatus.RECALC_REQUIRED, 2);
+        givenPlanAndTasks(List.of(todoIrreversible, recalcReversible));
 
         DashboardResponse response = dashboardService.get(MEMBER_ID, PLAN_ID);
 
         assertThat(response.prioritizedTasks())
-                .extracting(task -> task.stepCode())
-                .containsExactly("RECALC_REVERSIBLE", "READY_IRREVERSIBLE");
+                .extracting(task -> task.taskCode())
+                .containsExactly("RECALC_REVERSIBLE", "TODO_IRREVERSIBLE");
     }
 
     @Test
     void should_orderBySequence_when_tasksHaveSameStatus() {
-        givenPlanAndSteps(
-                List.of(step("READY_FOUR", PlanStepStatus.READY, 4), step("READY_TWO", PlanStepStatus.READY, 2)));
+        givenPlanAndTasks(List.of(task("TODO_FOUR", StepTaskStatus.TODO, 4), task("TODO_TWO", StepTaskStatus.TODO, 2)));
 
         DashboardResponse response = dashboardService.get(MEMBER_ID, PLAN_ID);
 
@@ -129,36 +140,34 @@ class DashboardServiceTest {
 
     @Test
     void should_prioritizeEarlierDeadline_beforeStatusPriority() {
-        PlanStep readySoon = step("READY_SOON", PlanStepStatus.READY, 1);
-        PlanStep recalcLater = step("RECALC_LATER", PlanStepStatus.RECALC_REQUIRED, 2);
-        givenPlanAndSteps(List.of(recalcLater, readySoon));
-        List<Deadline> deadlines = List.of(
+        StepTask todoSoon = task("TODO_SOON", StepTaskStatus.TODO, 1);
+        StepTask recalcLater = task("RECALC_LATER", StepTaskStatus.RECALC_REQUIRED, 2);
+        givenPlanAndTasks(List.of(recalcLater, todoSoon));
+        givenDeadlines(
                 deadline(recalcLater, "재계산 마감", TODAY.plusDays(5), false),
-                deadline(readySoon, "신청 마감", TODAY.plusDays(1), false));
-        when(deadlineRepository.findAllByPlanIdAndStepIdIsNotNull(PLAN_ID)).thenReturn(deadlines);
+                deadline(todoSoon, "신청 마감", TODAY.plusDays(1), false));
 
         DashboardResponse response = dashboardService.get(MEMBER_ID, PLAN_ID);
 
         assertThat(response.prioritizedTasks())
-                .extracting(task -> task.stepCode())
-                .containsExactly("READY_SOON", "RECALC_LATER");
+                .extracting(task -> task.taskCode())
+                .containsExactly("TODO_SOON", "RECALC_LATER");
     }
 
     @Test
     void should_prioritizeIrreversibleTask_when_dueDatesAreSame() {
-        PlanStep reversible = step("REVERSIBLE", PlanStepStatus.READY, 1);
-        PlanStep irreversible = step("IRREVERSIBLE", PlanStepStatus.READY, 2);
+        StepTask reversible = task("REVERSIBLE", StepTaskStatus.TODO, 1);
+        StepTask irreversible = task("IRREVERSIBLE", StepTaskStatus.TODO, 2);
         ReflectionTestUtils.setField(irreversible, "irreversible", true);
-        givenPlanAndSteps(List.of(reversible, irreversible));
-        List<Deadline> deadlines = List.of(
+        givenPlanAndTasks(List.of(reversible, irreversible));
+        givenDeadlines(
                 deadline(reversible, "서류 확인", TODAY.plusDays(3), false),
-                deadline(irreversible, "계약 체결", TODAY.plusDays(3), true));
-        when(deadlineRepository.findAllByPlanIdAndStepIdIsNotNull(PLAN_ID)).thenReturn(deadlines);
+                deadline(irreversible, "전입신고", TODAY.plusDays(3), true));
 
         DashboardResponse response = dashboardService.get(MEMBER_ID, PLAN_ID);
 
         assertThat(response.prioritizedTasks())
-                .extracting(task -> task.stepCode())
+                .extracting(task -> task.taskCode())
                 .containsExactly("IRREVERSIBLE", "REVERSIBLE");
         assertThat(response.prioritizedTasks().get(0).priorityReason())
                 .isEqualTo(DashboardTaskPriorityReason.IRREVERSIBLE_DEADLINE);
@@ -166,11 +175,10 @@ class DashboardServiceTest {
 
     @Test
     void should_useNearestDeadlineAndReturnNegativeDays_when_deadlineIsOverdue() {
-        PlanStep ready = step("READY", PlanStepStatus.READY, 1);
-        givenPlanAndSteps(List.of(ready));
-        List<Deadline> deadlines = List.of(
-                deadline(ready, "권장 마감", TODAY.plusDays(7), false), deadline(ready, "법정 마감", TODAY.minusDays(2), true));
-        when(deadlineRepository.findAllByPlanIdAndStepIdIsNotNull(PLAN_ID)).thenReturn(deadlines);
+        StepTask todo = task("TODO", StepTaskStatus.TODO, 1);
+        givenPlanAndTasks(List.of(todo));
+        givenDeadlines(
+                deadline(todo, "권장 마감", TODAY.plusDays(7), false), deadline(todo, "법정 마감", TODAY.minusDays(2), true));
 
         DashboardResponse response = dashboardService.get(MEMBER_ID, PLAN_ID);
 
@@ -185,11 +193,11 @@ class DashboardServiceTest {
 
     @Test
     void should_chooseDeadlineTypeDeterministically_when_datesAndAbsoluteFlagsAreSame() {
-        PlanStep ready = step("READY", PlanStepStatus.READY, 1);
-        givenPlanAndSteps(List.of(ready));
-        Deadline processing = deadline(2L, ready, "은행 처리", DeadlineType.PROCESSING, TODAY.plusDays(3), false);
-        Deadline legal = deadline(3L, ready, "법정 마감", DeadlineType.LEGAL, TODAY.plusDays(3), false);
-        when(deadlineRepository.findAllByPlanIdAndStepIdIsNotNull(PLAN_ID)).thenReturn(List.of(processing, legal));
+        StepTask todo = task("TODO", StepTaskStatus.TODO, 1);
+        givenPlanAndTasks(List.of(todo));
+        givenDeadlines(
+                deadline(2L, todo, "은행 처리", DeadlineType.PROCESSING, TODAY.plusDays(3), false),
+                deadline(3L, todo, "법정 마감", DeadlineType.LEGAL, TODAY.plusDays(3), false));
 
         DashboardResponse response = dashboardService.get(MEMBER_ID, PLAN_ID);
 
@@ -198,11 +206,11 @@ class DashboardServiceTest {
 
     @Test
     void should_chooseLowestDeadlineId_when_otherPriorityFieldsAreSame() {
-        PlanStep ready = step("READY", PlanStepStatus.READY, 1);
-        givenPlanAndSteps(List.of(ready));
-        Deadline laterId = deadline(20L, ready, "나중 ID", DeadlineType.RECOMMENDED, TODAY.plusDays(3), false);
-        Deadline earlierId = deadline(10L, ready, "먼저 ID", DeadlineType.RECOMMENDED, TODAY.plusDays(3), false);
-        when(deadlineRepository.findAllByPlanIdAndStepIdIsNotNull(PLAN_ID)).thenReturn(List.of(laterId, earlierId));
+        StepTask todo = task("TODO", StepTaskStatus.TODO, 1);
+        givenPlanAndTasks(List.of(todo));
+        givenDeadlines(
+                deadline(20L, todo, "나중 ID", DeadlineType.RECOMMENDED, TODAY.plusDays(3), false),
+                deadline(10L, todo, "먼저 ID", DeadlineType.RECOMMENDED, TODAY.plusDays(3), false));
 
         DashboardResponse response = dashboardService.get(MEMBER_ID, PLAN_ID);
 
@@ -213,7 +221,7 @@ class DashboardServiceTest {
     void should_returnLastVisitedStageAndLocation_when_resumingPlan() {
         ReflectionTestUtils.setField(plan, "lastVisitedStage", PlanStage.SECOND);
         ReflectionTestUtils.setField(plan, "lastLocationCode", "POLICY_MATCHING");
-        givenPlanAndSteps(List.of());
+        givenPlanAndTasks(List.of());
 
         DashboardResponse response = dashboardService.get(MEMBER_ID, PLAN_ID);
 
@@ -222,20 +230,44 @@ class DashboardServiceTest {
     }
 
     @Test
-    void should_excludeCompletedSkippedAndLockedSteps_when_buildingTasks() {
-        givenPlanAndSteps(List.of(
-                step("DONE", PlanStepStatus.DONE, 1),
-                step("SKIPPED", PlanStepStatus.SKIPPED, 2),
-                step("LOCKED", PlanStepStatus.LOCKED, 3),
-                step("READY", PlanStepStatus.READY, 4),
-                step("DOING", PlanStepStatus.DOING, 5),
-                step("RECALC", PlanStepStatus.RECALC_REQUIRED, 6)));
+    void should_excludeSettledTasks_when_buildingTaskList() {
+        givenPlanAndTasks(List.of(
+                task("DONE", StepTaskStatus.DONE, 1),
+                task("SKIPPED", StepTaskStatus.SKIPPED, 2),
+                task("TODO", StepTaskStatus.TODO, 3),
+                task("DOING", StepTaskStatus.DOING, 4),
+                task("RECALC", StepTaskStatus.RECALC_REQUIRED, 5)));
 
         DashboardResponse response = dashboardService.get(MEMBER_ID, PLAN_ID);
 
         assertThat(response.prioritizedTasks())
-                .extracting(task -> task.stepCode())
-                .containsExactly("RECALC", "DOING", "READY");
+                .extracting(task -> task.taskCode())
+                .containsExactly("RECALC", "DOING", "TODO");
+    }
+
+    @Test
+    @DisplayName("잠긴 관문 안의 할 일은 아직 할 수 없으므로 목록에서 뺀다")
+    void should_excludeTasksOfLockedStep() {
+        StepTask openTask = task("OPEN", StepTaskStatus.TODO, 1);
+        StepTask lockedTask = task("LOCKED", StepTaskStatus.TODO, 2);
+        ReflectionTestUtils.setField(lockedTask, "planStepId", LOCKED_STEP_ID);
+        givenPlanAndTasks(List.of(openTask, lockedTask));
+
+        DashboardResponse response = dashboardService.get(MEMBER_ID, PLAN_ID);
+
+        assertThat(response.prioritizedTasks())
+                .extracting(task -> task.taskCode())
+                .containsExactly("OPEN");
+    }
+
+    @Test
+    @DisplayName("할 일에는 속한 관문 코드를 함께 실어 보낸다")
+    void should_exposeOwningStepCode() {
+        givenPlanAndTasks(List.of(task("TODO", StepTaskStatus.TODO, 1)));
+
+        DashboardResponse response = dashboardService.get(MEMBER_ID, PLAN_ID);
+
+        assertThat(response.prioritizedTasks().get(0).stepCode()).isEqualTo("OPEN_STEP");
     }
 
     @Test
@@ -246,7 +278,7 @@ class DashboardServiceTest {
                 .isInstanceOfSatisfying(
                         BusinessException.class,
                         exception -> assertThat(exception.errorCode()).isEqualTo(ErrorCode.PLAN_NOT_FOUND));
-        verify(planStepRepository, never()).findAllByPlanIdOrderBySequenceAsc(PLAN_ID);
+        verify(stepTaskRepository, never()).findAllByPlanId(PLAN_ID);
     }
 
     @Test
@@ -257,37 +289,62 @@ class DashboardServiceTest {
                 .isInstanceOfSatisfying(
                         BusinessException.class,
                         exception -> assertThat(exception.errorCode()).isEqualTo(ErrorCode.PLAN_ACCESS_DENIED));
-        verify(planStepRepository, never()).findAllByPlanIdOrderBySequenceAsc(PLAN_ID);
+        verify(stepTaskRepository, never()).findAllByPlanId(PLAN_ID);
     }
 
-    private void givenPlanAndSteps(List<PlanStep> steps) {
+    private void givenPlanAndTasks(List<StepTask> tasks) {
         when(planRepository.findById(PLAN_ID)).thenReturn(Optional.of(plan));
-        when(planStepRepository.findAllByPlanIdOrderBySequenceAsc(PLAN_ID)).thenReturn(steps);
+        when(planStepRepository.findAllByPlanIdOrderBySequenceAsc(PLAN_ID))
+                .thenReturn(List.of(
+                        step(OPEN_STEP_ID, "OPEN_STEP", PlanStepStatus.READY),
+                        step(LOCKED_STEP_ID, "LOCKED_STEP", PlanStepStatus.LOCKED)));
+        when(stepTaskRepository.findAllByPlanId(PLAN_ID)).thenReturn(tasks);
     }
 
-    private PlanStep step(String code, PlanStepStatus status, int sequence) {
+    private void givenDeadlines(Deadline... deadlines) {
+        when(deadlineRepository.findAllByPlanIdAndTaskIdIsNotNull(PLAN_ID)).thenReturn(List.of(deadlines));
+    }
+
+    private PlanStep step(Long id, String code, PlanStepStatus status) {
         PlanStep step = PlanStep.defaultSteps(PLAN_ID).get(0);
+        ReflectionTestUtils.setField(step, "id", id);
         ReflectionTestUtils.setField(step, "stepCode", code);
         ReflectionTestUtils.setField(step, "stepName", code);
         ReflectionTestUtils.setField(step, "status", status);
-        ReflectionTestUtils.setField(step, "sequence", sequence);
-        ReflectionTestUtils.setField(step, "id", (long) sequence);
         return step;
     }
 
-    private Deadline deadline(PlanStep step, String label, LocalDate dueDate, boolean absolute) {
-        return deadline(null, step, label, absolute ? DeadlineType.LEGAL : DeadlineType.RECOMMENDED, dueDate, absolute);
+    private StepTask task(String code, StepTaskStatus status, int sequence) {
+        StepTask task = StepTask.of(OPEN_STEP_ID, StepTaskTemplate.AGREE_TERMS);
+        ReflectionTestUtils.setField(task, "id", (long) sequence);
+        ReflectionTestUtils.setField(task, "taskCode", code);
+        ReflectionTestUtils.setField(task, "taskName", code);
+        ReflectionTestUtils.setField(task, "status", status);
+        ReflectionTestUtils.setField(task, "sequence", sequence);
+        ReflectionTestUtils.setField(task, "irreversible", false);
+        return task;
+    }
+
+    private Deadline deadline(StepTask task, String label, LocalDate dueDate, boolean absolute) {
+        return deadline(null, task, label, absolute ? DeadlineType.LEGAL : DeadlineType.RECOMMENDED, dueDate, absolute);
     }
 
     private Deadline deadline(
-            Long id, PlanStep step, String label, DeadlineType type, LocalDate dueDate, boolean absolute) {
+            Long id, StepTask task, String label, DeadlineType type, LocalDate dueDate, boolean absolute) {
         Deadline deadline = mock(Deadline.class, withSettings().lenient());
         when(deadline.getId()).thenReturn(id);
-        when(deadline.getStepId()).thenReturn(step.getId());
+        when(deadline.getTaskId()).thenReturn(task.getId());
         when(deadline.getType()).thenReturn(type);
         when(deadline.getLabel()).thenReturn(label);
         when(deadline.getDueDate()).thenReturn(dueDate);
         when(deadline.isAbsolute()).thenReturn(absolute);
         return deadline;
+    }
+
+    /** {@code extracting} 안에서 쓰기 위한 작은 헬퍼. 람다 타입 추론이 status 에서 막힌다. */
+    private interface DashboardTaskResponseStatus {
+        static StepTaskStatus of(com.homerun.domain.dashboard.dto.response.DashboardTaskResponse task) {
+            return task.status();
+        }
     }
 }

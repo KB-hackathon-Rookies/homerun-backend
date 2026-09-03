@@ -5,6 +5,9 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import com.homerun.TestcontainersConfiguration;
+import com.homerun.domain.auth.type.AuthProvider;
+import com.homerun.domain.member.entity.Member;
+import com.homerun.domain.member.repository.MemberRepository;
 import com.homerun.domain.terms.service.TermsService;
 import com.homerun.global.response.ApiResponse;
 import com.homerun.global.security.principal.MemberPrincipal;
@@ -13,6 +16,7 @@ import io.jsonwebtoken.security.Keys;
 import java.nio.charset.StandardCharsets;
 import java.time.Instant;
 import java.util.Date;
+import java.util.Optional;
 import javax.crypto.SecretKey;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -44,8 +48,13 @@ class SecurityIntegrationTest {
     @MockitoBean
     private TermsService termsService;
 
+    @MockitoBean
+    private MemberRepository memberRepository;
+
     @BeforeEach
     void allowRequiredTerms() {
+        org.mockito.Mockito.when(memberRepository.findById(org.mockito.ArgumentMatchers.anyLong()))
+                .thenReturn(Optional.of(Member.create(AuthProvider.KAKAO, "test-provider", null, "테스트")));
         org.mockito.Mockito.when(termsService.hasAgreedAllRequired(org.mockito.ArgumentMatchers.anyLong()))
                 .thenReturn(true);
     }

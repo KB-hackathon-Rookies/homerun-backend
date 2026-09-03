@@ -1,9 +1,14 @@
 package com.homerun.domain.plan.dto.request;
 
+import com.homerun.domain.plan.type.CompanySize;
+import com.homerun.domain.plan.type.EmploymentType;
+import com.homerun.domain.plan.type.HouseType;
+import com.homerun.domain.plan.type.HouseholderStatus;
+import com.homerun.domain.plan.type.MaritalStatus;
+import com.homerun.domain.plan.type.PlanInputUnknownField;
 import jakarta.validation.constraints.DecimalMin;
 import jakarta.validation.constraints.Positive;
 import jakarta.validation.constraints.PositiveOrZero;
-import jakarta.validation.constraints.Size;
 import java.math.BigDecimal;
 import java.util.Set;
 
@@ -15,16 +20,16 @@ public record PlanInputRequest(
         @PositiveOrZero Long maxMonthlyBurden,
         @Positive Long regionId,
         @DecimalMin("0.01") BigDecimal areaM2,
-        @Size(max = 30) String houseType,
+        HouseType houseType,
         Boolean isHomeless,
-        @Size(max = 30) String householderStatus,
-        @Size(max = 20) String maritalStatus,
-        @Size(max = 30) String employmentType,
+        HouseholderStatus householderStatus,
+        MaritalStatus maritalStatus,
+        EmploymentType employmentType,
         @PositiveOrZero Integer employmentMonths,
-        @Size(max = 30) String companySize,
-        Set<String> unknownFields) {
+        CompanySize companySize,
+        Set<PlanInputUnknownField> unknownFields) {
 
-    public Set<String> normalizedUnknownFields() {
+    public Set<PlanInputUnknownField> normalizedUnknownFields() {
         return unknownFields == null ? Set.of() : Set.copyOf(unknownFields);
     }
 }
