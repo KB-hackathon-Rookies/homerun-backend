@@ -40,6 +40,9 @@ public class DocumentIssueMethod {
     @Column(nullable = false)
     private int fee;
 
+    @Column(name = "fee_note")
+    private String feeNote;
+
     @Column
     private String requirements;
 
@@ -73,6 +76,10 @@ public class DocumentIssueMethod {
 
     public int getFee() {
         return fee;
+    }
+
+    public String getFeeNote() {
+        return feeNote;
     }
 
     public String getRequirements() {

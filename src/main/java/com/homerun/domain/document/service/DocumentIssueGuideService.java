@@ -69,9 +69,20 @@ public class DocumentIssueGuideService {
                 document.getName(),
                 document.getIssuer(),
                 document.getValidityDays(),
+                validityNote(document.getValidityDays()),
                 document.getNote(),
                 !issueMethods.isEmpty() && !hasOnline(issueMethods),
                 toViews(issueMethods));
+    }
+
+    /**
+     * 인정 기간을 모를 때의 안내.
+     *
+     * <p>근거가 있는 서류만 일수를 넣었다(FCT-112). 나머지를 조용히 비워 두면 화면에서
+     * "제한 없음"으로 읽힌다. 모르는 것은 모른다고 말한다(NFR-01-06).
+     */
+    private String validityNote(Integer validityDays) {
+        return validityDays == null ? "인정 기간이 제출처마다 다르다. 접수처에 확인한다." : null;
     }
 
     /**
@@ -98,6 +109,7 @@ public class DocumentIssueGuideService {
                         issueMethod.getAgency(),
                         issueMethod.getUrl(),
                         issueMethod.getFee(),
+                        issueMethod.getFeeNote(),
                         issueMethod.getRequirements(),
                         issueMethod.getNote(),
                         issueMethod.getId().equals(recommended.getId())))
