@@ -29,7 +29,7 @@ public class EmailAuthService {
     @Transactional
     public Member signup(String rawEmail, String password, String nickname, String verificationToken) {
         String email = verificationService.normalize(rawEmail);
-        if (memberRepository.existsByEmailIgnoreCase(email)) {
+        if (memberRepository.existsByEmailIgnoreCaseAndDeletedAtIsNull(email)) {
             throw new BusinessException(ErrorCode.EMAIL_ALREADY_REGISTERED);
         }
         verificationService.consumeVerifiedToken(email, verificationToken);
@@ -45,7 +45,7 @@ public class EmailAuthService {
     public Member login(String rawEmail, String password) {
         String email = verificationService.normalize(rawEmail);
         Member member = memberRepository
-                .findByProviderAndProviderUserId(AuthProvider.LOCAL, email)
+                .findByProviderAndProviderUserIdAndDeletedAtIsNull(AuthProvider.LOCAL, email)
                 .orElseThrow(() -> new BusinessException(ErrorCode.INVALID_EMAIL_CREDENTIALS));
         member.requireActive();
         if (member.getPasswordHash() == null || !passwordEncoder.matches(password, member.getPasswordHash())) {

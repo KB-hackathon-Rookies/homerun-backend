@@ -1,8 +1,7 @@
 package com.homerun.domain.auth.controller;
 
-import com.homerun.domain.auth.config.AuthCookieProperties;
 import com.homerun.domain.auth.config.OAuthProperties;
-import com.homerun.domain.auth.config.RefreshTokenProperties;
+import com.homerun.domain.auth.config.RefreshTokenCookieFactory;
 import com.homerun.domain.auth.dto.response.LoginResponse;
 import com.homerun.domain.auth.service.OAuthLoginService;
 import com.homerun.domain.auth.service.RefreshTokenService;
@@ -18,11 +17,9 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.servlet.http.HttpSession;
 import java.net.URI;
 import java.security.SecureRandom;
-import java.time.Duration;
 import java.util.Base64;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
-import org.springframework.http.ResponseCookie;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.CookieValue;
@@ -43,22 +40,19 @@ public class AuthController {
     private final OAuthProperties properties;
     private final OAuthLoginService oauthLoginService;
     private final RefreshTokenService refreshTokenService;
-    private final RefreshTokenProperties refreshTokenProperties;
-    private final AuthCookieProperties authCookieProperties;
+    private final RefreshTokenCookieFactory refreshTokenCookieFactory;
     private final MemberRepository memberRepository;
 
     public AuthController(
             OAuthProperties properties,
             OAuthLoginService oauthLoginService,
             RefreshTokenService refreshTokenService,
-            RefreshTokenProperties refreshTokenProperties,
-            AuthCookieProperties authCookieProperties,
+            RefreshTokenCookieFactory refreshTokenCookieFactory,
             MemberRepository memberRepository) {
         this.properties = properties;
         this.oauthLoginService = oauthLoginService;
         this.refreshTokenService = refreshTokenService;
-        this.refreshTokenProperties = refreshTokenProperties;
-        this.authCookieProperties = authCookieProperties;
+        this.refreshTokenCookieFactory = refreshTokenCookieFactory;
         this.memberRepository = memberRepository;
     }
 
@@ -132,7 +126,9 @@ public class AuthController {
     public ResponseEntity<Void> logout(@CookieValue(name = "refresh_token", required = false) String refreshToken) {
         refreshTokenService.revoke(refreshToken);
         return ResponseEntity.noContent()
-                .header(HttpHeaders.SET_COOKIE, expiredRefreshCookie().toString())
+                .header(
+                        HttpHeaders.SET_COOKIE,
+                        refreshTokenCookieFactory.expire().toString())
                 .build();
     }
 
@@ -178,28 +174,10 @@ public class AuthController {
     private ResponseEntity<ApiResponse<LoginResponse>> loginResponse(Member member) {
         String refreshToken = refreshTokenService.issue(member);
         return ResponseEntity.ok()
-                .header(HttpHeaders.SET_COOKIE, refreshCookie(refreshToken).toString())
+                .header(
+                        HttpHeaders.SET_COOKIE,
+                        refreshTokenCookieFactory.create(refreshToken).toString())
                 .body(ApiResponse.success(oauthLoginService.createLoginResponse(member)));
-    }
-
-    private ResponseCookie refreshCookie(String refreshToken) {
-        return ResponseCookie.from("refresh_token", refreshToken)
-                .httpOnly(true)
-                .secure(authCookieProperties.secure())
-                .sameSite("Lax")
-                .path("/api/v1/auth")
-                .maxAge(Duration.ofDays(refreshTokenProperties.expirationDays()))
-                .build();
-    }
-
-    private ResponseCookie expiredRefreshCookie() {
-        return ResponseCookie.from("refresh_token", "")
-                .httpOnly(true)
-                .secure(authCookieProperties.secure())
-                .sameSite("Lax")
-                .path("/api/v1/auth")
-                .maxAge(Duration.ZERO)
-                .build();
     }
 
     private String stateKey(AuthProvider provider) {

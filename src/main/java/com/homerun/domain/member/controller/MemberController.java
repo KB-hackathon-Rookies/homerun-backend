@@ -1,6 +1,6 @@
 package com.homerun.domain.member.controller;
 
-import com.homerun.domain.auth.config.AuthCookieProperties;
+import com.homerun.domain.auth.config.RefreshTokenCookieFactory;
 import com.homerun.domain.member.dto.request.UpdateMemberProfileRequest;
 import com.homerun.domain.member.dto.response.MemberProfileResponse;
 import com.homerun.domain.member.service.MemberService;
@@ -9,9 +9,7 @@ import com.homerun.global.security.principal.MemberPrincipal;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
-import java.time.Duration;
 import org.springframework.http.HttpHeaders;
-import org.springframework.http.ResponseCookie;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.DeleteMapping;
@@ -27,11 +25,11 @@ import org.springframework.web.bind.annotation.RestController;
 public class MemberController {
 
     private final MemberService memberService;
-    private final AuthCookieProperties authCookieProperties;
+    private final RefreshTokenCookieFactory refreshTokenCookieFactory;
 
-    public MemberController(MemberService memberService, AuthCookieProperties authCookieProperties) {
+    public MemberController(MemberService memberService, RefreshTokenCookieFactory refreshTokenCookieFactory) {
         this.memberService = memberService;
-        this.authCookieProperties = authCookieProperties;
+        this.refreshTokenCookieFactory = refreshTokenCookieFactory;
     }
 
     @GetMapping
@@ -53,17 +51,9 @@ public class MemberController {
     public ResponseEntity<Void> withdraw(@AuthenticationPrincipal MemberPrincipal principal) {
         memberService.withdraw(principal.memberId());
         return ResponseEntity.noContent()
-                .header(HttpHeaders.SET_COOKIE, expiredRefreshCookie().toString())
-                .build();
-    }
-
-    private ResponseCookie expiredRefreshCookie() {
-        return ResponseCookie.from("refresh_token", "")
-                .httpOnly(true)
-                .secure(authCookieProperties.secure())
-                .sameSite("Lax")
-                .path("/api/v1/auth")
-                .maxAge(Duration.ZERO)
+                .header(
+                        HttpHeaders.SET_COOKIE,
+                        refreshTokenCookieFactory.expire().toString())
                 .build();
     }
 }

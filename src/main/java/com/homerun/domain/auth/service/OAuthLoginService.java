@@ -54,10 +54,9 @@ public class OAuthLoginService {
                     case LOCAL -> throw new BusinessException(ErrorCode.INVALID_OAUTH_REQUEST);
                 };
         Member member = memberRepository
-                .findByProviderAndProviderUserId(provider, profile.providerId())
+                .findByProviderAndProviderUserIdAndDeletedAtIsNull(provider, profile.providerId())
                 .orElseGet(() -> memberRepository.save(
                         Member.create(provider, profile.providerId(), profile.email(), profile.nickname())));
-        member.requireActive();
         return member;
     }
 

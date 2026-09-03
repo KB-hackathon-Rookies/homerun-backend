@@ -1,7 +1,5 @@
 package com.homerun.global.security.filter;
 
-import com.homerun.domain.member.entity.Member;
-import com.homerun.domain.member.repository.MemberRepository;
 import com.homerun.global.exception.BusinessException;
 import com.homerun.global.exception.ErrorCode;
 import com.homerun.global.security.handler.RestAuthenticationEntryPoint;
@@ -27,15 +25,11 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
     private final JwtTokenProvider jwtTokenProvider;
     private final RestAuthenticationEntryPoint authenticationEntryPoint;
-    private final MemberRepository memberRepository;
 
     public JwtAuthenticationFilter(
-            JwtTokenProvider jwtTokenProvider,
-            RestAuthenticationEntryPoint authenticationEntryPoint,
-            MemberRepository memberRepository) {
+            JwtTokenProvider jwtTokenProvider, RestAuthenticationEntryPoint authenticationEntryPoint) {
         this.jwtTokenProvider = jwtTokenProvider;
         this.authenticationEntryPoint = authenticationEntryPoint;
-        this.memberRepository = memberRepository;
     }
 
     @Override
@@ -53,10 +47,6 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
         try {
             Long memberId = jwtTokenProvider.getMemberId(authorization.substring(BEARER_PREFIX.length()));
-            Member member = memberRepository
-                    .findById(memberId)
-                    .orElseThrow(() -> new BusinessException(ErrorCode.MEMBER_NOT_FOUND));
-            member.requireActive();
             MemberPrincipal principal = new MemberPrincipal(memberId);
             UsernamePasswordAuthenticationToken authentication =
                     UsernamePasswordAuthenticationToken.authenticated(principal, null, List.of());

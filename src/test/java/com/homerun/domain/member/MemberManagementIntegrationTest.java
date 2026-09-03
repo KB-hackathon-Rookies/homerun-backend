@@ -12,6 +12,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import com.homerun.TestcontainersConfiguration;
 import com.homerun.domain.auth.repository.RefreshTokenRepository;
 import com.homerun.domain.auth.service.RefreshTokenService;
+import com.homerun.domain.auth.type.AuthProvider;
 import com.homerun.domain.member.entity.Member;
 import com.homerun.domain.member.repository.MemberRepository;
 import com.homerun.global.security.jwt.JwtTokenProvider;
@@ -117,6 +118,10 @@ class MemberManagementIntegrationTest {
                 .andExpect(status().isUnauthorized())
                 .andExpect(jsonPath("$.code").value("AUTH_023"));
 
+        mockMvc.perform(get("/api/v1/auth/me").header(HttpHeaders.AUTHORIZATION, bearer(accessToken)))
+                .andExpect(status().isUnauthorized())
+                .andExpect(jsonPath("$.code").value("AUTH_023"));
+
         mockMvc.perform(post("/api/v1/auth/refresh")
                         .cookie(new jakarta.servlet.http.Cookie("refresh_token", refreshToken)))
                 .andExpect(status().isUnauthorized())
@@ -126,7 +131,25 @@ class MemberManagementIntegrationTest {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"email\":\"" + email + "\",\"password\":\"password123\"}"))
                 .andExpect(status().isUnauthorized())
-                .andExpect(jsonPath("$.code").value("AUTH_023"));
+                .andExpect(jsonPath("$.code").value("AUTH_022"));
+    }
+
+    @Test
+    void should_allowFreshRegistrationWithSameSocialIdentity_when_memberWithdraws() {
+        Member withdrawn = memberRepository.saveAndFlush(
+                Member.create(AuthProvider.GOOGLE, "social-provider-id", "social@example.com", "탈퇴회원"));
+
+        withdrawn.withdraw();
+        memberRepository.saveAndFlush(withdrawn);
+        Member registeredAgain = memberRepository.saveAndFlush(
+                Member.create(AuthProvider.GOOGLE, "social-provider-id", "social@example.com", "재가입회원"));
+
+        assertThat(registeredAgain.getId()).isNotEqualTo(withdrawn.getId());
+        assertThat(memberRepository
+                        .findByProviderAndProviderUserIdAndDeletedAtIsNull(AuthProvider.GOOGLE, "social-provider-id")
+                        .orElseThrow()
+                        .getId())
+                .isEqualTo(registeredAgain.getId());
     }
 
     private Member saveLocalMember(String email, String nickname) {
