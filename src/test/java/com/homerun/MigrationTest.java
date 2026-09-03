@@ -111,8 +111,8 @@ class MigrationTest {
     }
 
     @Test
-    @DisplayName("V12가 오픈뱅킹 토큰 원문이 아닌 암호문 저장소를 추가한다")
-    void should_add_encryptedOpenBankingConnection_whenV12IsApplied() {
+    @DisplayName("V14가 오픈뱅킹 토큰 원문이 아닌 암호문 저장소를 추가한다")
+    void should_add_encryptedOpenBankingConnection_whenV14IsApplied() {
         assertThat(columnNames("open_banking_connection"))
                 .contains(
                         "member_id",
