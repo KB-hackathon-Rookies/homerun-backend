@@ -129,7 +129,7 @@ class MigrationTest {
     void should_seed_config_effective_when_migrated() {
         Integer count = jdbc.queryForObject("SELECT count(*) FROM config_effective", Integer.class);
 
-        assertThat(count).isEqualTo(163);
+        assertThat(count).isEqualTo(167);
     }
 
     @Test
