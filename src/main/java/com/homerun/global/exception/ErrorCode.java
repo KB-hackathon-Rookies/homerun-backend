@@ -2,9 +2,19 @@ package com.homerun.global.exception;
 
 import org.springframework.http.HttpStatus;
 
+/**
+ * API 응답에 실어 보내는 에러 코드.
+ *
+ * <p><b>새 코드는 자기 도메인 블록 안에 넣는다.</b> 블록은 빈 줄로 나뉜다. 아무 데나 맨 뒤에
+ * 붙이면 다른 사람과 같은 줄을 고치게 되어 브랜치마다 충돌한다.
+ *
+ * <p>마지막 상수 뒤에도 쉼표를 두고 {@code ;} 는 자기 줄에 둔다. 이러면 코드를 더할 때
+ * 기존 줄을 하나도 건드리지 않으므로, 두 사람이 각자 다른 블록에 추가해도 자동으로 합쳐진다.
+ */
 public enum ErrorCode {
     INVALID_INPUT(HttpStatus.BAD_REQUEST, "COMMON_001", "요청값이 올바르지 않습니다."),
     MALFORMED_REQUEST(HttpStatus.BAD_REQUEST, "COMMON_002", "요청 본문을 해석할 수 없습니다."),
+    CONCURRENT_UPDATE(HttpStatus.CONFLICT, "COMMON_003", "다른 요청에서 먼저 변경했습니다. 다시 시도해 주세요."),
     INTERNAL_SERVER_ERROR(HttpStatus.INTERNAL_SERVER_ERROR, "COMMON_999", "서버 오류가 발생했습니다."),
 
     MEMBER_NOT_FOUND(HttpStatus.UNAUTHORIZED, "AUTH_001", "존재하지 않는 사용자입니다."),
@@ -46,6 +56,7 @@ public enum ErrorCode {
     REQUIRED_TERMS_NOT_AGREED(HttpStatus.BAD_REQUEST, "TERMS_003", "필수 약관에 동의해야 합니다."),
     TERMS_VERSION_MISMATCH(HttpStatus.CONFLICT, "TERMS_004", "현재 유효한 약관 버전과 일치하지 않습니다."),
     REQUIRED_TERMS_AGREEMENT_REQUIRED(HttpStatus.FORBIDDEN, "TERMS_005", "서비스 이용 전에 필수 약관 동의가 필요합니다."),
+
     RULE_VERSION_MISMATCH(HttpStatus.CONFLICT, "PLAN_001", "규칙 버전이 변경되었습니다."),
     PLAN_NOT_FOUND(HttpStatus.NOT_FOUND, "PLAN_002", "계획을 찾을 수 없습니다."),
     PLAN_ACCESS_DENIED(HttpStatus.FORBIDDEN, "PLAN_003", "계획에 접근할 권한이 없습니다."),
@@ -58,7 +69,6 @@ public enum ErrorCode {
     UNKNOWN_FIELD_HAS_VALUE(HttpStatus.BAD_REQUEST, "PLAN_010", "모름 처리한 필드에는 값을 함께 저장할 수 없습니다."),
     PLAN_STAGE_LOCKED(HttpStatus.CONFLICT, "PLAN_011", "아직 진입할 수 없는 계획 단계입니다."),
     PLAN_REGION_NOT_FOUND(HttpStatus.BAD_REQUEST, "PLAN_012", "존재하지 않는 지역입니다."),
-    CONCURRENT_UPDATE(HttpStatus.CONFLICT, "COMMON_003", "다른 요청에서 먼저 변경했습니다. 다시 시도해 주세요."),
 
     HOUSEHOLD_MEMBER_NOT_FOUND(HttpStatus.NOT_FOUND, "FAM_001", "가구원을 찾을 수 없습니다."),
     CONSENT_NOT_FOUND(HttpStatus.NOT_FOUND, "FAM_002", "동의 건을 찾을 수 없습니다."),
@@ -70,7 +80,8 @@ public enum ErrorCode {
     POLICY_NOT_FOUND(HttpStatus.NOT_FOUND, "APP_004", "존재하지 않는 정책입니다."),
 
     CONTRACT_NOT_FOUND(HttpStatus.NOT_FOUND, "PRP_001", "계약 정보를 찾을 수 없습니다."),
-    PROPERTY_NOT_IN_PLAN(HttpStatus.BAD_REQUEST, "PRP_002", "이 계획의 매물이 아닙니다.");
+    PROPERTY_NOT_IN_PLAN(HttpStatus.BAD_REQUEST, "PRP_002", "이 계획의 매물이 아닙니다."),
+    ;
 
     private final HttpStatus status;
     private final String code;
