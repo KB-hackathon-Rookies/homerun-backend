@@ -14,6 +14,7 @@ import com.homerun.domain.plan.entity.PlanStep;
 import com.homerun.domain.plan.policy.PlanStageTransitionPolicy;
 import com.homerun.domain.plan.repository.PlanRepository;
 import com.homerun.domain.plan.repository.PlanStepRepository;
+import com.homerun.domain.plan.repository.StepTaskRepository;
 import com.homerun.domain.plan.type.LeaseType;
 import com.homerun.domain.plan.type.PlanGate;
 import com.homerun.domain.plan.type.PlanStage;
@@ -43,6 +44,9 @@ class PlanServiceTest {
     private PlanStepRepository planStepRepository;
 
     @Mock
+    private StepTaskRepository stepTaskRepository;
+
+    @Mock
     private DeadlineRepository deadlineRepository;
 
     private PlanService planService;
@@ -52,7 +56,11 @@ class PlanServiceTest {
     @BeforeEach
     void setUp() {
         planService = new PlanService(
-                planRepository, planStepRepository, deadlineRepository, new PlanStageTransitionPolicy());
+                planRepository,
+                planStepRepository,
+                stepTaskRepository,
+                deadlineRepository,
+                new PlanStageTransitionPolicy());
         plan = Plan.create(MEMBER_ID, LeaseType.JEONSE, LocalDate.of(2027, 2, 1));
         steps = PlanStep.defaultSteps(PLAN_ID);
     }

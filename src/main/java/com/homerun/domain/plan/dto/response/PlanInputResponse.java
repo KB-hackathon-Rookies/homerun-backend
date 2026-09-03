@@ -1,6 +1,12 @@
 package com.homerun.domain.plan.dto.response;
 
 import com.homerun.domain.plan.entity.PlanInput;
+import com.homerun.domain.plan.type.CompanySize;
+import com.homerun.domain.plan.type.EmploymentType;
+import com.homerun.domain.plan.type.HouseType;
+import com.homerun.domain.plan.type.HouseholderStatus;
+import com.homerun.domain.plan.type.MaritalStatus;
+import com.homerun.domain.plan.type.PlanInputUnknownField;
 import java.math.BigDecimal;
 import java.time.Instant;
 import java.util.List;
@@ -14,14 +20,14 @@ public record PlanInputResponse(
         Long maxMonthlyBurden,
         Long regionId,
         BigDecimal areaM2,
-        String houseType,
+        HouseType houseType,
         Boolean isHomeless,
-        String householderStatus,
-        String maritalStatus,
-        String employmentType,
+        HouseholderStatus householderStatus,
+        MaritalStatus maritalStatus,
+        EmploymentType employmentType,
         Integer employmentMonths,
-        String companySize,
-        List<String> unknownFields,
+        CompanySize companySize,
+        List<PlanInputUnknownField> unknownFields,
         int revision,
         Instant savedAt,
         String saveStatus) {
