@@ -51,16 +51,6 @@ public enum ErrorCode {
     INVALID_OPEN_BANKING_BANK_CODE(HttpStatus.BAD_REQUEST, "OPEN_BANKING_008", "금융기관 코드는 숫자 3자리여야 합니다."),
     OPEN_BANKING_PAGINATION_ERROR(HttpStatus.BAD_GATEWAY, "OPEN_BANKING_009", "오픈뱅킹 페이지 응답이 올바르지 않습니다."),
 
-    OPEN_BANKING_NOT_CONNECTED(HttpStatus.NOT_FOUND, "OPEN_BANKING_001", "연결된 오픈뱅킹 정보가 없습니다."),
-    OPEN_BANKING_CONFIGURATION_ERROR(HttpStatus.INTERNAL_SERVER_ERROR, "OPEN_BANKING_002", "오픈뱅킹 설정이 올바르지 않습니다."),
-    OPEN_BANKING_AUTH_REJECTED(HttpStatus.UNAUTHORIZED, "OPEN_BANKING_003", "오픈뱅킹 연결이 취소되었거나 거부되었습니다."),
-    INVALID_OPEN_BANKING_REQUEST(HttpStatus.BAD_REQUEST, "OPEN_BANKING_004", "유효하지 않은 오픈뱅킹 연결 요청입니다."),
-    OPEN_BANKING_PROVIDER_ERROR(HttpStatus.BAD_GATEWAY, "OPEN_BANKING_005", "오픈뱅킹 연동에 실패했습니다."),
-    OPEN_BANKING_ACCOUNT_NOT_FOUND(HttpStatus.NOT_FOUND, "OPEN_BANKING_006", "연결된 계좌를 찾을 수 없습니다."),
-    INVALID_TRANSACTION_PERIOD(HttpStatus.BAD_REQUEST, "OPEN_BANKING_007", "거래내역 조회 기간이 올바르지 않습니다."),
-    INVALID_OPEN_BANKING_BANK_CODE(HttpStatus.BAD_REQUEST, "OPEN_BANKING_008", "금융기관 코드는 숫자 3자리여야 합니다."),
-    OPEN_BANKING_PAGINATION_ERROR(HttpStatus.BAD_GATEWAY, "OPEN_BANKING_009", "오픈뱅킹 페이지 응답이 올바르지 않습니다."),
-
     CONSENT_TOKEN_INVALID(HttpStatus.UNAUTHORIZED, "TERMS_001", "유효하지 않은 동의 토큰입니다."),
     CONSENT_TOKEN_EXPIRED(HttpStatus.UNAUTHORIZED, "TERMS_002", "동의 토큰이 만료되었습니다."),
     REQUIRED_TERMS_NOT_AGREED(HttpStatus.BAD_REQUEST, "TERMS_003", "필수 약관에 동의해야 합니다."),
