@@ -12,6 +12,8 @@ import com.homerun.global.external.openbanking.OpenBankingResponses.Token;
 import com.homerun.global.external.openbanking.OpenBankingResponses.Transaction;
 import com.homerun.global.external.openbanking.OpenBankingResponses.TransactionPage;
 import com.homerun.global.external.openbanking.OpenBankingResponses.UserInfo;
+import com.homerun.global.external.resilience.ExternalApiRestClientFactory;
+import com.homerun.global.external.resilience.ExternalApiRetryExecutor;
 import java.math.BigDecimal;
 import java.net.URI;
 import java.nio.charset.StandardCharsets;
@@ -49,17 +51,33 @@ public class OpenBankingClient {
     private final ObjectMapper objectMapper;
     private final Clock clock;
     private final RestClient restClient;
+    private final ExternalApiRetryExecutor retryExecutor;
 
     @Autowired
-    public OpenBankingClient(OpenBankingProperties properties, ObjectMapper objectMapper, Clock clock) {
-        this(properties, objectMapper, clock, RestClient.create());
+    public OpenBankingClient(
+            OpenBankingProperties properties,
+            ObjectMapper objectMapper,
+            Clock clock,
+            ExternalApiRestClientFactory restClientFactory,
+            ExternalApiRetryExecutor retryExecutor) {
+        this(properties, objectMapper, clock, restClientFactory.create(), retryExecutor);
     }
 
     OpenBankingClient(OpenBankingProperties properties, ObjectMapper objectMapper, Clock clock, RestClient restClient) {
+        this(properties, objectMapper, clock, restClient, ExternalApiRetryExecutor.noRetry());
+    }
+
+    OpenBankingClient(
+            OpenBankingProperties properties,
+            ObjectMapper objectMapper,
+            Clock clock,
+            RestClient restClient,
+            ExternalApiRetryExecutor retryExecutor) {
         this.properties = properties;
         this.objectMapper = objectMapper;
         this.clock = clock;
         this.restClient = restClient;
+        this.retryExecutor = retryExecutor;
     }
 
     public URI authorizationUri(String state) {
@@ -290,12 +308,12 @@ public class OpenBankingClient {
 
     private JsonNode get(URI uri, String accessToken) {
         try {
-            String response = restClient
+            String response = retryExecutor.execute(() -> restClient
                     .get()
                     .uri(uri)
                     .header(HttpHeaders.AUTHORIZATION, "Bearer " + accessToken)
                     .retrieve()
-                    .body(String.class);
+                    .body(String.class));
             JsonNode root = readJson(response);
             String responseCode = text(root, "rsp_code");
             if (!responseCode.isBlank() && !"A0000".equals(responseCode)) {
@@ -311,12 +329,12 @@ public class OpenBankingClient {
 
     private JsonNode post(URI uri, String accessToken) {
         try {
-            String response = restClient
+            String response = retryExecutor.execute(() -> restClient
                     .post()
                     .uri(uri)
                     .header(HttpHeaders.AUTHORIZATION, "Bearer " + accessToken)
                     .retrieve()
-                    .body(String.class);
+                    .body(String.class));
             JsonNode root = readJson(response);
             String responseCode = text(root, "rsp_code");
             if (!responseCode.isBlank() && !"A0000".equals(responseCode)) {

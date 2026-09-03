@@ -1,10 +1,13 @@
 package com.homerun.global.external.building;
 
+import com.homerun.global.external.resilience.ExternalApiRestClientFactory;
+import com.homerun.global.external.resilience.ExternalApiRetryExecutor;
 import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 import org.springframework.web.client.RestClient;
 import tools.jackson.databind.JsonNode;
@@ -16,11 +19,34 @@ public class BuildingRegisterClient {
     private final BuildingRegisterProperties properties;
     private final ObjectMapper objectMapper;
     private final RestClient restClient;
+    private final ExternalApiRetryExecutor retryExecutor;
 
     public BuildingRegisterClient(BuildingRegisterProperties properties, ObjectMapper objectMapper) {
+        this(
+                properties,
+                objectMapper,
+                RestClient.builder().baseUrl(properties.baseUrl()).build(),
+                ExternalApiRetryExecutor.noRetry());
+    }
+
+    @Autowired
+    public BuildingRegisterClient(
+            BuildingRegisterProperties properties,
+            ObjectMapper objectMapper,
+            ExternalApiRestClientFactory restClientFactory,
+            ExternalApiRetryExecutor retryExecutor) {
+        this(properties, objectMapper, restClientFactory.create(properties.baseUrl()), retryExecutor);
+    }
+
+    private BuildingRegisterClient(
+            BuildingRegisterProperties properties,
+            ObjectMapper objectMapper,
+            RestClient restClient,
+            ExternalApiRetryExecutor retryExecutor) {
         this.properties = properties;
         this.objectMapper = objectMapper;
-        this.restClient = RestClient.builder().baseUrl(properties.baseUrl()).build();
+        this.restClient = restClient;
+        this.retryExecutor = retryExecutor;
     }
 
     public BuildingRegisterResponse findTitles(BuildingLotQuery query) {
@@ -37,7 +63,7 @@ public class BuildingRegisterClient {
         }
 
         try {
-            String json = restClient
+            String json = retryExecutor.execute(() -> restClient
                     .get()
                     .uri(uriBuilder -> uriBuilder
                             .path(endpoint)
@@ -52,7 +78,7 @@ public class BuildingRegisterClient {
                             .queryParam("_type", "json")
                             .build())
                     .retrieve()
-                    .body(String.class);
+                    .body(String.class));
 
             if (json == null || json.isBlank()) {
                 throw new BuildingRegisterApiException("건축물대장 API가 빈 응답을 반환했습니다.");
