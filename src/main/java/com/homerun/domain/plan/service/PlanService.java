@@ -201,9 +201,6 @@ public class PlanService {
      * "확정일자 확인"
      * "전세보증 가입 확인"
      */
-
-
-
     public PlanProgressResponse completeTask(Long memberId, Long planId, String stepCode, String taskCode) {
 
         Plan plan = getPlan(memberId, planId);

@@ -13,10 +13,9 @@ import com.homerun.domain.plan.dto.request.PlanCreateRequest;
 import com.homerun.domain.plan.dto.response.PlanResponse;
 import com.homerun.domain.plan.service.PlanService;
 import com.homerun.domain.plan.type.LeaseType;
+import com.homerun.domain.plan.type.StartSituation;
 import java.time.LocalDate;
 import java.util.UUID;
-
-import com.homerun.domain.plan.type.StartSituation;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
@@ -40,7 +39,7 @@ class DashboardDeadlineIntegrationTest {
     @Autowired
     private DeadlineRepository deadlineRepository;
 
-    //박우진
+    // 박우진
     // plan 관련 request 클래스 삭제로 일단 에러 안나게 수정
     // 실행은 안해봤습니다 죄송ㅜ
     @Test
@@ -48,7 +47,8 @@ class DashboardDeadlineIntegrationTest {
         Member member = memberRepository.save(
                 Member.create(AuthProvider.GOOGLE, UUID.randomUUID().toString(), "dashboard@example.com", "대시보드 사용자"));
         LocalDate targetMoveDate = LocalDate.of(2027, 2, 1);
-        PlanResponse plan = planService.create(member.getId(), new PlanCreateRequest(StartSituation.FIRST_INDEPENDENCE, LeaseType.JEONSE));
+        PlanResponse plan = planService.create(
+                member.getId(), new PlanCreateRequest(StartSituation.FIRST_INDEPENDENCE, LeaseType.JEONSE));
 
         planService.completeTask(member.getId(), plan.getId(), "USER_INFO", "BANK_CONSULTATION");
         planService.completeTask(member.getId(), plan.getId(), "USER_INFO", "LOAN_LIMIT_CHECK");
