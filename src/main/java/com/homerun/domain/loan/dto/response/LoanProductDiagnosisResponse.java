@@ -18,6 +18,7 @@ public record LoanProductDiagnosisResponse(
         BigDecimal expectedRateMax,
         Long monthlyInterestMin,
         Long monthlyInterestMax,
+        boolean criteriaProvisional,
         List<String> reasons,
         String sourceUrl) {
 

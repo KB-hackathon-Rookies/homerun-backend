@@ -47,9 +47,9 @@ class JeonseLoanDiagnosisServiceTest {
     @BeforeEach
     void setUpFacts() {
         when(facts.won("FCT-003")).thenReturn(50_000_000L);
-        when(facts.won("FCT-170")).thenReturn(345_000_000L);
-        when(facts.won("FCT-171")).thenReturn(150_000_000L);
-        when(facts.won("FCT-175")).thenReturn(300_000_000L);
+        when(facts.require("FCT-170")).thenReturn(wonFact("FCT-170", 345_000_000L));
+        when(facts.require("FCT-171")).thenReturn(wonFact("FCT-171", 150_000_000L));
+        when(facts.require("FCT-175")).thenReturn(wonFact("FCT-175", 300_000_000L));
         when(facts.require("FCT-008")).thenReturn(fact("FCT-008", "80"));
         when(facts.require("FCT-172")).thenReturn(fact("FCT-172", "2.2"));
         when(facts.require("FCT-173")).thenReturn(fact("FCT-173", "3.3"));
@@ -71,6 +71,7 @@ class JeonseLoanDiagnosisServiceTest {
         assertThat(youth.ownFundsRequired()).isEqualTo(50_000_000L);
         assertThat(youth.monthlyInterestMin()).isEqualTo(275_000L);
         assertThat(youth.monthlyInterestMax()).isEqualTo(412_500L);
+        assertThat(youth.criteriaProvisional()).isFalse();
         assertThat(result.recommendedDepositLimit()).isEqualTo(200_000_000L);
     }
 
@@ -143,5 +144,9 @@ class JeonseLoanDiagnosisServiceTest {
 
     private Fact fact(String code, String value) {
         return new Fact(code, code, new BigDecimal(value), "%", value, "https://example.com", false);
+    }
+
+    private Fact wonFact(String code, long value) {
+        return new Fact(code, code, BigDecimal.valueOf(value), "원", Long.toString(value), "https://example.com", false);
     }
 }

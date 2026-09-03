@@ -1,5 +1,6 @@
 package com.homerun.domain.loan.service;
 
+import com.homerun.domain.fact.model.Fact;
 import com.homerun.domain.fact.service.FactRegistry;
 import com.homerun.domain.loan.dto.response.JeonseLoanDiagnosisResponse;
 import com.homerun.domain.loan.dto.response.LoanProductDiagnosisResponse;
@@ -76,12 +77,19 @@ public class JeonseLoanDiagnosisService {
 
     private LoanProductDiagnosisResponse youth(PlanInput input) {
         long incomeCap = facts.won("FCT-003");
-        long assetCap = facts.won("FCT-170");
-        long loanCap = facts.won("FCT-171");
-        long depositCap = facts.won("FCT-175");
+        Fact assetCapFact = facts.require("FCT-170");
+        Fact loanCapFact = facts.require("FCT-171");
+        Fact depositCapFact = facts.require("FCT-175");
         BigDecimal loanRatio = facts.require("FCT-008").requireNumber();
-        BigDecimal rateMin = facts.require("FCT-172").requireNumber();
-        BigDecimal rateMax = facts.require("FCT-173").requireNumber();
+        Fact rateMinFact = facts.require("FCT-172");
+        Fact rateMaxFact = facts.require("FCT-173");
+        long assetCap = assetCapFact.requireWon();
+        long loanCap = loanCapFact.requireWon();
+        long depositCap = depositCapFact.requireWon();
+        BigDecimal rateMin = rateMinFact.requireNumber();
+        BigDecimal rateMax = rateMaxFact.requireNumber();
+        boolean provisional = List.of(assetCapFact, loanCapFact, depositCapFact, rateMinFact, rateMaxFact).stream()
+                .anyMatch(Fact::provisional);
 
         List<String> blockers = commonBlockers(input);
         List<String> missing = commonMissing(input);
@@ -120,6 +128,7 @@ public class JeonseLoanDiagnosisService {
                 ownFunds,
                 rateMin,
                 rateMax,
+                provisional,
                 messages(blockers, missing),
                 YOUTH_SOURCE);
     }
@@ -138,6 +147,7 @@ public class JeonseLoanDiagnosisService {
                 null,
                 null,
                 null,
+                true,
                 messages(blockers, missing),
                 GENERAL_SOURCE);
     }
@@ -157,6 +167,7 @@ public class JeonseLoanDiagnosisService {
                 null,
                 null,
                 null,
+                true,
                 messages(blockers, review),
                 null);
     }
@@ -253,6 +264,7 @@ public class JeonseLoanDiagnosisService {
             Long ownFunds,
             BigDecimal rateMin,
             BigDecimal rateMax,
+            boolean criteriaProvisional,
             List<String> reasons,
             String sourceUrl) {
         return new LoanProductDiagnosisResponse(
@@ -266,6 +278,7 @@ public class JeonseLoanDiagnosisService {
                 rateMax,
                 monthlyInterest(loan, rateMin),
                 monthlyInterest(loan, rateMax),
+                criteriaProvisional,
                 reasons,
                 sourceUrl);
     }
