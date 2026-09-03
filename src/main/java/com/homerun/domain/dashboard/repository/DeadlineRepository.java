@@ -6,5 +6,5 @@ import org.springframework.data.jpa.repository.JpaRepository;
 
 public interface DeadlineRepository extends JpaRepository<Deadline, Long> {
 
-    List<Deadline> findAllByPlanIdAndStepIdIsNotNull(Long planId);
+    List<Deadline> findAllByPlanIdAndTaskIdIsNotNull(Long planId);
 }
