@@ -1,7 +1,10 @@
 package com.homerun.global.external.address;
 
+import com.homerun.global.external.resilience.ExternalApiRestClientFactory;
+import com.homerun.global.external.resilience.ExternalApiRetryExecutor;
 import java.util.ArrayList;
 import java.util.List;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 import org.springframework.web.client.RestClient;
 import tools.jackson.databind.JsonNode;
@@ -13,11 +16,34 @@ public class JusoAddressClient {
     private final JusoProperties properties;
     private final ObjectMapper objectMapper;
     private final RestClient restClient;
+    private final ExternalApiRetryExecutor retryExecutor;
 
     public JusoAddressClient(JusoProperties properties, ObjectMapper objectMapper) {
+        this(
+                properties,
+                objectMapper,
+                RestClient.builder().baseUrl(properties.baseUrl()).build(),
+                ExternalApiRetryExecutor.noRetry());
+    }
+
+    @Autowired
+    public JusoAddressClient(
+            JusoProperties properties,
+            ObjectMapper objectMapper,
+            ExternalApiRestClientFactory restClientFactory,
+            ExternalApiRetryExecutor retryExecutor) {
+        this(properties, objectMapper, restClientFactory.create(properties.baseUrl()), retryExecutor);
+    }
+
+    private JusoAddressClient(
+            JusoProperties properties,
+            ObjectMapper objectMapper,
+            RestClient restClient,
+            ExternalApiRetryExecutor retryExecutor) {
         this.properties = properties;
         this.objectMapper = objectMapper;
-        this.restClient = RestClient.builder().baseUrl(properties.baseUrl()).build();
+        this.restClient = restClient;
+        this.retryExecutor = retryExecutor;
     }
 
     public AddressSearchResponse search(String keyword, int currentPage, int countPerPage) {
@@ -26,7 +52,7 @@ public class JusoAddressClient {
         }
 
         try {
-            String json = restClient
+            String json = retryExecutor.execute(() -> restClient
                     .get()
                     .uri(uriBuilder -> uriBuilder
                             .path("/addrLinkApi.do")
@@ -39,7 +65,7 @@ public class JusoAddressClient {
                             .queryParam("addInfoYn", "Y")
                             .build())
                     .retrieve()
-                    .body(String.class);
+                    .body(String.class));
 
             if (json == null || json.isBlank()) {
                 throw new JusoApiException("주소 검색 API가 빈 응답을 반환했습니다.");

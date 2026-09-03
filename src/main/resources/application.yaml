@@ -33,6 +33,11 @@ spring:
       mail.smtp.starttls.enable: true
 
 external-api:
+  resilience:
+    connect-timeout: ${EXTERNAL_API_CONNECT_TIMEOUT:3s}
+    read-timeout: ${EXTERNAL_API_READ_TIMEOUT:5s}
+    max-attempts: ${EXTERNAL_API_MAX_ATTEMPTS:2}
+    retry-backoff: ${EXTERNAL_API_RETRY_BACKOFF:200ms}
   juso:
     base-url: https://business.juso.go.kr/addrlink
     confirm-key: ${JUSO_CONFIRM_KEY:}

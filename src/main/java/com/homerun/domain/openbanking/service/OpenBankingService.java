@@ -14,22 +14,14 @@ import com.homerun.global.exception.BusinessException;
 import com.homerun.global.exception.ErrorCode;
 import com.homerun.global.external.openbanking.OpenBankingClient;
 import com.homerun.global.external.openbanking.OpenBankingResponses.Account;
-import com.homerun.global.external.openbanking.OpenBankingResponses.Balance;
 import com.homerun.global.external.openbanking.OpenBankingResponses.Loan;
-import com.homerun.global.external.openbanking.OpenBankingResponses.LoanBasicPage;
 import com.homerun.global.external.openbanking.OpenBankingResponses.LoanPage;
 import com.homerun.global.external.openbanking.OpenBankingResponses.Token;
-import com.homerun.global.external.openbanking.OpenBankingResponses.Transaction;
-import com.homerun.global.external.openbanking.OpenBankingResponses.TransactionPage;
 import com.homerun.global.external.openbanking.OpenBankingResponses.UserInfo;
-import java.math.BigDecimal;
-import java.math.RoundingMode;
 import java.net.URI;
 import java.time.Clock;
 import java.time.Instant;
 import java.time.LocalDate;
-import java.time.YearMonth;
-import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
@@ -42,7 +34,6 @@ import org.springframework.transaction.annotation.Transactional;
 public class OpenBankingService {
 
     private static final long REFRESH_SAFETY_SECONDS = 30;
-    private static final int SUMMARY_MONTHS = 3;
     private static final int MAX_PAGES = 100;
 
     private final OpenBankingConnectionRepository connectionRepository;
@@ -143,57 +134,9 @@ public class OpenBankingService {
         AccessContext context = accessContext(memberId);
         UserInfo userInfo =
                 client.userInfo(context.accessToken(), context.connection().getUserSeqNo());
-        SummaryPeriod period = summaryPeriod();
-
-        BigDecimal totalBalance = BigDecimal.ZERO;
-        BigDecimal totalAvailableBalance = BigDecimal.ZERO;
-        Map<YearMonth, BigDecimal> monthlySalary = new LinkedHashMap<>();
-        for (Account account : userInfo.accounts()) {
-            Balance balance = client.balance(context.accessToken(), account.fintechUseNumber());
-            totalBalance = totalBalance.add(orZero(balance.balanceAmount()));
-            totalAvailableBalance = totalAvailableBalance.add(orZero(balance.availableAmount()));
-            for (Transaction transaction : fetchTransactions(context, account, period)) {
-                if (isSalary(transaction)) {
-                    YearMonth month = YearMonth.from(transaction.date());
-                    monthlySalary.merge(month, transaction.amount().abs(), BigDecimal::add);
-                }
-            }
-        }
-
         List<String> bankCodes = bankCodes(userInfo.accounts(), additionalBankCodes);
-        List<Loan> loans = fetchLoans(context, bankCodes);
-        int unavailableCount = 0;
-        int availableCount = 0;
-        BigDecimal repaymentTotal = BigDecimal.ZERO;
-        for (Loan loan : loans) {
-            if (isBlank(loan.accountNumber())) {
-                unavailableCount++;
-                continue;
-            }
-            availableCount++;
-            repaymentTotal = repaymentTotal.add(fetchLoanRepaymentTotal(context, loan, period));
-        }
-
-        BigDecimal averageSalary =
-                monthlySalary.isEmpty() ? null : average(monthlySalary.values(), monthlySalary.size());
-        BigDecimal averageRepayment =
-                loans.isEmpty() ? BigDecimal.ZERO : availableCount == 0 ? null : divide(repaymentTotal, SUMMARY_MONTHS);
-        return new OpenBankingFinancialSummaryResponse(
-                userInfo.accounts().size(),
-                totalBalance,
-                totalAvailableBalance,
-                averageSalary,
-                monthlySalary.size(),
-                averageRepayment,
-                loans.size(),
-                unavailableCount,
-                unavailableCount > 0,
-                period.fromDate(),
-                period.toDate(),
-                SUMMARY_MONTHS,
-                bankCodes,
-                loans.stream().map(OpenBankingLoanResponse::from).toList(),
-                Instant.now(clock));
+        return new OpenBankingFinancialSummaryAggregator(client, clock)
+                .aggregate(context.accessToken(), userInfo, bankCodes);
     }
 
     private AccessContext accessContext(Long memberId) {
@@ -288,45 +231,6 @@ public class OpenBankingService {
         return List.copyOf(uniqueLoans.values());
     }
 
-    private List<Transaction> fetchTransactions(AccessContext context, Account account, SummaryPeriod period) {
-        List<Transaction> result = new ArrayList<>();
-        String traceInfo = null;
-        for (int pageNumber = 0; pageNumber < MAX_PAGES; pageNumber++) {
-            TransactionPage page = client.transactions(
-                    context.accessToken(), account.fintechUseNumber(), period.fromDate(), period.toDate(), traceInfo);
-            result.addAll(page.transactions());
-            if (!page.hasNextPage()) {
-                return result;
-            }
-            traceInfo = nextTraceInfo(traceInfo, page.nextTraceInfo(), pageNumber);
-        }
-        throw new BusinessException(ErrorCode.OPEN_BANKING_PAGINATION_ERROR);
-    }
-
-    private BigDecimal fetchLoanRepaymentTotal(AccessContext context, Loan loan, SummaryPeriod period) {
-        BigDecimal result = BigDecimal.ZERO;
-        String traceInfo = null;
-        for (int pageNumber = 0; pageNumber < MAX_PAGES; pageNumber++) {
-            LoanBasicPage page = client.loanBasic(
-                    context.accessToken(),
-                    context.connection().getUserSeqNo(),
-                    loan,
-                    period.fromDate(),
-                    period.toDate(),
-                    traceInfo);
-            result = result.add(page.transactions().stream()
-                    .filter(transaction -> "02".equals(transaction.type()))
-                    .filter(transaction -> transaction.amount() != null)
-                    .map(transaction -> transaction.amount().abs())
-                    .reduce(BigDecimal.ZERO, BigDecimal::add));
-            if (!page.hasNextPage()) {
-                return result;
-            }
-            traceInfo = nextTraceInfo(traceInfo, page.nextTraceInfo(), pageNumber);
-        }
-        throw new BusinessException(ErrorCode.OPEN_BANKING_PAGINATION_ERROR);
-    }
-
     private String nextTraceInfo(String currentTraceInfo, String nextTraceInfo, int pageNumber) {
         if (isBlank(nextTraceInfo) || nextTraceInfo.equals(currentTraceInfo) || pageNumber == MAX_PAGES - 1) {
             throw new BusinessException(ErrorCode.OPEN_BANKING_PAGINATION_ERROR);
@@ -347,35 +251,6 @@ public class OpenBankingService {
                 + loan.accountType();
     }
 
-    private boolean isSalary(Transaction transaction) {
-        return transaction.date() != null
-                && transaction.amount() != null
-                && "입금".equals(transaction.direction())
-                && "급여".equals(transaction.type());
-    }
-
-    private SummaryPeriod summaryPeriod() {
-        LocalDate toDate = LocalDate.now(clock).withDayOfMonth(1).minusDays(1);
-        LocalDate fromDate = toDate.withDayOfMonth(1).minusMonths(SUMMARY_MONTHS - 1L);
-        return new SummaryPeriod(fromDate, toDate);
-    }
-
-    private BigDecimal average(Iterable<BigDecimal> values, int count) {
-        BigDecimal sum = BigDecimal.ZERO;
-        for (BigDecimal value : values) {
-            sum = sum.add(value);
-        }
-        return divide(sum, count);
-    }
-
-    private BigDecimal divide(BigDecimal value, int divisor) {
-        return value.divide(BigDecimal.valueOf(divisor), 0, RoundingMode.HALF_UP);
-    }
-
-    private BigDecimal orZero(BigDecimal value) {
-        return value == null ? BigDecimal.ZERO : value;
-    }
-
     private void validateTransactionPeriod(LocalDate fromDate, LocalDate toDate) {
         if (fromDate == null || toDate == null || fromDate.isAfter(toDate) || toDate.isAfter(LocalDate.now(clock))) {
             throw new BusinessException(ErrorCode.INVALID_TRANSACTION_PERIOD);
@@ -391,6 +266,4 @@ public class OpenBankingService {
     }
 
     private record AccessContext(OpenBankingConnection connection, String accessToken) {}
-
-    private record SummaryPeriod(LocalDate fromDate, LocalDate toDate) {}
 }

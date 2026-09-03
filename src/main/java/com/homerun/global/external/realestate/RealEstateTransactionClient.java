@@ -1,11 +1,13 @@
 package com.homerun.global.external.realestate;
 
-import java.nio.charset.StandardCharsets;
+import com.homerun.global.external.resilience.ExternalApiRestClientFactory;
+import com.homerun.global.external.resilience.ExternalApiRetryExecutor;
 import java.util.ArrayList;
 import java.util.List;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
-import org.springframework.util.StreamUtils;
 import org.springframework.web.client.RestClient;
+import org.springframework.web.client.RestClientResponseException;
 
 @Component
 public class RealEstateTransactionClient {
@@ -13,12 +15,35 @@ public class RealEstateTransactionClient {
     private final RealEstateTransactionProperties properties;
     private final RealEstateTransactionXmlParser parser;
     private final RestClient restClient;
+    private final ExternalApiRetryExecutor retryExecutor;
 
     public RealEstateTransactionClient(
             RealEstateTransactionProperties properties, RealEstateTransactionXmlParser parser) {
+        this(
+                properties,
+                parser,
+                RestClient.builder().baseUrl(properties.baseUrl()).build(),
+                ExternalApiRetryExecutor.noRetry());
+    }
+
+    @Autowired
+    public RealEstateTransactionClient(
+            RealEstateTransactionProperties properties,
+            RealEstateTransactionXmlParser parser,
+            ExternalApiRestClientFactory restClientFactory,
+            ExternalApiRetryExecutor retryExecutor) {
+        this(properties, parser, restClientFactory.create(properties.baseUrl()), retryExecutor);
+    }
+
+    private RealEstateTransactionClient(
+            RealEstateTransactionProperties properties,
+            RealEstateTransactionXmlParser parser,
+            RestClient restClient,
+            ExternalApiRetryExecutor retryExecutor) {
         this.properties = properties;
         this.parser = parser;
-        this.restClient = RestClient.builder().baseUrl(properties.baseUrl()).build();
+        this.restClient = restClient;
+        this.retryExecutor = retryExecutor;
     }
 
     public RealEstateTransactionResponse findTransactions(RealEstateTransactionRequest request) {
@@ -28,7 +53,7 @@ public class RealEstateTransactionClient {
 
         String endpoint = properties.endpointFor(request.housingType());
         try {
-            String xml = restClient
+            String xml = retryExecutor.execute(() -> restClient
                     .get()
                     .uri(uriBuilder -> uriBuilder
                             .path(endpoint)
@@ -39,11 +64,7 @@ public class RealEstateTransactionClient {
                             .queryParam("numOfRows", request.numOfRows())
                             .build())
                     .retrieve()
-                    .onStatus(status -> status.isError(), (httpRequest, httpResponse) -> {
-                        String errorBody = StreamUtils.copyToString(httpResponse.getBody(), StandardCharsets.UTF_8);
-                        throw errorFromBody(errorBody);
-                    })
-                    .body(String.class);
+                    .body(String.class));
 
             if (xml == null || xml.isBlank()) {
                 throw new RealEstateTransactionUpstreamException("실거래가 API가 빈 응답을 반환했습니다.");
@@ -64,6 +85,8 @@ public class RealEstateTransactionClient {
                     parsed.resultCode(),
                     parsed.resultMessage(),
                     parsed.items());
+        } catch (RestClientResponseException exception) {
+            throw errorFromBody(exception.getResponseBodyAsString());
         } catch (RealEstateTransactionUpstreamException exception) {
             throw exception;
         } catch (Exception exception) {

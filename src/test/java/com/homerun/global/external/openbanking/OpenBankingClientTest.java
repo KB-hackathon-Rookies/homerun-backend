@@ -1,13 +1,19 @@
 package com.homerun.global.external.openbanking;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.hamcrest.Matchers.containsString;
 import static org.springframework.test.web.client.match.MockRestRequestMatchers.method;
 import static org.springframework.test.web.client.match.MockRestRequestMatchers.requestTo;
+import static org.springframework.test.web.client.response.MockRestResponseCreators.withServerError;
 import static org.springframework.test.web.client.response.MockRestResponseCreators.withSuccess;
 
+import com.homerun.global.exception.BusinessException;
+import com.homerun.global.external.resilience.ExternalApiResilienceProperties;
+import com.homerun.global.external.resilience.ExternalApiRetryExecutor;
 import java.net.URI;
 import java.time.Clock;
+import java.time.Duration;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.time.ZoneOffset;
@@ -40,7 +46,9 @@ class OpenBankingClientTest {
                         "unused"),
                 new ObjectMapper(),
                 Clock.fixed(Instant.parse("2026-09-03T01:02:03Z"), ZoneOffset.UTC),
-                builder.build());
+                builder.build(),
+                new ExternalApiRetryExecutor(new ExternalApiResilienceProperties(
+                        Duration.ofSeconds(1), Duration.ofSeconds(1), 2, Duration.ZERO)));
     }
 
     @Test
@@ -216,6 +224,36 @@ class OpenBankingClientTest {
             assertThat(transaction.type()).isEqualTo("02");
             assertThat(transaction.amount()).isEqualByComparingTo("-450000");
         });
+        server.verify();
+    }
+
+    @Test
+    void should_retryLookupRequestAfterServerError() {
+        server.expect(requestTo(containsString("/v2.0/account/balance/fin_num?")))
+                .andRespond(withServerError());
+        server.expect(requestTo(containsString("/v2.0/account/balance/fin_num?")))
+                .andRespond(withSuccess("""
+                        {
+                          "rsp_code":"A0000",
+                          "balance_amt":"1000",
+                          "available_amt":"900"
+                        }
+                        """, MediaType.APPLICATION_JSON));
+
+        OpenBankingResponses.Balance response = client.balance("access", "123456789012345678901234");
+
+        assertThat(response.balanceAmount()).isEqualByComparingTo("1000");
+        server.verify();
+    }
+
+    @Test
+    void should_notRetryOAuthTokenRequest() {
+        server.expect(requestTo("https://oauth.example.com/oauth/2.0/token"))
+                .andExpect(method(HttpMethod.POST))
+                .andRespond(withServerError());
+
+        assertThatThrownBy(() -> client.exchangeAuthorizationCode("authorization-code"))
+                .isInstanceOf(BusinessException.class);
         server.verify();
     }
 }
