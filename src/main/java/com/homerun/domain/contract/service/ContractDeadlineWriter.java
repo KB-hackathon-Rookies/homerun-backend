@@ -80,8 +80,8 @@ class ContractDeadlineWriter {
                 planId,
                 taskIds,
                 StepTaskTemplate.MOVE_IN_REPORT,
-                DeadlineType.LEGAL,
-                "전입신고 마감",
+                DeadlineType.RECOMMENDED,
+                "전입신고 권장일(잔금일 당일)",
                 "BALANCE_DATE",
                 balanceDate,
                 0,
@@ -91,8 +91,8 @@ class ContractDeadlineWriter {
                 planId,
                 taskIds,
                 StepTaskTemplate.FIXED_DATE,
-                DeadlineType.LEGAL,
-                "확정일자 마감",
+                DeadlineType.RECOMMENDED,
+                "확정일자 권장일(잔금일 당일)",
                 "BALANCE_DATE",
                 balanceDate,
                 0,
@@ -137,21 +137,55 @@ class ContractDeadlineWriter {
                 -days(VERIFY_FACT),
                 VERIFY_FACT);
 
-        // 반환보증은 전입·확정일자가 끝나야 가입할 수 있다. 아직이면 잔금일로 본다.
-        LocalDate protectionDone = contract.getMoveInReportAt() != null ? contract.getMoveInReportAt() : balanceDate;
+        addGuaranteeDeadline(built, planId, taskIds, contract, balanceDate);
+
+        return built;
+    }
+
+    /**
+     * 반환보증 가입 마감(FCT-109).
+     *
+     * <p>"전입·확정일자 완료 후 즉시"라 <b>둘 다</b> 끝나야 한다. 한쪽만 보고 계산하면 아직
+     * 가입할 수 없는 사람에게 이미 지났다고 표시된다. 둘 다 끝났으면 <b>늦은 쪽</b>이 기준이다.
+     *
+     * <p>아직이면 잔금일로 잡되 예정 기반임을 기준 사건과 문구로 구분한다. 완료 기반과 예정
+     * 기반을 같은 이름으로 내보내면 어느 쪽인지 알 수 없다.
+     */
+    private void addGuaranteeDeadline(
+            List<Deadline> built,
+            Long planId,
+            Map<String, Long> taskIds,
+            LeaseContract contract,
+            LocalDate balanceDate) {
+        LocalDate moveIn = contract.getMoveInReportAt();
+        LocalDate confirmed = contract.getConfirmedDateAt();
+
+        if (moveIn != null && confirmed != null) {
+            LocalDate later = moveIn.isAfter(confirmed) ? moveIn : confirmed;
+            add(
+                    built,
+                    planId,
+                    taskIds,
+                    StepTaskTemplate.GUARANTEE_CHECK,
+                    DeadlineType.RECOMMENDED,
+                    "반환보증 가입 권장일",
+                    "PROTECTION_COMPLETED",
+                    later,
+                    0,
+                    GUARANTEE_FACT);
+            return;
+        }
         add(
                 built,
                 planId,
                 taskIds,
                 StepTaskTemplate.GUARANTEE_CHECK,
                 DeadlineType.RECOMMENDED,
-                "반환보증 가입 권장일",
-                "MOVE_IN_REPORT_DATE",
-                protectionDone,
+                "반환보증 가입 권장일(잔금일 기준 예정)",
+                "BALANCE_DATE",
+                balanceDate,
                 0,
                 GUARANTEE_FACT);
-
-        return built;
     }
 
     /** 기준 날짜나 할 일이 없으면 만들지 않는다. */

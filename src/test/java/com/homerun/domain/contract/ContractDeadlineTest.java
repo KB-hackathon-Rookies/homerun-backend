@@ -92,6 +92,11 @@ class ContractDeadlineTest {
     }
 
     private SaveRequest contractWith(LocalDate contractDate, LocalDate balanceDate, LocalDate moveInReportAt) {
+        return contractWith(contractDate, balanceDate, moveInReportAt, null);
+    }
+
+    private SaveRequest contractWith(
+            LocalDate contractDate, LocalDate balanceDate, LocalDate moveInReportAt, LocalDate confirmedDateAt) {
         return new SaveRequest(
                 null,
                 LeaseType.WOLSE,
@@ -102,7 +107,7 @@ class ContractDeadlineTest {
                 contractDate,
                 balanceDate,
                 balanceDate,
-                null,
+                confirmedDateAt,
                 moveInReportAt,
                 null,
                 null,
@@ -119,17 +124,31 @@ class ContractDeadlineTest {
     }
 
     @Test
-    @DisplayName("전입신고와 확정일자 마감은 잔금일 당일이고 법정 기한이다")
-    void should_write_legal_deadline_on_balance_date() {
+    @DisplayName("전입신고와 확정일자는 잔금일 당일이되 법정기한으로 내보내지 않는다")
+    void should_not_mark_settlement_guidance_as_legal() {
+        // 주민등록법상 전입신고 의무기한은 전입한 날부터 14일이다. 잔금일 당일은 선순위
+        // 위험을 줄이기 위한 권고지 법정기한이 아니다. LEGAL 로 올리면 화면이 법정기한으로
+        // 안내하게 되고 진짜 법정기한과 구분이 사라진다.
         service.save(ownerId, planId, contractWith(CONTRACT, BALANCE, null));
 
         List<Deadline> settlement = deadlines.findAllByPlanIdAndFactCodeIn(planId, List.of("FCT-107"));
 
         assertThat(settlement).hasSize(2);
         assertThat(settlement).allSatisfy(deadline -> {
-            assertThat(deadline.getType()).isEqualTo(DeadlineType.LEGAL);
+            assertThat(deadline.getType()).isEqualTo(DeadlineType.RECOMMENDED);
             assertThat(deadline.getDueDate()).isEqualTo(BALANCE);
         });
+    }
+
+    @Test
+    @DisplayName("법정기한이라고 표시하는 마감은 아직 없다")
+    void should_not_write_any_legal_deadline_yet() {
+        // 진짜 LEGAL 은 대출 신청 마감(FCT-103)인데 붙일 할 일이 없어 미뤘다(#67).
+        // 그 자리를 권고로 메우지 않는다.
+        service.save(ownerId, planId, contractWith(CONTRACT, BALANCE, null));
+
+        assertThat(deadlines.findAllByPlanIdAndTaskIdIsNotNull(planId))
+                .noneMatch(deadline -> deadline.getType() == DeadlineType.LEGAL);
     }
 
     @Test
@@ -161,15 +180,13 @@ class ContractDeadlineTest {
     }
 
     @Test
-    @DisplayName("법정 기한과 권장일을 섞지 않는다")
-    void should_separate_legal_from_recommended() {
+    @DisplayName("모든 마감이 근거와 기준 사건을 남긴다")
+    void should_record_base_event_on_every_deadline() {
         service.save(ownerId, planId, contractWith(CONTRACT, BALANCE, null));
 
-        Map<String, Deadline> written = byFact();
-
-        assertThat(written.get("FCT-107").getType()).isEqualTo(DeadlineType.LEGAL);
-        assertThat(written.get("FCT-104").getType()).isEqualTo(DeadlineType.RECOMMENDED);
-        assertThat(written.get("FCT-105").getType()).isEqualTo(DeadlineType.RECOMMENDED);
+        assertThat(deadlines.findAllByPlanIdAndTaskIdIsNotNull(planId))
+                .allMatch(deadline -> deadline.getBaseEvent() != null
+                        && !deadline.getBaseEvent().isBlank());
     }
 
     @Test
@@ -198,13 +215,31 @@ class ContractDeadlineTest {
     }
 
     @Test
-    @DisplayName("반환보증은 전입신고를 마친 날 기준이다")
-    void should_base_guarantee_on_move_in_report() {
+    @DisplayName("반환보증은 전입신고와 확정일자가 둘 다 끝난 날 기준이다")
+    void should_base_guarantee_on_the_later_of_both_steps() {
+        // FCT-109 는 "전입·확정일자 완료 후 즉시"다. 한쪽만 보고 계산하면 아직 가입할 수
+        // 없는 사람에게 이미 지났다고 표시된다.
+        LocalDate moveIn = BALANCE.plusDays(1);
+        LocalDate confirmed = BALANCE.plusDays(3);
+
+        service.save(ownerId, planId, contractWith(CONTRACT, BALANCE, moveIn, confirmed));
+
+        Deadline guarantee = byFact().get("FCT-109");
+        assertThat(guarantee.getDueDate()).isEqualTo(confirmed);
+        assertThat(guarantee.getBaseEvent()).isEqualTo("PROTECTION_COMPLETED");
+    }
+
+    @Test
+    @DisplayName("한쪽만 끝났으면 완료 기준으로 잡지 않는다")
+    void should_not_use_completion_base_when_only_one_step_is_done() {
         LocalDate moveIn = BALANCE.plusDays(1);
 
-        service.save(ownerId, planId, contractWith(CONTRACT, BALANCE, moveIn));
+        service.save(ownerId, planId, contractWith(CONTRACT, BALANCE, moveIn, null));
 
-        assertThat(byFact().get("FCT-109").getDueDate()).isEqualTo(moveIn);
+        Deadline guarantee = byFact().get("FCT-109");
+        assertThat(guarantee.getDueDate()).isEqualTo(BALANCE);
+        assertThat(guarantee.getBaseEvent()).isEqualTo("BALANCE_DATE");
+        assertThat(guarantee.getLabel()).contains("예정");
     }
 
     @Test
