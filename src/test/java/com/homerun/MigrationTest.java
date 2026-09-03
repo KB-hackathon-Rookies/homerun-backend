@@ -28,14 +28,14 @@ class MigrationTest {
     }
 
     @Test
-    @DisplayName("V1 이 47개 테이블을 만들고 후속 마이그레이션이 세 테이블을 더해 50개가 된다")
+    @DisplayName("V1 이 47개 테이블을 만들고 후속 마이그레이션이 네 테이블을 더해 51개가 된다")
     void should_create_all_tables_when_migrated() {
         Integer count = jdbc.queryForObject(
                 "SELECT count(*) FROM information_schema.tables"
                         + " WHERE table_schema = 'public' AND table_name <> 'flyway_schema_history'",
                 Integer.class);
 
-        assertThat(count).isEqualTo(50);
+        assertThat(count).isEqualTo(51);
     }
 
     @Test
