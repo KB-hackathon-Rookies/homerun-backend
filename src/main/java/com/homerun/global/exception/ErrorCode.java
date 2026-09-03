@@ -83,6 +83,7 @@ public enum ErrorCode {
     PROPERTY_NOT_IN_PLAN(HttpStatus.BAD_REQUEST, "PRP_002", "이 계획의 매물이 아닙니다."),
 
     DOCUMENT_NOT_FOUND(HttpStatus.NOT_FOUND, "ISS_001", "존재하지 않는 서류입니다."),
+    DOCUMENT_STATUS_NOT_SELECTABLE(HttpStatus.BAD_REQUEST, "ISS_002", "직접 지정할 수 없는 서류 상태입니다."),
     ;
 
     private final HttpStatus status;
