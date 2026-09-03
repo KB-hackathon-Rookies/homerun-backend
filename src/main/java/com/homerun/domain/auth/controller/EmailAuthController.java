@@ -1,7 +1,6 @@
 package com.homerun.domain.auth.controller;
 
-import com.homerun.domain.auth.config.AuthCookieProperties;
-import com.homerun.domain.auth.config.RefreshTokenProperties;
+import com.homerun.domain.auth.config.RefreshTokenCookieFactory;
 import com.homerun.domain.auth.dto.request.ConfirmEmailVerificationRequest;
 import com.homerun.domain.auth.dto.request.EmailLoginRequest;
 import com.homerun.domain.auth.dto.request.EmailSignupRequest;
@@ -17,9 +16,7 @@ import com.homerun.global.response.ApiResponse;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
-import java.time.Duration;
 import org.springframework.http.HttpHeaders;
-import org.springframework.http.ResponseCookie;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
@@ -35,22 +32,19 @@ public class EmailAuthController {
     private final EmailAuthService emailAuthService;
     private final RefreshTokenService refreshTokenService;
     private final OAuthLoginService oauthLoginService;
-    private final RefreshTokenProperties refreshTokenProperties;
-    private final AuthCookieProperties authCookieProperties;
+    private final RefreshTokenCookieFactory refreshTokenCookieFactory;
 
     public EmailAuthController(
             EmailVerificationService verificationService,
             EmailAuthService emailAuthService,
             RefreshTokenService refreshTokenService,
             OAuthLoginService oauthLoginService,
-            RefreshTokenProperties refreshTokenProperties,
-            AuthCookieProperties authCookieProperties) {
+            RefreshTokenCookieFactory refreshTokenCookieFactory) {
         this.verificationService = verificationService;
         this.emailAuthService = emailAuthService;
         this.refreshTokenService = refreshTokenService;
         this.oauthLoginService = oauthLoginService;
-        this.refreshTokenProperties = refreshTokenProperties;
-        this.authCookieProperties = authCookieProperties;
+        this.refreshTokenCookieFactory = refreshTokenCookieFactory;
     }
 
     @PostMapping("/verification/send")
@@ -83,15 +77,10 @@ public class EmailAuthController {
 
     private ResponseEntity<ApiResponse<LoginResponse>> loginResponse(Member member) {
         String refreshToken = refreshTokenService.issue(member);
-        ResponseCookie cookie = ResponseCookie.from("refresh_token", refreshToken)
-                .httpOnly(true)
-                .secure(authCookieProperties.secure())
-                .sameSite("Lax")
-                .path("/api/v1/auth")
-                .maxAge(Duration.ofDays(refreshTokenProperties.expirationDays()))
-                .build();
         return ResponseEntity.ok()
-                .header(HttpHeaders.SET_COOKIE, cookie.toString())
+                .header(
+                        HttpHeaders.SET_COOKIE,
+                        refreshTokenCookieFactory.create(refreshToken).toString())
                 .body(ApiResponse.success(oauthLoginService.createLoginResponse(member)));
     }
 }

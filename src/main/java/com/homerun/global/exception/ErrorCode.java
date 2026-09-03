@@ -29,6 +29,7 @@ public enum ErrorCode {
     EMAIL_AUTH_CONFIGURATION_ERROR(HttpStatus.INTERNAL_SERVER_ERROR, "AUTH_020", "이메일 인증 설정이 올바르지 않습니다."),
     EMAIL_AUTH_UNAVAILABLE(HttpStatus.SERVICE_UNAVAILABLE, "AUTH_021", "이메일 인증 서비스를 사용할 수 없습니다."),
     INVALID_EMAIL_CREDENTIALS(HttpStatus.UNAUTHORIZED, "AUTH_022", "이메일 또는 비밀번호가 올바르지 않습니다."),
+    MEMBER_WITHDRAWN(HttpStatus.UNAUTHORIZED, "AUTH_023", "탈퇴한 사용자입니다."),
 
     CONSENT_TOKEN_INVALID(HttpStatus.UNAUTHORIZED, "TERMS_001", "유효하지 않은 동의 토큰입니다."),
     CONSENT_TOKEN_EXPIRED(HttpStatus.UNAUTHORIZED, "TERMS_002", "동의 토큰이 만료되었습니다."),
