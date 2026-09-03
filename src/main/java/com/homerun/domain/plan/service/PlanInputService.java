@@ -1,12 +1,12 @@
 package com.homerun.domain.plan.service;
 
-import com.homerun.domain.plan.entity.Plan;
-import com.homerun.domain.plan.entity.PlanInput;
-import com.homerun.domain.region.entity.Region;
 import com.homerun.domain.plan.dto.request.PlanInputRequest;
 import com.homerun.domain.plan.dto.response.PlanInputResponse;
+import com.homerun.domain.plan.entity.Plan;
+import com.homerun.domain.plan.entity.PlanInput;
 import com.homerun.domain.plan.repository.PlanInputRepository;
 import com.homerun.domain.plan.repository.PlanRepository;
+import com.homerun.domain.region.entity.Region;
 import com.homerun.domain.region.repository.RegionRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -24,19 +24,15 @@ public class PlanInputService {
     public PlanInputResponse save(Long planId, PlanInputRequest request) {
 
         // 1. Plan 조회
-        Plan plan = planRepository.findById(planId)
-                .orElseThrow(() ->
-                        new IllegalArgumentException("존재하지 않는 Plan입니다.")
-                );
+        Plan plan = planRepository.findById(planId).orElseThrow(() -> new IllegalArgumentException("존재하지 않는 Plan입니다."));
 
         // 2. Region 조회
         Region region = null;
 
         if (request.getRegionId() != null) {
-            region = regionRepository.findById(request.getRegionId())
-                    .orElseThrow(() ->
-                            new IllegalArgumentException("존재하지 않는 지역입니다.")
-                    );
+            region = regionRepository
+                    .findById(request.getRegionId())
+                    .orElseThrow(() -> new IllegalArgumentException("존재하지 않는 지역입니다."));
         }
 
         // 3. PlanInput 생성
@@ -66,7 +62,6 @@ public class PlanInputService {
         return toResponse(saved);
     }
 
-
     private PlanInputResponse toResponse(PlanInput planInput) {
 
         return PlanInputResponse.builder()
@@ -81,11 +76,7 @@ public class PlanInputService {
                 .maxMonthlyBurden(planInput.getMaxMonthlyBurden())
 
                 // 주거 조건
-                .regionId(
-                        planInput.getRegion() != null
-                                ? planInput.getRegion().getId()
-                                : null
-                )
+                .regionId(planInput.getRegion() != null ? planInput.getRegion().getId() : null)
                 .areaM2(planInput.getAreaM2())
                 .houseType(planInput.getHouseType())
 
@@ -101,7 +92,6 @@ public class PlanInputService {
 
                 // 모름 필드
                 .unknownFields(planInput.getUnknownFields())
-
                 .createdAt(planInput.getCreatedAt())
                 .build();
     }

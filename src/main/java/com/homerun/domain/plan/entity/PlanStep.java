@@ -2,12 +2,11 @@ package com.homerun.domain.plan.entity;
 
 import com.homerun.domain.plan.type.PlanStepStatus;
 import jakarta.persistence.*;
+import java.time.Instant;
+import java.util.List;
 import lombok.AccessLevel;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
-
-import java.time.Instant;
-import java.util.List;
 
 /**
  * 사용자의 독립 계획(Plan)에 포함된 대단계 진행 정보를 관리하는 엔티티.
@@ -27,14 +26,12 @@ import java.util.List;
 @Table(
         name = "plan_step",
         uniqueConstraints = {
-                // 하나의 Plan 안에서는 동일한 step_group을 중복해서 가질 수 없음.
-                // 예: plan_id = 1에 step_group = 1인 Step은 하나만 존재.
-                @UniqueConstraint(
-                        name = "uq_plan_step_plan_group",
-                        columnNames = {"plan_id", "step_group"}
-                )
-        }
-)
+            // 하나의 Plan 안에서는 동일한 step_group을 중복해서 가질 수 없음.
+            // 예: plan_id = 1에 step_group = 1인 Step은 하나만 존재.
+            @UniqueConstraint(
+                    name = "uq_plan_step_plan_group",
+                    columnNames = {"plan_id", "step_group"})
+        })
 @Getter
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 public class PlanStep {
@@ -145,12 +142,7 @@ public class PlanStep {
      * @param stepGroup 대단계 순서 (1~4)
      * @return 생성된 PlanStep
      */
-    public static PlanStep create(
-            Long planId,
-            String stepCode,
-            String stepName,
-            int stepGroup
-    ) {
+    public static PlanStep create(Long planId, String stepCode, String stepName, int stepGroup) {
         PlanStep step = new PlanStep();
 
         // 어떤 Plan에 속한 Step인지 설정
@@ -174,9 +166,7 @@ public class PlanStep {
          * 이후 사용자가 1단계를 완료하면
          * 다음 단계의 상태를 READY로 변경한다.
          */
-        step.status = stepGroup == 1
-                ? PlanStepStatus.READY
-                : PlanStepStatus.LOCKED;
+        step.status = stepGroup == 1 ? PlanStepStatus.READY : PlanStepStatus.LOCKED;
 
         // 기본적으로 되돌릴 수 없는 단계가 아님
         step.irreversible = false;
@@ -188,7 +178,6 @@ public class PlanStep {
         step.updatedAt = Instant.now();
 
         return step;
-
     }
 
     public static List<PlanStep> defaultSteps(Long planId) {
@@ -196,8 +185,7 @@ public class PlanStep {
                 create(planId, "PREPARE", "준비", 1),
                 create(planId, "SEARCH", "집 찾기", 2),
                 create(planId, "CONTRACT", "계약", 3),
-                create(planId, "MOVE_IN", "입주", 4)
-        );
+                create(planId, "MOVE_IN", "입주", 4));
     }
 
     public void start() {
@@ -217,9 +205,7 @@ public class PlanStep {
     }
 
     public void reset() {
-        this.status = stepGroup == 1
-                ? PlanStepStatus.READY
-                : PlanStepStatus.LOCKED;
+        this.status = stepGroup == 1 ? PlanStepStatus.READY : PlanStepStatus.LOCKED;
 
         this.completedAt = null;
         this.updatedAt = Instant.now();
@@ -229,4 +215,3 @@ public class PlanStep {
         return 0;
     }
 }
-

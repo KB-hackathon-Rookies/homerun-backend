@@ -19,12 +19,8 @@ public class PlanInputController {
 
     @PostMapping("/{planId}/input")
     @Operation(summary = "사용자 입력")
-    public ResponseEntity<PlanInputResponse> save(
-            @PathVariable Long planId,
-            @RequestBody PlanInputRequest request
-    ) {
-        PlanInputResponse response =
-                planInputService.save(planId, request);
+    public ResponseEntity<PlanInputResponse> save(@PathVariable Long planId, @RequestBody PlanInputRequest request) {
+        PlanInputResponse response = planInputService.save(planId, request);
 
         return ResponseEntity.ok(response);
     }

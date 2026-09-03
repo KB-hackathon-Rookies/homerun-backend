@@ -1,12 +1,11 @@
 package com.homerun.domain.plan.dto.response;
 
-import com.homerun.domain.plan.type.PlanStepStatus;
 import com.homerun.domain.plan.entity.PlanStep;
-import lombok.Builder;
-import lombok.Data;
-
+import com.homerun.domain.plan.type.PlanStepStatus;
 import java.time.Instant;
 import java.util.List;
+import lombok.Builder;
+import lombok.Data;
 
 @Data
 @Builder

@@ -2,10 +2,9 @@ package com.homerun.domain.plan.dto.response;
 
 import com.homerun.domain.plan.entity.StepTask;
 import com.homerun.domain.plan.type.StepTaskStatus;
+import java.time.Instant;
 import lombok.Builder;
 import lombok.Data;
-
-import java.time.Instant;
 
 @Data
 @Builder

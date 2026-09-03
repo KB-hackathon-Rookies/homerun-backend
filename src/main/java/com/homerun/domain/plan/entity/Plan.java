@@ -5,11 +5,11 @@ import com.homerun.domain.plan.type.PlanStage;
 import com.homerun.domain.plan.type.PlanStatus;
 import com.homerun.domain.plan.type.StartSituation;
 import jakarta.persistence.*;
+import java.time.LocalDate;
+import java.time.OffsetDateTime;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
-import java.time.LocalDate;
-import java.time.OffsetDateTime;
 @Entity
 @Table(name = "plan")
 @Data
@@ -43,13 +43,13 @@ public class Plan {
     private Boolean isFavorite;
 
     @Column(name = "created_at", nullable = false)
-    private OffsetDateTime  createdAt;
+    private OffsetDateTime createdAt;
 
     @Column(name = "updated_at", nullable = false)
-    private OffsetDateTime  updatedAt;
+    private OffsetDateTime updatedAt;
 
     @Column(name = "closed_at")
-    private OffsetDateTime  closedAt;
+    private OffsetDateTime closedAt;
 
     @Column(name = "last_step_code", length = 50)
     private String lastStepCode;
@@ -70,11 +70,7 @@ public class Plan {
         return plan;
     }
 
-    public static Plan create(
-            Long memberId,
-            LeaseType leaseType,
-            LocalDate createdAt
-    ) {
+    public static Plan create(Long memberId, LeaseType leaseType, LocalDate createdAt) {
         Plan plan = new Plan();
 
         plan.userId = memberId;
@@ -90,7 +86,7 @@ public class Plan {
     @PrePersist
     protected void onCreate() {
 
-        OffsetDateTime  now = OffsetDateTime .now();
+        OffsetDateTime now = OffsetDateTime.now();
 
         if (createdAt == null) {
             createdAt = now;
@@ -115,20 +111,18 @@ public class Plan {
 
     @PreUpdate
     protected void onUpdate() {
-        updatedAt = OffsetDateTime .now();
+        updatedAt = OffsetDateTime.now();
     }
 
     public String getLastLocationCode() {
         return "";
     }
 
-
     public LocalDate getTargetMoveDate() {
         return null;
     }
 
-    public void verifyOwner(Long memberId) {
-    }
+    public void verifyOwner(Long memberId) {}
 
     public PlanStage getLastVisitedStage() {
         return null;

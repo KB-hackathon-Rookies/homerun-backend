@@ -8,17 +8,16 @@ import com.homerun.domain.plan.type.MaritalStatus;
 import com.homerun.domain.plan.type.PlanInputUnknownField;
 import com.homerun.domain.region.entity.Region;
 import jakarta.persistence.*;
+import java.math.BigDecimal;
+import java.time.OffsetDateTime;
+import java.util.ArrayList;
+import java.util.List;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 import org.hibernate.annotations.JdbcTypeCode;
 import org.hibernate.type.SqlTypes;
-
-import java.math.BigDecimal;
-import java.time.OffsetDateTime;
-import java.util.ArrayList;
-import java.util.List;
 
 @Entity
 @Table(name = "plan_input")
@@ -90,11 +89,7 @@ public class PlanInput {
 
     // 사용자가 "모름"으로 선택한 필드
     @JdbcTypeCode(SqlTypes.JSON)
-    @Column(
-            name = "unknown_fields",
-            columnDefinition = "jsonb",
-            nullable = false
-    )
+    @Column(name = "unknown_fields", columnDefinition = "jsonb", nullable = false)
     @Builder.Default
     private List<PlanInputUnknownField> unknownFields = new ArrayList<>();
 

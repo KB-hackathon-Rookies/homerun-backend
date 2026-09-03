@@ -1,13 +1,11 @@
 package com.homerun.domain.plan.dto.response;
 
-import com.homerun.domain.plan.type.*;
-
 import com.homerun.domain.plan.entity.Plan;
-import lombok.Builder;
-import lombok.Data;
-
+import com.homerun.domain.plan.type.*;
 import java.time.OffsetDateTime;
 import java.util.List;
+import lombok.Builder;
+import lombok.Data;
 
 @Data
 @Builder
@@ -57,10 +55,7 @@ public class PlanResponse {
                 .build();
     }
 
-    public static PlanResponse from(
-            Plan plan,
-            List<PlanStepResponse> steps
-    ) {
+    public static PlanResponse from(Plan plan, List<PlanStepResponse> steps) {
 
         return PlanResponse.builder()
                 .id(plan.getId())

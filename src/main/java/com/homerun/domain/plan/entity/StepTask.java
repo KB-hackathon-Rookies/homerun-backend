@@ -2,22 +2,19 @@ package com.homerun.domain.plan.entity;
 
 import com.homerun.domain.plan.type.StepTaskStatus;
 import jakarta.persistence.*;
+import java.time.Instant;
 import lombok.AccessLevel;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
-
-import java.time.Instant;
 
 @Entity
 @Table(
         name = "step_task",
         uniqueConstraints = {
-                @UniqueConstraint(
-                        name = "uq_step_task_sequence",
-                        columnNames = {"plan_step_id", "sequence"}
-                )
-        }
-)
+            @UniqueConstraint(
+                    name = "uq_step_task_sequence",
+                    columnNames = {"plan_step_id", "sequence"})
+        })
 @Getter
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 public class StepTask {
@@ -51,12 +48,7 @@ public class StepTask {
     @Column(name = "updated_at", nullable = false)
     private Instant updatedAt;
 
-    public static StepTask create(
-            Long planStepId,
-            String taskCode,
-            String taskName,
-            int sequence
-    ) {
+    public static StepTask create(Long planStepId, String taskCode, String taskName, int sequence) {
         StepTask task = new StepTask();
 
         task.planStepId = planStepId;
