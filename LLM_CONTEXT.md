@@ -7,7 +7,7 @@
 1. 사용자가 현재 작업에서 직접 전달한 지시
 2. 실제 코드와 설정
 3. 요구사항 정의 **시트2** (기능ID의 단일 출처)
-4. `V2__seed_config_effective.sql` (기준 수치의 단일 출처)
+4. `config_effective` 테이블 (기준 수치의 단일 출처. 시드는 `V2` 와 이후 마이그레이션에 나뉘어 있다)
 5. 최신 `README.md`
 6. `LLM_CONTEXT.md`
 7. Notion 및 기타 문서
@@ -47,6 +47,7 @@
 * 테스트 메서드명은 `should_기대결과_when_조건` 형식을 사용하거나 한글 `@DisplayName`을 함께 작성한다.
 * 하나의 테스트 메서드는 하나의 검증 시나리오만 담당하며 Given-When-Then 구조를 권장한다.
 * 외부 연동(공공데이터 API, 오픈뱅킹, LLM Gateway)은 Mockito로 mocking하여 격리 테스트한다.
+* **양쪽이 같은 곳에서 나온 값을 비교하는 테스트는 아무것도 검증하지 않는다.** 시드가 맞는지 보려면 응답끼리 비교하지 말고 시드를 직접 읽는다. 통과하는 것을 확인했다고 검증한 것이 아니다 — **일부러 틀리게 만들어 실패하는지도 확인한다.**
 
 ## 규칙 엔진 테스트는 특히 중요하다
 
@@ -61,17 +62,11 @@
 
 ## 테스트 실패 후 수정 커밋
 
-### Push 이전
-
-* 로컬에서 테스트 실패를 발견하면 별도 커밋을 남기지 않는다.
-* 기능 코드를 수정하고 테스트 통과를 확인한 후 `feat`/`test` 커밋을 진행한다.
-
-### Push 이후
-
-* 리뷰 또는 CI에서 의미 있는 실패가 발견되면 `🚨 Fix` 커밋을 추가한다.
-* `fix` 커밋은 의미 있는 버그 수정에만 사용하며, 사소한 수정은 push 전에 정리한다.
+* **Push 이전** — 로컬에서 실패를 발견하면 별도 커밋을 남기지 않는다. 고치고 통과한 상태로 `feat`/`test` 커밋을 만든다.
+* **Push 이후** — 리뷰나 CI 에서 의미 있는 실패가 나오면 `🚨 Fix` 커밋을 더한다. 사소한 것은 push 전에 정리한다.
 
 ---
+
 
 # 프로젝트 개요
 
@@ -114,33 +109,52 @@
 
 ## 로컬 기준 경로
 
-두 저장소를 같은 상위 디렉터리에 나란히 두고 작업한다.
+두 저장소를 같은 상위 디렉터리에 나란히 둔다.
 
 ```text
-KB IT's Your Life 해커톤대회/
+<작업 폴더>/
   ├─ homerun-backend/
   └─ homerun-frontend/
 ```
 
-경로에 공백과 작은따옴표가 들어 있다. 셸에서 다룰 때는 큰따옴표로 감싼다.
+저장소 경로를 코드나 설정에 하드코딩하지 않는다. 사람마다 다르다.
 
-```bash
-cd "/Users/kimyuhwan/Downloads/KB IT's Your Life 해커톤대회/homerun-backend"
-```
-
-저장소 경로를 코드나 설정에 하드코딩하지 않는다. 문서나 실행 예시에서는 위 구조를 기준으로 설명할 수 있지만, 실제 구현은 상대 경로와 환경 설정을 우선한다.
 
 ## 현재 구현 상태
 
-작업을 시작하기 전에 알아 둘 것. **아직 도메인 코드가 없다.**
+| | |
+|---|---|
+| 도메인 패키지 | 15개 (`application` `auth` `consent` `contract` `dashboard` `document` `fact` `house` `member` `openbanking` `plan` `property` `region` `rent` `terms`) |
+| 컨트롤러 | 19개 |
+| 마이그레이션 | `V1` ~ `V19` |
+| 테스트 | 41개 클래스 |
+| 팩트 레지스트리 | 169건 |
 
-* 백엔드: `HomerunBackendApplication.java` 와 테스트 2개가 전부다. 커밋 5개 모두 세팅·문서.
-* 프론트엔드: 초기 세팅 커밋 1개(`6dc6cf7`). `app/app.vue` 와 `main.css` 뿐이다.
-* `V1__init.sql`, `V2__seed_config_effective.sql` 은 작성돼 있으나 **아직 커밋되지 않았다.**
+**이제 "기존 코드를 따른다"가 실제로 적용된다.** 새 구조를 지어내기 전에 같은 일을 하는 도메인을 먼저 찾는다.
 
-따라서 "기존 코드를 따른다"는 원칙을 적용할 대상이 거의 없다. 처음 만드는 구조는 이 문서의 **Backend 작업 기준**과 **Frontend 작업 기준**을 따른다.
+구현된 API 묶음.
+
+```text
+/api/v1/auth                              로그인·토큰·소셜
+/api/v1/auth/email                        이메일 인증 가입
+/api/v1/members/me                        회원 정보·탈퇴
+/api/v1/plans                             계획·단계·입력
+/api/v1/plans/{planId}/input              계획 입력 이력
+/api/v1/plans/{planId}/contract           계약 실행·매물 검증
+/api/v1/plans/{planId}/consents           가구원 동의
+/api/v1/plans/{planId}/applications       정책 신청
+/api/v1/plans/{planId}/documents          서류 보유·유효기간
+/api/v1/plans/{planId}/dashboard          대시보드
+/api/v1/documents                         서류 카탈로그·발급 안내·방문 계획
+/api/v1/policies/rent                     월세 정책 판정
+/api/v1/consents/{token}                  가구원 공개 링크
+/api/v1/houses · /buildings · /addresses  주택·건축물대장·주소
+/api/v1/real-estate/rent-transactions     실거래가
+/api/v1/open-banking                      금융 요약
+```
 
 ---
+
 
 # 주요 기능 도메인
 
@@ -195,96 +209,53 @@ cd "/Users/kimyuhwan/Downloads/KB IT's Your Life 해커톤대회/homerun-backend
 
 # 기술 스택
 
+버전은 `build.gradle` 과 `package.json` 이 단일 출처다. 여기에는 **알고 있어야 동작이 이해되는 것만** 둔다.
+
 ## Backend
 
-* Spring Boot 4.1.1
-* Java 17 (Gradle toolchain)
-* Gradle
-* Spring Data JPA (`ddl-auto: validate`)
-* Flyway + `flyway-database-postgresql`
-* Spring WebMVC, Validation, Actuator
-* springdoc-openapi 3.0.3
-* Lombok
-* PostgreSQL 17
-* Redis 7.4 (이메일 인증번호·단기 인증 상태, 향후 알림 스트림)
-* Testcontainers 2.x (`testcontainers-junit-jupiter`, `testcontainers-postgresql`)
-* spotless + palantirJavaFormat 2.97.0 (4칸 들여쓰기)
-* `spring-boot-docker-compose` (개발 시 PostgreSQL 자동 기동)
+* Spring Boot 4.1.1 / Java 17 / PostgreSQL 17
+* **`ddl-auto: validate`** — 엔티티가 스키마를 만들지 않는다. 스키마는 Flyway 만 바꾼다.
+* **테스트는 진짜 PostgreSQL 에서 돈다** (Testcontainers). H2 를 넣지 않는다 — Postgres 전용 문법이 검증되지 않는다.
+* **Redis** 는 이메일 인증번호와 단기 인증 상태에 실제로 쓴다.
+* spotless + palantirJavaFormat, 4칸 들여쓰기. **포맷터가 코드를 다시 접으므로** 문자열 치환으로 코드를 고칠 때는 포맷 후 텍스트를 다시 확인한다.
+* `spring-boot-docker-compose` 가 개발 시 PostgreSQL 을 자동 기동한다.
+* Spring Data JPA. MyBatis 와 Mapper XML 은 없다.
 
 ## Frontend
 
-* Nuxt 4.5
-* Vue 3.5 + `<script setup>` Composition API
-* vue-router 5
-* TypeScript 6 (`strict: true`, 빌드 시 `typeCheck: false` — CI/pre-push에서 별도 실행)
-* Tailwind CSS 4.3 (`@tailwindcss/vite`)
-* ESLint 10 + `@nuxt/eslint`
-* pnpm 11 / Node 22+
+Nuxt 4 + Vue 3 `<script setup>` + Tailwind 4 + pnpm. 자세한 것은 `homerun-frontend` 저장소를 본다.
 
-Tailwind v4는 `postcss.config` 도 `tailwind.config.js` 도 쓰지 않는다. Vite 플러그인 하나와 `app/assets/css/main.css` 의 `@import "tailwindcss"` 가 전부다.
+Tailwind v4 는 `postcss.config` 도 `tailwind.config.js` 도 쓰지 않는다. Vite 플러그인과 `main.css` 의 `@import "tailwindcss"` 가 전부다.
 
 ## Infra / External
 
-* Docker / Docker Compose (`compose.yaml` 로컬, `compose.prod.yaml` 앱 포함)
-* GitHub Actions — CI(`ci.yml`), CD(`cd.yml`)
-* GHCR 이미지 배포. 태그는 커밋 SHA 앞 12자리
-* **배포 대상 서버 미정** — `cd.yml` 의 `deploy` 잡이 비어 있다
-
-## 외부 연동 후보
-
-* 오픈뱅킹 auth API — 계좌·소득 조회. 1차는 목 데이터
+* Docker Compose (`compose.yaml` 로컬, `compose.prod.yaml` 앱 포함)
+* GitHub Actions — `ci.yml`, `cd.yml`. **배포 대상 서버 미정** (`deploy` 잡이 비어 있다)
+* 오픈뱅킹 auth API — 계좌·소득 조회
 * 공공데이터포털 / 보조금24 / 복지로 — 정책 원문 수집
-* **온통청년 API는 사용 불가로 확정**(폐기, 404). `FCT-134`
-* 정부24, 인터넷등기소, 홈택스, 건강보험공단 — 서류 발급 딥링크
-* 지도 API(카카오맵·네이버지도) — 주변 발급처 검색
-* LLM Gateway — AI 코치
+* 정부24, 인터넷등기소, 홈택스, 위택스 — 서류 발급 경로
+* **온통청년 API 는 사용 불가로 확정**(폐기, 404). `FCT-134`
+* 지도 API(카카오맵·네이버지도) — 주변 발급처 검색. **키 미확보로 `PLC-01-01~03` 이 막혀 있다**
 
 ---
+
 
 # 실행 명령
 
-## Backend
-
-```bash
-cd homerun-backend
-cp .env.example .env      # POSTGRES_PASSWORD 는 반드시 채운다
-npm install               # husky 훅 설치
-./gradlew bootRun         # PostgreSQL 은 spring-boot-docker-compose 가 알아서 띄운다
-```
-
-`docker compose up` 을 따로 할 필요가 없다.
+설치와 실행은 `README.md` 와 `SETUP.md` 에 있다. 여기서는 자주 쓰는 것만 둔다.
 
 | 명령 | 하는 일 |
 |---|---|
-| `./gradlew build` | 컴파일 + spotlessCheck + test. CI 및 pre-push와 같다 |
-| `./gradlew test` | 테스트만. Docker가 떠 있어야 한다 |
+| `./gradlew build` | 컴파일 + 포맷 + 테스트. CI·pre-push와 같다 |
 | `./gradlew spotlessApply` | 포맷 검사에 걸렸을 때 고치는 명령 |
-| `npm run commit` | 커밋 타입을 골라 컨벤션에 맞는 메시지로 커밋 |
-| `docker compose -f compose.prod.yaml up -d --build` | 앱까지 컨테이너로 |
+| `npm run commit` | 타입을 골라 컨벤션에 맞는 메시지로 커밋 |
 
-| 확인 | 주소 |
-|---|---|
-| API 문서 | `http://localhost:8080/swagger-ui.html` |
-| 헬스체크 | `http://localhost:8080/actuator/health` |
+`./gradlew bootRun` 이면 PostgreSQL 은 `spring-boot-docker-compose` 가 알아서 띄운다. `docker compose up` 을 따로 할 필요가 없다.
 
-## Frontend
-
-```bash
-cd homerun-frontend
-cp .env.example .env      # NUXT_PUBLIC_API_BASE=http://localhost:8080
-pnpm install
-pnpm dev
-```
-
-| 명령 | 하는 일 |
-|---|---|
-| `pnpm dev` | 개발 서버 |
-| `pnpm lint` / `pnpm lint:fix` | ESLint |
-| `pnpm typecheck` | vue-tsc 타입체크 |
-| `pnpm verify` | lint + typecheck + build. 푸시 전 전체 검증 |
-| `pnpm commit` | 컨벤션 커밋 |
+API 문서는 `http://localhost:8080/swagger-ui.html`.
 
 ---
+
 
 # Git 규칙
 
@@ -298,238 +269,136 @@ main
       └─ chore/대상
 ```
 
-* **기본 브랜치는 `dev`다.** `develop` 이 아니다.
-* 기능 및 수정 브랜치는 `dev`에서 생성한다.
-* 작업 완료 후 `dev`를 대상으로 Pull Request를 생성한다.
-* `dev`에서 `main`으로의 병합은 배포 단위로 진행한다.
-* `dev`, `main` 직접 push는 하지 않는다.
-* 브랜치명은 가능하면 관련 GitHub Issue 번호를 포함한다.
+* **기본 브랜치는 `dev` 다.** `develop` 이 아니다.
+* `dev` · `main` 직접 push 는 하지 않는다. `dev` 로 PR 을 낸다.
+* `main` 병합은 배포 단위로 한다.
+
+## 작업 하나마다 이슈와 브랜치
+
+**순서를 지킨다 — 이슈 먼저, 그다음 브랜치, 그다음 코드.** 일을 끝내고 이슈를 사후에 파지 않는다.
+
+한 브랜치에 여러 작업을 쌓지 않는다. 작업 중 다른 게 눈에 띄면 그 브랜치에서 이어 하지 말고 별도 이슈로 뺀다. **리팩터링은 특히 기능과 섞지 않는다** — `ErrorCode` 나 `SecurityConfig` 같은 공유 파일을 건드리므로 리뷰어가 따로 봐야 한다.
+
+푸시한 뒤에는 PR 의 head SHA 를 확인한다. 이미 머지되어 닫힌 PR 의 브랜치에 밀어넣으면 아무 데도 안 붙고 CI 도 안 돈다.
 
 ## 커밋 메시지
 
-commitlint가 검사한다. 형식은 다음과 같다.
+commitlint 가 검사한다.
 
 ```text
 {이모지} {Type}: 한글 설명
 ```
 
-허용하는 type은 `commitlint.config.js` 의 `type-enum` 이 단일 출처다. 자주 쓰는 것:
-
-| 커밋 타입 | 용도 |
-|---|---|
-| `✨ Feat` | 새로운 기능 |
-| `🚨 Fix` | 버그 수정 |
-| `📝 Docs` | 문서 수정 |
-| `♻️ Refactor` | 리팩토링 |
-| `✅ Test` / `🧪 Test` | 테스트 코드 |
-| `📦 Chore` | 설정, 빌드, 기타 |
-| `💄 Design` | 디자인 수정 |
-| `🎨 Style` | 코드 스타일 |
-| `🔒 Security` | 보안 |
-| `🎉 Init` | 초기 설정 |
-| `🚑 Hotfix` | 긴급 수정 |
-
-예시:
+**허용 type 은 `commitlint.config.js` 의 `type-enum` 이 단일 출처다.** 여기에 옮겨 적지 않는다 — 두 곳에 두면 갈라진다. 자주 쓰는 것은 `✨ Feat` · `🚨 Fix` · `✅ Test` · `♻️ Refactor` · `📦 Chore` · `📝 Docs` 다.
 
 ```text
 ✨ Feat: 정책 자격 3단계 판정 API 구현
 ✅ Test: 정책 자격 3단계 판정 단위테스트 추가
 🚨 Fix: 버팀목 순자산 경계값 비교 연산자 수정
-📝 Docs: 팩트 레지스트리 갱신 절차 보강
 ```
 
-* 제목 끝에 마침표를 찍지 않는다(`subject-full-stop` 규칙).
+* 제목 끝에 마침표를 찍지 않는다(`subject-full-stop`).
 * 한 커밋에는 하나의 논리적 변경 단위를 담는다.
 * 백엔드와 프론트엔드의 `commitlint.config.js` 는 같은 규칙이다. **한쪽을 고치면 다른 쪽도 같이 고친다.**
 
-## 이슈 제목
+이슈 제목도 커밋과 같은 접두사를 쓴다.
 
-이슈 템플릿의 기본 제목은 `✨ Feat: ` 이다. 커밋과 같은 접두사를 쓴다.
+## Pull Request
 
-```text
-✨ Feat: 정책 자격 3단계 판정 API 구현
-```
+`.github/pull_request_template.md` 를 채운다. 항목을 여기 옮겨 적지 않는다.
 
-## Pull Request 작성 내용
-
-`.github/pull_request_template.md` 를 따른다. 최소한 다음을 적는다.
-
-* 관련 이슈 (`Closes #번호`)
-* 작업 내용
-* 테스트 방법
-* 화면 변경이 있으면 스크린샷
-* 체크리스트
-* 리뷰 요청 사항
-
-체크리스트 항목은 다음과 같다.
-
-* 로컬 빌드 및 실행을 확인했습니다
-* 관련 테스트를 완료했습니다
-* 코드 포맷팅을 적용했습니다
-* 불필요한 로그와 주석을 제거했습니다
-* API 명세 또는 문서를 수정했습니다
-* dev 최신 내용을 반영했습니다
+**리뷰 요청 사항은 비워 두지 않는다.** 판단이 갈린 곳, 남이 봐 줘야 하는 곳, 남의 영역을 건드린 곳을 적는다. 그게 없으면 리뷰가 형식이 된다.
 
 ## 팀 운영 규칙
 
 * **15분 룰** — 15분 안에 안 풀리면 바로 공유한다.
-* PR은 작게 만든다. 리뷰 대기 시간이 30분을 넘으면 셀프 머지한다.
+* PR 은 작게 만든다. 리뷰 대기가 30분을 넘으면 셀프 머지한다.
 * 리스크 레지스터 기준 **확률 × 영향 12점 이상은 방치하지 않는다.**
 * 데일리 스탠드업은 아침·저녁 3줄.
 
 ---
 
-# GitHub 템플릿 및 자동화 설정
 
-## 템플릿
+# 자동 검사
 
-* PR 템플릿: `.github/pull_request_template.md` (백엔드·프론트엔드 각각 보유)
-* 이슈 템플릿: `.github/ISSUE_TEMPLATE/issue.yml` (단일 템플릿)
+훅과 CI가 무엇을 언제 돌리는지만 알면 된다. 나머지는 `.github/` 와 `.husky/` 를 보면 된다.
 
-애월과 달리 **파트별 세부 템플릿이 없다.** 단일 템플릿 하나씩이다.
-
-## 워크플로
-
-| 파일 | 트리거 | 하는 일 |
+| 시점 | 실행 | 걸렸을 때 |
 |---|---|---|
-| `ci.yml` (BE) | `main`·`dev` push, 모든 PR | Gradle Wrapper 검증 → JDK 17 → `./gradlew build` → 실패 시 리포트 업로드 |
-| `ci.yml` (FE) | 동일 | lint + typecheck + build |
-| `cd.yml` (BE) | `main` 머지 | 이미지 빌드 후 GHCR push. **`deploy` 잡은 비어 있음** |
+| `commit-msg` | commitlint | 메시지 형식을 고친다. 본문 한 줄은 **100자 이내** |
+| `pre-commit` | `./gradlew spotlessCheck` | `./gradlew spotlessApply` |
+| `pre-push` | `./gradlew build` | 원인별 |
+| CI (`ci.yml`) | `./gradlew build` | 위와 같다 |
 
-CI는 같은 브랜치에 연속 푸시하면 앞선 실행을 취소한다(`concurrency`).
+**`pre-push` 와 CI 는 같은 태스크다. 여기서 통과하면 CI도 통과한다.** Docker가 떠 있어야 한다.
 
-## 기타 설정 파일
+주의할 것 두 가지.
 
-* `.husky/commit-msg`, `.husky/pre-commit`, `.husky/pre-push` (양쪽 저장소)
-* `commitlint.config.js` (BE는 CJS, FE는 ESM)
-* `skills-lock.json` — 에이전트 스킬 버전 고정. 본체는 커밋하지 않는다
-* 스킬 복원: `npx skills experimental_install`
+* **CI 는 머지 결과를 검사한다.** 내 브랜치가 초록불이어도 `dev` 가 그 뒤에 움직였다면 그 초록불은 낡은 것이다. 머지 전에 리베이스하고 체크가 **새로 돌아** 초록불인지 보고 누른다.
+* `cd.yml` 의 `deploy` 잡은 비어 있다. 배포 서버가 정해지지 않았다.
 
 ---
 
-# 로컬 커밋 전 자동 검사
-
-커밋마다 전체 테스트를 돌리면 결국 `--no-verify` 를 쓰게 된다. 그래서 단계를 나눴다.
-
-## 백엔드 `homerun-backend`
-
-| 훅 | 실행 | 고치는 명령 |
-|---|---|---|
-| `commit-msg` | `commitlint --edit` | 메시지 형식 수정 |
-| `pre-commit` | `./gradlew spotlessCheck` (초 단위) | `./gradlew spotlessApply` |
-| `pre-push` | `./gradlew build` (컴파일 + 포맷 + 테스트) | 실패 원인별 |
-
-`pre-push` 는 CI가 돌리는 것과 같은 태스크다. **여기서 통과하면 CI도 통과한다.** Docker가 떠 있어야 한다.
-
-## 프론트엔드 `homerun-frontend`
-
-| 훅 | 실행 | 고치는 명령 |
-|---|---|---|
-| `commit-msg` | `pnpm exec commitlint --edit` | 메시지 형식 수정 |
-| `pre-commit` | `pnpm lint` | `pnpm lint:fix` |
-| `pre-push` | `pnpm lint && pnpm typecheck` | — |
-
-CI는 여기에 `build` 까지 더 돌린다.
-
-## 팀원 로컬 초기 설정
-
-```bash
-# 백엔드
-cd homerun-backend && npm install
-
-# 프론트엔드
-cd homerun-frontend && pnpm install
-```
-
-`husky` 는 `prepare` 스크립트에서 자동 설치된다.
-
----
 
 # LLM 작업 원칙
 
-LLM은 다음 순서로 작업한다.
+## 무엇을 먼저 읽는가
 
-1. 현재 저장소의 `README.md`를 읽는다.
-2. 이 `LLM_CONTEXT.md`를 읽는다.
-3. 현재 브랜치를 확인한다.
-4. Git 변경분을 확인한다.
-5. 작업과 관련된 코드 및 설정 파일을 읽는다.
-6. 기능ID가 관련된 작업이면 **시트2**에서 해당 요구사항 원문을 확인한다.
-7. 기준 수치가 필요하면 **`config_effective`** 에서 확인한다. 문서에서 본 숫자를 그대로 쓰지 않는다.
-8. 기존 구조, 네이밍, 응답 형식, 예외 처리 방식을 파악한다.
-9. 요청 범위 안에서 구현한다.
-10. 가능한 검증 명령을 실행한다.
-11. 변경 내용, 검증 결과, 남은 리스크를 사용자에게 보고한다.
-
-## 기본 원칙
-
-* Notion, 스프레드시트, README, 코드가 충돌하면 실제 코드와 시트2를 우선한다.
-* 현재 요청에서 사용자가 명시한 지시는 이 문서보다 우선한다.
-* 충돌한 내용은 사용자에게 알린다.
-* 새 기능은 기존 도메인 구조와 네이밍을 따른다.
-* 기존 응답 포맷과 예외 처리 방식을 유지한다.
-* 비밀값, 토큰, API 키, 개인 연락처를 코드나 문서에 직접 넣지 않는다.
-* `.env` 에는 예시만 작성하고 실제 비밀값을 커밋하지 않는다.
-* 작업 후 가능한 검증 명령을 실행한다.
-* 실행하지 못한 검증이 있다면 이유를 명확히 남긴다.
-* 사용자 변경분이 있는 파일은 임의로 되돌리지 않는다.
-* 사용자가 작성한 코드와 변경 사항을 무단으로 삭제하지 않는다.
-* 요청 범위를 벗어난 대규모 리팩토링을 하지 않는다.
-* 단순한 기능 요청에 불필요한 추상화 계층을 추가하지 않는다.
-* 기존 프로젝트에 없는 라이브러리를 임의로 추가하지 않는다. 필요하면 이유와 대안을 먼저 설명한다.
-* 불확실한 내용은 사실처럼 단정하지 않는다.
-* 구현 여부를 확인하지 않은 기능을 완료된 기능으로 문서화하지 않는다.
+1. 현재 브랜치와 변경분 (`git status --short`, `git diff`)
+2. 작업과 관련된 **기존 코드**. 같은 일을 하는 도메인이 이미 있는지 본다
+3. 기능ID 가 관련되면 **시트2** 에서 요구사항 원문
+4. 기준 수치가 필요하면 **`config_effective`**
 
 ## 이 프로젝트에서 특히 조심할 것
 
 * **정책 수치를 코드에 하드코딩하지 않는다.** 전부 `config_effective` 에서 읽는다.
-* **판정 결과를 LLM이 만들게 하지 않는다.** LLM은 이미 나온 판정을 설명만 한다.
-* **소득 금액, 가족관계 상세값을 저장하는 컬럼을 만들지 않는다.** 충족 여부 boolean만 남긴다.
-* **`D-21`, `15일 전`, `심사 2~3주` 같은 준비기간을 법정 기한처럼 다루지 않는다.**
-* 요구사항에 없는 기능을 임의로 추가하지 않는다. 필요하다고 판단되면 시트2에 없다는 사실과 함께 제안한다.
+* **팩트를 읽을 때 그게 무엇의 값인지 확인한다.** 같은 서류도 열람과 발급이 값이 다르다. 항목 이름이 모호하면 그대로 쓰지 말고 갈라 놓는다.
+* **판정 결과를 LLM 이 만들게 하지 않는다.** LLM 은 이미 나온 판정을 설명만 한다.
+* **소득 금액, 가족관계 상세값을 저장하는 컬럼을 만들지 않는다.** 충족 여부 boolean 만 남긴다.
+* **`D-21`, `심사 2~3주` 같은 준비기간을 법정 기한처럼 다루지 않는다.** 위험이 크다는 것과 법이 정했다는 것은 다르다.
+* **모르는 것을 통과로 보지 않는다.** 근거 없는 기본값을 채우는 것이 곧 틀린 안내다.
+* 요구사항에 없는 기능을 임의로 추가하지 않는다. 필요하다고 보이면 시트2에 없다는 사실과 함께 제안한다.
+* 구현 여부를 확인하지 않은 기능을 완료된 것으로 문서화하지 않는다.
 
-## 작업 전 Git 확인
+## 하지 않는 것
 
-```bash
-git branch --show-current
-git status --short
-git diff
-git diff --staged
-```
-
-원격 상태 확인이 필요한 경우:
-
-```bash
-git remote -v
-git fetch --all --prune
-```
-
-사용자의 요청 없이 브랜치를 전환하거나 변경분을 stash, reset, checkout하지 않는다.
+* 사용자 요청 없이 브랜치를 전환하거나 변경분을 stash · reset · checkout 하지 않는다.
+* 비밀값·토큰·API 키를 코드나 문서에 넣지 않는다. `.env` 에는 예시만 둔다.
+* 요청 범위를 벗어난 대규모 리팩터링을 하지 않는다.
+* 없는 라이브러리를 임의로 추가하지 않는다. 이유와 대안을 먼저 말한다.
 
 ---
+
 
 # Backend 작업 기준
 
 ## 기본 구조
 
-* 패키지 루트는 `com.homerun` 이다.
-* 도메인별로 다음 구조를 유지한다.
+패키지 루트는 `com.homerun` 이다. 구조는 이미 정해져 있다(`#24`). 새로 지어내지 않는다.
 
 ```text
-controller
-service
-repository
-dto
-entity
+domain/{기능}/
+  controller  service  repository  entity
+  dto/        요청·응답. 커지면 dto/request · dto/response 로 나눈다
+  type/       enum. DB CHECK 제약과 값이 같아야 한다
+  model/      DB 에 없는 계산용 값 객체
+  handler/    도메인 전용 예외 처리
+
+global/
+  config  response  exception
+  security/{config,filter,handler,jwt,principal}
+  external/{address,building,mail,openbanking,realestate}
 ```
 
-* MyBatis가 아니라 **Spring Data JPA** 를 쓴다. Mapper XML은 없다.
-* 아직 도메인 코드가 없으므로 첫 도메인을 만드는 사람이 이 구조를 확정한다. 그 뒤로는 기존 코드를 우선한다.
+* MyBatis 가 아니라 **Spring Data JPA** 를 쓴다. Mapper XML 은 없다.
+* **`type/` 의 enum 은 DB CHECK 제약과 짝이다.** 한쪽만 고치면 런타임에 터진다.
+* 외부 API 호출은 `global/external` 아래 클라이언트로 감싼다. 서비스가 직접 `RestClient` 를 들지 않는다.
 
 ## 공통 응답
 
-* 첫 Controller를 만들 때 공통 응답 래퍼(`common.response.ApiResponse<T>` 등)를 함께 정하고, 이후 임의로 새 래퍼를 만들지 않는다.
-* Controller 구현 전 기존 Controller를 확인하여 HTTP Status 처리, 성공/오류 응답 생성, DTO 반환, Validation 오류 처리 방식을 맞춘다.
+* 성공 응답은 `global.response.ApiResponse<T>` 로 감싼다. `ApiResponse.success(data)` 를 쓰고 **새 래퍼를 만들지 않는다.**
+* HTTP Status, DTO 반환, Validation 오류 처리 방식은 기존 Controller를 보고 맞춘다.
+
 
 ## 예외 처리
 
@@ -543,74 +412,55 @@ entity
 * 세션 토큰 / 동의 토큰 / 운영자 / 없음 네 종류가 있다.
 * **동의 토큰은 가구원용 일회용 토큰**이다. 경로 파라미터 방식, 해시 저장, 72시간 만료, 로그 마스킹, `Referrer-Policy: no-referrer` 를 지킨다.
 * 권한별로 조회·수정 가능한 데이터와 API를 분리한다(`SEC-01-04`).
-* Spring Security는 아직 도입되지 않았다. 도입 시 Spring Boot 4 / Jakarta 기준으로 작성한다.
+* Spring Security 가 붙어 있다. `global.security` 아래에 `config` · `filter` · `handler` · `jwt` · `principal` 이 있다. 컨트롤러는 `@AuthenticationPrincipal MemberPrincipal` 로 회원을 받는다.
+* **남의 계획을 건드리지 못하게 막는 것은 서비스의 일이다.** `plan.verifyOwner(memberId)` 를 통과하지 않고 계획 하위 자원을 읽거나 쓰지 않는다(`SEC-01-04`).
 
 ## JPA
 
-JPA 작업 시 다음 항목을 함께 확인한다.
-
-* Entity 필드와 실제 컬럼명(`V1__init.sql`)
-* `nullable`, 기본값, 길이 제약
-* 연관관계 방향과 `fetch` 전략
-* `open-in-view: false` 이므로 **지연 로딩 접근은 트랜잭션 안에서 끝낸다**
-* 트랜잭션 범위
-
-Entity를 바꾸면 반드시 마이그레이션을 함께 추가한다. `ddl-auto: validate` 라서 어긋나면 앱이 부팅되지 않는다.
+* Entity 필드는 실제 컬럼명·`nullable`·길이 제약과 맞춘다.
+* `open-in-view: false` 다. **지연 로딩 접근은 트랜잭션 안에서 끝낸다.**
+* **Entity 를 바꾸면 마이그레이션을 함께 추가한다.** `ddl-auto: validate` 라서 어긋나면 앱이 부팅되지 않는다.
 
 ## 데이터베이스 변경
 
-**스키마 변경은 전부 Flyway 마이그레이션으로 한다.**
+**스키마 변경은 전부 Flyway 마이그레이션으로 한다.** `V{버전}__{소문자_snake_case}.sql`
 
-```text
-V{버전}__{설명}.sql      예) V3__add_policy_rule_index.sql
-```
+* **이미 머지된 파일은 절대 수정하지 않는다.** Flyway 가 체크섬을 저장하므로 내용이 바뀌면 다음 실행에서 실패한다. 고칠 게 있으면 새 버전을 추가한다.
+* **번호는 브랜치마다 겹친다.** 여러 사람이 동시에 작업하면 거의 반드시 부딪힌다. PR 전에 `dev` 를 받아 최신 번호를 확인하고, 겹치면 내 파일 번호를 올린다. `MigrationFilenameTest` 가 중복을 빌드에서 잡는다.
+* 스키마를 바꿨으면 Entity · DTO · Repository 쿼리 · 테스트를 함께 본다. `MigrationTest` 의 테이블 수와 팩트 수 단언도 같이 고쳐야 한다.
 
-* 버전은 팀 전체에서 이어서 증가시킨다. PR 전에 `dev` 를 받아 최신 번호를 확인한다.
-* 설명은 소문자 snake_case.
-* **이미 머지된 파일은 절대 수정하지 않는다.** Flyway가 체크섬을 저장하므로 내용이 바뀌면 다음 실행에서 실패한다. 고칠 게 있으면 새 버전을 추가한다.
-
-DB 스키마 변경 시 다음 반영 여부를 확인한다.
-
-* 마이그레이션 SQL
-* Entity 및 DTO
-* Repository 쿼리
-* Service 로직
-* Validation
-* README 및 노션 테이블 정의서
-* API 문서
-* 테스트 데이터 및 관련 테스트
-
-컬럼 타입, NULL 허용 여부, 기본값, 인덱스, 외래키를 명시적으로 검토한다.
 
 ## 스키마 개요
 
-47 테이블 / 59 FK / 83 인덱스. 13개 도메인.
+**52 테이블.** `V1` 이 47개를 만들고 이후 마이그레이션이 다섯 개를 더했다.
 
-| # | 도메인 | 테이블 |
-|---|---|---|
-| 1 | 공통·사용자 | `region` `terms` `app_user` `user_agreement` |
-| 2 | 금융연동·온보딩 | `bank_connection` `financial_snapshot` |
-| 3 | 계획·진단 | `plan` `plan_input` `cost_estimate` `diagnosis` |
-| 4 | 정책·판정 | `guarantee_agency` `policy` `policy_rule` `policy_snapshot` `policy_exclusion_group` `policy_exclusion_member` `policy_verdict` `verdict_basis` `rejection_reason` |
-| 5 | 대안·자산 | `alternative_plan` `asset_option` |
-| 6 | 매물·계약 | `property` `property_check` `lease_contract` `contract_special_term` |
-| 7 | 서류·증빙 | `document_type` `user_document` |
-| 8 | 가구원·동의 | `household_member` `consent_token` |
-| 9 | 순서·데드라인·신청 | `plan_step` `deadline` `application` |
-| 10 | 홈·사후관리 | `loan_account` `fixed_expense` `monthly_checkin` `delinquency_risk` |
-| 11 | 교육 | `education_content` `education_progress` `education_trigger` `intervention_log` |
-| 12 | AI 코치 | `knowledge_card` `coach_session` `coach_message` `ai_generation` |
-| 13 | 운영·설정 | `config_effective` `external_api_health` `audit_log` |
+| 도메인 | 테이블 |
+|---|---|
+| 공통·사용자 | `region` `terms` `app_user` `user_agreement` `refresh_token` |
+| 금융연동 | `bank_connection` `financial_snapshot` `open_banking_connection` |
+| 계획·진단 | `plan` `plan_input` `plan_input_history` `cost_estimate` `diagnosis` |
+| 정책·판정 | `guarantee_agency` `policy` `policy_rule` `policy_snapshot` `policy_exclusion_group` `policy_exclusion_member` `policy_verdict` `verdict_basis` `rejection_reason` |
+| 대안·자산 | `alternative_plan` `asset_option` |
+| 매물·계약 | `property` `property_check` `lease_contract` `contract_special_term` |
+| 서류·증빙 | `document_type` `document_issue_method` `user_document` |
+| 가구원·동의 | `household_member` `consent_token` |
+| 순서·데드라인·신청 | `plan_step` `step_task` `deadline` `application` |
+| 홈·사후관리 | `loan_account` `fixed_expense` `monthly_checkin` `delinquency_risk` |
+| 교육 | `education_content` `education_progress` `education_trigger` `intervention_log` |
+| AI 코치 | `knowledge_card` `coach_session` `coach_message` `ai_generation` |
+| 운영·설정 | `config_effective` `external_api_health` `audit_log` |
 
 설계 시 알아 둘 것.
 
-* **전세·월세·반전세는 같은 테이블을 쓴다.** 6번 도메인은 `lease_type` 으로만 분기한다. 월세용 테이블을 따로 만들지 않는다.
+* **전세·월세·반전세는 같은 테이블을 쓴다.** `lease_type` 으로만 분기한다. 월세용 테이블을 따로 만들지 않는다.
+* **`plan_step` 과 `step_task` 는 층이 다르다.** `plan_step` 은 관문 5개(온보딩·진단·정책선택·실행·정착)고, 사용자가 실제로 하는 일은 `step_task` 다. 마감(`deadline`)은 관문이 아니라 할 일에 붙는다.
 * **교육 콘텐츠를 직접 만들지 않는다.** `education_content` 는 심의된 외부 자산 참조다.
 * **`knowledge_card` 에는 사람이 검수한 카드만 들어간다.** `fact_refs` 가 `config_effective.fact_code` 를 가리킨다. AI가 말한 수치가 팩트 레지스트리에 없으면 그 답을 내보내지 않는다.
 * **검색은 벡터가 아니라 태그다.** `trigger_codes` / `topic` 에 GIN 인덱스가 있다. 사용자가 보고 있는 화면과 판정 결과가 가장 좋은 검색 신호다.
 * 판정 결과에는 규칙 버전 FK를 박아 `RULE_VERSION_MISMATCH` 비교가 가능해야 한다.
 
 ERD: `https://dbdiagram.io/d/6a96771f5450bea1beb84886`
+
 
 ## Spring 환경 주의사항
 
@@ -633,43 +483,12 @@ ERD: `https://dbdiagram.io/d/6a96771f5450bea1beb84886`
 
 # Frontend 작업 기준
 
-## 기본 구현 방식
+프론트엔드 규칙은 `homerun-frontend` 저장소의 같은 문서를 따른다. 이 저장소에서 화면 코드를 만들지 않는다.
 
-* Vue 3 Composition API를 사용한다.
-* 신규 컴포넌트는 `<script setup>` 을 기본으로 한다.
-* Nuxt 4 구조를 따른다. 소스 디렉터리는 **`app/`** 이다(`app/pages`, `app/components`, `app/composables`).
-* 서버 호출은 Nuxt의 `$fetch` / `useFetch` 를 사용한다. 백엔드 주소는 `useRuntimeConfig().public.apiBase` 로 읽는다. **URL을 하드코딩하지 않는다.**
-* TypeScript `strict: true` 다. `any` 를 습관적으로 쓰지 않는다.
-
-## 스타일링 원칙
-
-* **Tailwind 유틸리티를 우선 사용한다.**
-* Tailwind v4이므로 `tailwind.config.js` 가 없다. 토큰은 `app/assets/css/main.css` 의 `@theme` 에 정의한다.
-* 색상을 하드코딩하지 않는다. 색상 변수가 없으면 먼저 토큰을 정의하고 쓴다.
-* `<style scoped>` 는 Tailwind로 표현할 수 없는 경우에만 쓴다.
-
-## 컴포넌트 작성 규칙
-
-* 같은 UI가 두 번 이상 나오면 컴포넌트로 뺀다.
-* Props와 Emits는 타입으로 명시한다.
-* 접근성 — 버튼은 `<button>`, 링크는 `<NuxtLink>` 를 쓴다. 클릭 가능한 `<div>` 를 만들지 않는다.
-
-## 화면 설계 기준
-
-메인 화면 구성은 노션 **플로우 정의** 에 6개 영역으로 정의돼 있다.
-
-| 영역 | 예시 | 내용 |
-|---|---|---|
-| ① 현재 진행 상황 | `현재 2루 · 정책 확인 중` | state 저장, 이어하기, 1~4루 진행도 |
-| ② 이번 달 상태 | `월 잔여 32만원 · 주거비 부담 28%` | RIR 20% 이하 안정 / 30% 초과 위험 |
-| ③ 지금 해야 할 일 | `대출 신청 D-12 · 보증료 지원 선착순` | 마감 임박순, **되돌릴 수 없는 것 먼저** |
-| ④ 진행 중인 정책 | `청년월세지원 · 서류 준비 중` | D-Day, 준비도 |
-| ⑤ 독립 도구 | 계약 체크 / 용어사전 / 금융·신용 가이드 | 교육·체크리스트 통합 |
-| ⑥ 알림·마이 | 우측 상단 아이콘 | — |
-
-AI 코치는 1·2·3루와 홈 각 페이지에서 **dimmed 기법으로 등장**한다. on/off 가능하고, 한 번 보고 지나가도 다시 볼 수 있어야 한다.
+한 가지만 여기 남긴다. **백엔드가 판정을 내리고 프론트는 그것을 보여 준다.** 화면에서 금액·자격을 다시 계산하지 않는다. 같은 수치를 두 곳에서 계산하면 반드시 갈라진다.
 
 ---
+
 
 # 도메인 규칙 — 절대 어기면 안 되는 것
 
@@ -918,7 +737,7 @@ RF-HM-05-02   홈(RF) 대시보드계열(HM) 5번블록 2번항목
 
 조수연 121건 · 박우진 66건 · 김유환 53건 · 최윤호 47건 · 강태훈 35건.
 
-**두 배정이 서로 맞지 않는다.** 아래 미해결 항목 참고.
+**두 배정이 서로 맞지 않고, 백엔드는 실제로 다르게 굴러가고 있다.** 위 표는 노션 기준이라 지금 누가 무엇을 만들고 있는지와 다르다. 아래 미해결 항목 참고.
 
 ---
 
@@ -931,6 +750,8 @@ RF-HM-05-02   홈(RF) 대시보드계열(HM) 5번블록 2번항목
 조수연은 노션 기준 **프론트엔드**인데, 시트2에서 맡은 121건에 `RF-HM-02-04 월 잔여자금 재계산`, `RF-AS-01-03 상환 대 저축 비교` 같은 **백엔드 계산 로직**이 다수 포함돼 있다. 백엔드는 최윤호·박우진 둘뿐인데 홈 100건의 서버 로직이 어느 쪽에도 잡혀 있지 않다.
 
 → 홈 블록을 **화면(FE) / 로직(BE)** 으로 쪼개 재배정이 필요하다. 현재 가장 큰 일정 리스크다.
+
+백엔드 쪽도 표와 다르다. 시트2 담당자 열은 전세/월세 기준으로 매겨져 있는데 실제 작업은 그렇게 나뉘어 있지 않다. **시트2 담당자 열을 지금 상태에 맞게 갱신해야 한다.**
 
 ## 회원가입 범위
 
@@ -961,14 +782,14 @@ RF-HM-05-02   홈(RF) 대시보드계열(HM) 5번블록 2번항목
 
 | 대상 | 문제 |
 |---|---|
-| 노션 홈런 개요 | `React` · `MySQL` · `Redis` 로 적혀 있음. 실제는 **Nuxt · PostgreSQL**, Redis 미사용 |
+| 노션 홈런 개요 | `React` · `MySQL` 로 적혀 있음. 실제는 **Nuxt · PostgreSQL** 이다 (Redis 는 이메일 인증에 실제로 쓴다) |
 | 노션 환경변수 모음집 | 빈 페이지 |
 | 노션 회의록 DB | 비어 있음 |
 | 노션 태스크 보드 | 12건 전부 `시작 전`, 담당자 전원 미배정 |
 | 노션 테이블 정의서 `region` | 동시 편집 중 `parent_id` `rent_grade` `is_seoul` `is_overcrowd` 설명 유실. `V1__init.sql` 이 맞다 |
 | API `/credit/debt-relief-paths` | 채무조정 요구사항이 시트2에 없음. `RF-CR-09-05` 추가 또는 API 삭제 |
 | `cd.yml` | `deploy` 잡이 비어 있음. 배포 서버 미정 |
-| `V1` · `V2` | 미커밋. `dev` 가 보호 브랜치라 PR 필요 |
+| 노션 API 명세서 | 구현된 경로와 어긋난 곳이 있다. 코드가 기준이다 |
 
 ---
 
