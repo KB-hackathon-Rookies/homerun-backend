@@ -159,4 +159,61 @@ class OpenBankingClientTest {
         });
         server.verify();
     }
+
+    @Test
+    void should_parseLoanListAndRepaymentTransactions() {
+        server.expect(requestTo(containsString("/v2.0/loans?")))
+                .andExpect(method(HttpMethod.GET))
+                .andRespond(withSuccess("""
+                        {
+                          "rsp_code":"A0000",
+                          "bank_code_std":"004",
+                          "bank_name":"국민은행",
+                          "next_page_yn":"N",
+                          "loan_list":[{
+                            "account_num":"1234567890",
+                            "account_seq":"001",
+                            "account_num_masked":"123-***-890",
+                            "prod_name":"직장인신용대출",
+                            "account_type":"3100",
+                            "account_status":"01"
+                          }]
+                        }
+                        """, MediaType.APPLICATION_JSON));
+
+        server.expect(requestTo(containsString("https://api.example.com/v2.0/loans/basic?")))
+                .andExpect(method(HttpMethod.POST))
+                .andExpect(requestTo(containsString("account_num=1234567890")))
+                .andExpect(requestTo(containsString("from_date=20260601")))
+                .andRespond(withSuccess("""
+                        {
+                          "rsp_code":"A0000",
+                          "repay_date":"20260825",
+                          "repay_method":"01",
+                          "repay_org_code":"004",
+                          "next_repay_date":"20260925",
+                          "next_page_yn":"N",
+                          "res_list":[{
+                            "trans_date":"20260825",
+                            "trans_time":"090000",
+                            "trans_type":"02",
+                            "trans_amt":"-450000"
+                          }]
+                        }
+                        """, MediaType.APPLICATION_JSON));
+
+        OpenBankingResponses.LoanPage loanPage = client.loans("access", "1100000000", "004", null);
+        OpenBankingResponses.Loan loan = loanPage.loans().get(0);
+        OpenBankingResponses.LoanBasicPage basicPage = client.loanBasic(
+                "access", "1100000000", loan, LocalDate.of(2026, 6, 1), LocalDate.of(2026, 8, 31), null);
+
+        assertThat(loan.bankName()).isEqualTo("국민은행");
+        assertThat(loan.accountType()).isEqualTo("3100");
+        assertThat(basicPage.nextRepaymentDate()).isEqualTo(LocalDate.of(2026, 9, 25));
+        assertThat(basicPage.transactions()).singleElement().satisfies(transaction -> {
+            assertThat(transaction.type()).isEqualTo("02");
+            assertThat(transaction.amount()).isEqualByComparingTo("-450000");
+        });
+        server.verify();
+    }
 }

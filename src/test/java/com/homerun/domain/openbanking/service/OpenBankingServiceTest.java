@@ -8,15 +8,18 @@ import static org.mockito.Mockito.when;
 
 import com.homerun.domain.openbanking.config.OpenBankingTokenCipher;
 import com.homerun.domain.openbanking.dto.response.OpenBankingConnectionResponse;
+import com.homerun.domain.openbanking.dto.response.OpenBankingFinancialSummaryResponse;
 import com.homerun.domain.openbanking.entity.OpenBankingConnection;
 import com.homerun.domain.openbanking.repository.OpenBankingConnectionRepository;
 import com.homerun.global.exception.BusinessException;
 import com.homerun.global.exception.ErrorCode;
 import com.homerun.global.external.openbanking.OpenBankingClient;
 import com.homerun.global.external.openbanking.OpenBankingResponses;
+import java.math.BigDecimal;
 import java.time.Clock;
 import java.time.Instant;
 import java.time.LocalDate;
+import java.time.LocalTime;
 import java.time.ZoneOffset;
 import java.util.List;
 import java.util.Optional;
@@ -115,6 +118,99 @@ class OpenBankingServiceTest {
                 .isInstanceOfSatisfying(
                         BusinessException.class,
                         exception -> assertThat(exception.errorCode()).isEqualTo(ErrorCode.INVALID_TRANSACTION_PERIOD));
+    }
+
+    @Test
+    void should_aggregateBalancesSalaryAndLoanRepayments_forLastThreeCompletedMonths() {
+        OpenBankingConnection connection = connection(NOW.plusSeconds(3600), NOW.plusSeconds(7200));
+        OpenBankingResponses.Account salaryAccount = account("004", "국민은행", "111111111111111111111111");
+        OpenBankingResponses.Account savingsAccount = account("020", "우리은행", "222222222222222222222222");
+        when(repository.findByMemberIdForUpdate(MEMBER_ID)).thenReturn(Optional.of(connection));
+        when(cipher.decrypt(MEMBER_ID, "encrypted-access")).thenReturn("access");
+        when(client.userInfo("access", "1100000000"))
+                .thenReturn(
+                        new OpenBankingResponses.UserInfo("1100000000", "홍길동", List.of(salaryAccount, savingsAccount)));
+        when(client.balance("access", salaryAccount.fintechUseNumber()))
+                .thenReturn(balance(salaryAccount.fintechUseNumber(), "10000000", "9000000"));
+        when(client.balance("access", savingsAccount.fintechUseNumber()))
+                .thenReturn(balance(savingsAccount.fintechUseNumber(), "5000000", "5000000"));
+
+        LocalDate fromDate = LocalDate.of(2026, 6, 1);
+        LocalDate toDate = LocalDate.of(2026, 8, 31);
+        when(client.transactions("access", salaryAccount.fintechUseNumber(), fromDate, toDate, null))
+                .thenReturn(transactionPage(true, "next-1", salary(LocalDate.of(2026, 6, 25), "2800000")));
+        when(client.transactions("access", salaryAccount.fintechUseNumber(), fromDate, toDate, "next-1"))
+                .thenReturn(transactionPage(false, "", salary(LocalDate.of(2026, 7, 25), "2900000")));
+        when(client.transactions("access", savingsAccount.fintechUseNumber(), fromDate, toDate, null))
+                .thenReturn(transactionPage(false, "", salary(LocalDate.of(2026, 8, 25), "3000000")));
+
+        OpenBankingResponses.Loan accessibleLoan =
+                new OpenBankingResponses.Loan("004", "국민은행", "1234567890", "001", "123-***", "신용대출", "3100", "01");
+        OpenBankingResponses.Loan inaccessibleLoan =
+                new OpenBankingResponses.Loan("020", "우리은행", "", "", "456-***", "전세대출", "3170", "01");
+        when(client.loans("access", "1100000000", "004", null))
+                .thenReturn(new OpenBankingResponses.LoanPage(false, "", List.of(accessibleLoan), NOW));
+        when(client.loans("access", "1100000000", "020", null))
+                .thenReturn(new OpenBankingResponses.LoanPage(false, "", List.of(inaccessibleLoan), NOW));
+        when(client.loanBasic("access", "1100000000", accessibleLoan, fromDate, toDate, null))
+                .thenReturn(new OpenBankingResponses.LoanBasicPage(
+                        null,
+                        "01",
+                        "004",
+                        null,
+                        false,
+                        "",
+                        List.of(
+                                new OpenBankingResponses.LoanTransaction(
+                                        LocalDate.of(2026, 6, 25), LocalTime.NOON, "02", new BigDecimal("-450000")),
+                                new OpenBankingResponses.LoanTransaction(
+                                        LocalDate.of(2026, 7, 25), LocalTime.NOON, "02", new BigDecimal("-450000")),
+                                new OpenBankingResponses.LoanTransaction(
+                                        LocalDate.of(2026, 8, 1), LocalTime.NOON, "01", new BigDecimal("10000000"))),
+                        NOW));
+
+        OpenBankingFinancialSummaryResponse response = service.financialSummary(MEMBER_ID, null);
+
+        assertThat(response.totalAccountBalance()).isEqualByComparingTo("15000000");
+        assertThat(response.totalAvailableBalance()).isEqualByComparingTo("14000000");
+        assertThat(response.averageMonthlyNetIncome()).isEqualByComparingTo("2900000");
+        assertThat(response.salaryDetectedMonths()).isEqualTo(3);
+        assertThat(response.averageMonthlyLoanRepayment()).isEqualByComparingTo("300000");
+        assertThat(response.loanCount()).isEqualTo(2);
+        assertThat(response.loanRepaymentDetailUnavailableCount()).isEqualTo(1);
+        assertThat(response.incomplete()).isTrue();
+        assertThat(response.calculationFromDate()).isEqualTo(fromDate);
+        assertThat(response.calculationToDate()).isEqualTo(toDate);
+    }
+
+    private OpenBankingResponses.Account account(String bankCode, String bankName, String fintechUseNumber) {
+        return new OpenBankingResponses.Account("통장", bankCode, bankName, "", fintechUseNumber, "123-***", "홍길동", "1");
+    }
+
+    private OpenBankingResponses.Balance balance(String fintechUseNumber, String balance, String available) {
+        return new OpenBankingResponses.Balance(
+                "은행",
+                "",
+                fintechUseNumber,
+                new BigDecimal(balance),
+                new BigDecimal(available),
+                "1",
+                "통장",
+                null,
+                null,
+                null,
+                NOW);
+    }
+
+    private OpenBankingResponses.TransactionPage transactionPage(
+            boolean hasNextPage, String traceInfo, OpenBankingResponses.Transaction... transactions) {
+        return new OpenBankingResponses.TransactionPage(
+                "은행", "", "", BigDecimal.ZERO, hasNextPage, traceInfo, List.of(transactions), NOW);
+    }
+
+    private OpenBankingResponses.Transaction salary(LocalDate date, String amount) {
+        return new OpenBankingResponses.Transaction(
+                date, LocalTime.NOON, "입금", "급여", "홈런", new BigDecimal(amount), BigDecimal.ZERO, "");
     }
 
     private OpenBankingConnection connection(Instant accessExpiresAt, Instant refreshExpiresAt) {
