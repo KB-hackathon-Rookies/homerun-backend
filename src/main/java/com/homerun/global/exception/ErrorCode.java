@@ -81,6 +81,8 @@ public enum ErrorCode {
 
     CONTRACT_NOT_FOUND(HttpStatus.NOT_FOUND, "PRP_001", "계약 정보를 찾을 수 없습니다."),
     PROPERTY_NOT_IN_PLAN(HttpStatus.BAD_REQUEST, "PRP_002", "이 계획의 매물이 아닙니다."),
+
+    DOCUMENT_NOT_FOUND(HttpStatus.NOT_FOUND, "ISS_001", "존재하지 않는 서류입니다."),
     ;
 
     private final HttpStatus status;
