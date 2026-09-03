@@ -125,11 +125,43 @@ class MigrationTest {
     }
 
     @Test
-    @DisplayName("팩트 레지스트리가 163행이다 (V2 141 + V9 월세대출 14 + V10 소액임차인 8)")
+    @DisplayName("V20이 전세대출 진단 입력과 금융정보 출처를 추가한다")
+    void should_add_jeonseDiagnosisInput_whenV20IsApplied() {
+        assertThat(columnNames("plan_input"))
+                .contains(
+                        "household_homeless",
+                        "birth_date",
+                        "military_months",
+                        "monthly_income",
+                        "net_assets",
+                        "available_cash",
+                        "has_existing_jeonse_loan",
+                        "income_source",
+                        "asset_source",
+                        "financial_data_confirmed");
+    }
+
+    @Test
+    @DisplayName("V21이 매물 후보 분석과 최종 선택 컬럼을 추가한다")
+    void should_add_propertyCandidateColumns_whenV21IsApplied() {
+        assertThat(columnNames("property"))
+                .contains(
+                        "legal_district_code",
+                        "building_name",
+                        "deposit",
+                        "is_multi_household",
+                        "landlord_tax_unpaid",
+                        "is_selected",
+                        "analyzed_at");
+        assertThat(indexNames("property")).contains("uq_property_selected_per_plan");
+    }
+
+    @Test
+    @DisplayName("팩트 레지스트리에 전세대출 진단 기준까지 적용된다")
     void should_seed_config_effective_when_migrated() {
         Integer count = jdbc.queryForObject("SELECT count(*) FROM config_effective", Integer.class);
 
-        assertThat(count).isEqualTo(169);
+        assertThat(count).isEqualTo(175);
     }
 
     @Test
