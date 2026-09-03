@@ -1,19 +1,25 @@
 package com.homerun.domain.region.entity;
 
-import jakarta.persistence.Entity;
-import jakarta.persistence.Id;
-import jakarta.persistence.Table;
+import jakarta.persistence.*;
+import lombok.Data;
+import lombok.NoArgsConstructor;
 
 @Entity
 @Table(name = "region")
+@Data
+@NoArgsConstructor
 public class Region {
 
     @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    protected Region() {}
+    @Column(name = "code", nullable = false, unique = true, length = 20)
+    private String code;
 
-    public Long getId() {
-        return id;
-    }
+    @Column(name = "name", nullable = false, length = 50)
+    private String name;
+
+    @Column(name = "level", nullable = false, length = 20)
+    private String level;
 }

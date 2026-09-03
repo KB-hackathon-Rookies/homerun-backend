@@ -1,137 +1,108 @@
 package com.homerun.domain.plan.service;
 
-import com.homerun.domain.plan.dto.request.PlanInputRequest;
-import com.homerun.domain.plan.dto.response.PlanInputResponse;
 import com.homerun.domain.plan.entity.Plan;
 import com.homerun.domain.plan.entity.PlanInput;
-import com.homerun.domain.plan.entity.PlanInputHistory;
-import com.homerun.domain.plan.entity.PlanStep;
-import com.homerun.domain.plan.repository.PlanInputHistoryRepository;
+import com.homerun.domain.region.entity.Region;
+import com.homerun.domain.plan.dto.request.PlanInputRequest;
+import com.homerun.domain.plan.dto.response.PlanInputResponse;
 import com.homerun.domain.plan.repository.PlanInputRepository;
 import com.homerun.domain.plan.repository.PlanRepository;
-import com.homerun.domain.plan.repository.PlanStepRepository;
-import com.homerun.domain.plan.type.PlanGate;
 import com.homerun.domain.region.repository.RegionRepository;
-import com.homerun.global.exception.BusinessException;
-import com.homerun.global.exception.ErrorCode;
-import java.util.List;
-import java.util.Set;
+import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 @Service
+@RequiredArgsConstructor
+@Transactional
 public class PlanInputService {
 
-    private static final Set<String> UNKNOWN_CAPABLE_FIELDS = Set.of(
-            "hopeDeposit",
-            "currentDeposit",
-            "monthlyRent",
-            "maintenanceFee",
-            "maxMonthlyBurden",
-            "regionId",
-            "areaM2",
-            "houseType",
-            "isHomeless",
-            "householderStatus",
-            "maritalStatus",
-            "employmentType",
-            "employmentMonths",
-            "companySize");
-
+    private final PlanInputRepository planInputRepository;
     private final PlanRepository planRepository;
-    private final PlanInputRepository inputRepository;
-    private final PlanInputHistoryRepository historyRepository;
-    private final PlanStepRepository stepRepository;
     private final RegionRepository regionRepository;
 
-    public PlanInputService(
-            PlanRepository planRepository,
-            PlanInputRepository inputRepository,
-            PlanInputHistoryRepository historyRepository,
-            PlanStepRepository stepRepository,
-            RegionRepository regionRepository) {
-        this.planRepository = planRepository;
-        this.inputRepository = inputRepository;
-        this.historyRepository = historyRepository;
-        this.stepRepository = stepRepository;
-        this.regionRepository = regionRepository;
-    }
+    public PlanInputResponse save(Long planId, PlanInputRequest request) {
 
-    @Transactional
-    public PlanInputResponse save(Long memberId, Long planId, PlanInputRequest request) {
-        validateUnknownFields(request);
-        findOwnedPlan(memberId, planId);
-        validateRegion(request.regionId());
-        PlanInput input = inputRepository.findByPlanId(planId).orElse(null);
-        if (input == null) {
-            return PlanInputResponse.from(inputRepository.save(PlanInput.create(planId, request)));
-        }
-        if (input.matches(request)) {
-            return PlanInputResponse.from(input);
+        // 1. Plan 조회
+        Plan plan = planRepository.findById(planId)
+                .orElseThrow(() ->
+                        new IllegalArgumentException("존재하지 않는 Plan입니다.")
+                );
+
+        // 2. Region 조회
+        Region region = null;
+
+        if (request.getRegionId() != null) {
+            region = regionRepository.findById(request.getRegionId())
+                    .orElseThrow(() ->
+                            new IllegalArgumentException("존재하지 않는 지역입니다.")
+                    );
         }
 
-        historyRepository.save(PlanInputHistory.capture(input));
-        input.update(request);
-        markAffectedStepsForRecalculation(planId);
-        return PlanInputResponse.from(input);
+        // 3. PlanInput 생성
+        PlanInput planInput = PlanInput.builder()
+                .plan(plan)
+                .hopeDeposit(request.getHopeDeposit())
+                .currentDeposit(request.getCurrentDeposit())
+                .monthlyRent(request.getMonthlyRent())
+                .maintenanceFee(request.getMaintenanceFee())
+                .maxMonthlyBurden(request.getMaxMonthlyBurden())
+                .region(region)
+                .areaM2(request.getAreaM2())
+                .houseType(request.getHouseType())
+                .isHomeless(request.getIsHomeless())
+                .householderStatus(request.getHouseholderStatus())
+                .maritalStatus(request.getMaritalStatus())
+                .employmentType(request.getEmploymentType())
+                .employmentMonths(request.getEmploymentMonths())
+                .companySize(request.getCompanySize())
+                .unknownFields(request.getUnknownFields())
+                .build();
+
+        // 5. DB 저장
+        PlanInput saved = planInputRepository.save(planInput);
+
+        // 6. Response 반환
+        return toResponse(saved);
     }
 
-    @Transactional(readOnly = true)
-    public PlanInputResponse get(Long memberId, Long planId) {
-        findOwnedPlan(memberId, planId);
-        PlanInput input = inputRepository
-                .findByPlanId(planId)
-                .orElseThrow(() -> new BusinessException(ErrorCode.PLAN_INPUT_NOT_FOUND));
-        return PlanInputResponse.from(input);
-    }
 
-    private Plan findOwnedPlan(Long memberId, Long planId) {
-        Plan plan = planRepository.findById(planId).orElseThrow(() -> new BusinessException(ErrorCode.PLAN_NOT_FOUND));
-        plan.verifyOwner(memberId);
-        return plan;
-    }
+    private PlanInputResponse toResponse(PlanInput planInput) {
 
-    private void markAffectedStepsForRecalculation(Long planId) {
-        List<PlanStep> steps = stepRepository.findAllByPlanIdOrderBySequenceAsc(planId);
-        steps.stream()
-                .filter(step -> step.getSequence() >= PlanGate.FIRST_DIAGNOSIS.sequence())
-                .forEach(PlanStep::requireRecalculation);
-    }
+        return PlanInputResponse.builder()
+                .id(planInput.getId())
+                .planId(planInput.getPlan().getId())
 
-    private void validateRegion(Long regionId) {
-        if (regionId != null && !regionRepository.existsById(regionId)) {
-            throw new BusinessException(ErrorCode.PLAN_REGION_NOT_FOUND);
-        }
-    }
+                // 주거 비용
+                .hopeDeposit(planInput.getHopeDeposit())
+                .currentDeposit(planInput.getCurrentDeposit())
+                .monthlyRent(planInput.getMonthlyRent())
+                .maintenanceFee(planInput.getMaintenanceFee())
+                .maxMonthlyBurden(planInput.getMaxMonthlyBurden())
 
-    private void validateUnknownFields(PlanInputRequest request) {
-        for (String field : request.normalizedUnknownFields()) {
-            if (!UNKNOWN_CAPABLE_FIELDS.contains(field)) {
-                throw new BusinessException(ErrorCode.INVALID_UNKNOWN_FIELD);
-            }
-            if (valueOf(request, field) != null) {
-                throw new BusinessException(ErrorCode.UNKNOWN_FIELD_HAS_VALUE);
-            }
-        }
-    }
+                // 주거 조건
+                .regionId(
+                        planInput.getRegion() != null
+                                ? planInput.getRegion().getId()
+                                : null
+                )
+                .areaM2(planInput.getAreaM2())
+                .houseType(planInput.getHouseType())
 
-    private Object valueOf(PlanInputRequest request, String field) {
-        return switch (field) {
-            case "hopeDeposit" -> request.hopeDeposit();
-            case "currentDeposit" -> request.currentDeposit();
-            case "monthlyRent" -> request.monthlyRent();
-            case "maintenanceFee" -> request.maintenanceFee();
-            case "maxMonthlyBurden" -> request.maxMonthlyBurden();
-            case "regionId" -> request.regionId();
-            case "areaM2" -> request.areaM2();
-            case "houseType" -> request.houseType();
-            case "isHomeless" -> request.isHomeless();
-            case "householderStatus" -> request.householderStatus();
-            case "maritalStatus" -> request.maritalStatus();
-            case "employmentType" -> request.employmentType();
-            case "employmentMonths" -> request.employmentMonths();
-            case "companySize" -> request.companySize();
-            default -> null;
-        };
+                // 가구 조건
+                .isHomeless(planInput.getIsHomeless())
+                .householderStatus(planInput.getHouseholderStatus())
+                .maritalStatus(planInput.getMaritalStatus())
+
+                // 직업 조건
+                .employmentType(planInput.getEmploymentType())
+                .employmentMonths(planInput.getEmploymentMonths())
+                .companySize(planInput.getCompanySize())
+
+                // 모름 필드
+                .unknownFields(planInput.getUnknownFields())
+
+                .createdAt(planInput.getCreatedAt())
+                .build();
     }
 }
