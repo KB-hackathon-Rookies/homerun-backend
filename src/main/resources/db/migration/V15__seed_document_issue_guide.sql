@@ -7,7 +7,11 @@
 -- 200원, 주민센터 방문이 400원이다. "온라인 우선"(ISS-01-02)이 사용자에게 실제로 이득인
 -- 근거가 이 차이다.
 --
--- 아래 수수료는 전부 공식 고시를 확인한 값이다. 근거를 각 행 주석에 남긴다.
+-- 수수료는 공식 안내를 확인한 값이다. 근거를 각 행 주석에 남긴다.
+--
+-- 다만 무인민원발급기 수수료는 자치단체 조례에 따라 갈린다. 전국 공통 카탈로그라
+-- 지역을 모르므로, 기본값을 두고 갈릴 수 있다는 것을 fee_note 로 알린다. 하나의 숫자로
+-- 못 박으면 지역에 따라 틀린 안내가 된다.
 
 CREATE TABLE document_issue_method (
     id               BIGSERIAL   PRIMARY KEY,
@@ -40,8 +44,9 @@ COMMENT ON COLUMN document_issue_method.note IS '방문 전 확인사항 — 운
 -- '등기부·주민등록등본·가족관계증명서'로 한정돼 있어서, 나머지까지 30일로 밀면 근거 없는
 -- 만료 판정을 만든다. 인정 기간은 제출처마다 다르므로 모르는 것은 비워 둔다(NFR-01-06).
 --
--- fee 는 가장 싼 발급방법의 금액이다. 판정에는 쓰지 않고 목록 표시용이며,
--- document_issue_method 와 어긋나지 않는지 테스트로 확인한다.
+-- fee 는 가장 싼 발급방법의 금액이다. 판정에는 쓰지 않지만 다른 소비자가 읽을 수 있어
+-- 비워 두지 않는다. document_issue_method 의 최저가와 어긋나지 않는지 테스트가
+-- document_type 을 직접 읽어 확인한다.
 -- ------------------------------------------------------------
 
 INSERT INTO document_type (code, name, issuer, issue_url, online_available, validity_days, fee, note) VALUES
@@ -59,7 +64,7 @@ INSERT INTO document_type (code, name, issuer, issue_url, online_available, vali
    '가구원 확인에 쓴다'),
   ('RESIDENT_LIST', '전입세대확인서', '주민센터',
    NULL, false, NULL, 400,
-   '온라인 발급이 안 되는 유일한 서류다. 다가구주택 대출에 필수'),
+   '공공기관에서 떼는 서류 중 유일하게 온라인·무인 발급이 안 된다. 다가구주택 대출에 필수'),
   ('INCOME_CERT', '소득금액증명', '홈택스',
    'https://www.hometax.go.kr', true, NULL, 0,
    '전년도 소득이 기준이다. 5월 종합소득세 신고 전에는 전전년도로 나온다'),
@@ -93,7 +98,7 @@ FROM (VALUES
   -- 등기사항증명서 등 수수료규칙: 인터넷 1,000 / 무인 1,000 / 방문 1,200
   ('REGISTRY_CERT', 'ONLINE', '인터넷등기소', 'https://www.iros.go.kr', 1000,
    '열람은 700원. 대출·보증 제출용은 발급본이어야 한다', NULL,
-   '발급본은 출력해야 효력이 있다', 1),
+   '인터넷등기소 > 부동산등기 > 열람/발급(출력). 발급본은 출력해야 효력이 있다', 1),
   ('REGISTRY_CERT', 'KIOSK', '법원 무인발급기', 'https://data.iros.go.kr/rp/ro/openRgsKioskInfrm.do', 1000,
    NULL, '주소 또는 부동산고유번호',
    '주민센터 무인발급기가 아니라 법원에 있는 것이다. 설치 위치를 먼저 확인한다', 2),
@@ -101,14 +106,17 @@ FROM (VALUES
    NULL, '신분증, 주소 또는 부동산고유번호',
    '주소만으로 못 찾는 경우가 있어 부동산고유번호를 미리 확인해 두면 빠르다', 3),
 
+  -- 정부24: 인터넷 발급 무료, 방문 교부 등본 500원·초본 300원.
+  -- 무인발급기는 "개별 법령 및 자치단체 조례에 따라 달라질 수 있다"고만 안내한다.
   ('BUILDING_LEDGER', 'ONLINE', '정부24',
    'https://www.gov.kr/mw/AA020InfoCappView.do?CappBizCD=15000000098&tp_seq=03', 0,
    NULL, NULL,
    '무료다. 집합건물은 전유부, 그 외는 일반건축물대장을 뗀다', 1),
-  ('BUILDING_LEDGER', 'KIOSK', '무인민원발급기', NULL, 300,
-   NULL, '신분증', '24시간 되는 곳이 많다', 2),
+  ('BUILDING_LEDGER', 'KIOSK', '무인민원발급기', NULL, 500,
+   '자치단체 조례에 따라 300~500원으로 갈린다. 발급기 화면에서 확인한다', '신분증',
+   '24시간 되는 곳이 많다', 2),
   ('BUILDING_LEDGER', 'VISIT', '주민센터·구청', NULL, 500,
-   NULL, '신분증', '평일 09:00~18:00', 3),
+   '등본 500원, 초본 300원', '신분증', '평일 09:00~18:00', 3),
 
   -- 주민등록법 시행규칙: 방문 400원, 무인발급기는 그 1/2 인 200원, 인터넷 무료
   ('RESIDENT_REGISTRATION', 'ONLINE', '정부24',
@@ -123,7 +131,8 @@ FROM (VALUES
    '평일 09:00~18:00. 점심시간에도 대체로 처리된다', 3),
 
   ('FAMILY_RELATION', 'ONLINE', '전자가족관계등록시스템', 'https://efamily.scourt.go.kr', 0,
-   NULL, NULL, '무료다. 상세·일반 중 제출처가 요구하는 것을 고른다', 1),
+   NULL, NULL,
+   '전자가족관계등록시스템 > 증명서 발급 > 가족관계증명서. 상세·일반 중 제출처가 요구하는 것을 고른다', 1),
   ('FAMILY_RELATION', 'KIOSK', '무인민원발급기', NULL, 500, NULL, '신분증', NULL, 2),
   ('FAMILY_RELATION', 'VISIT', '주민센터', NULL, 1000, NULL, '신분증', '평일 09:00~18:00', 3),
 
@@ -135,7 +144,8 @@ FROM (VALUES
    '온라인·무인 발급이 안 된다. 이해관계인만 뗄 수 있어 계약서를 반드시 가져가야 한다. 처리 약 5분', 1),
 
   ('INCOME_CERT', 'ONLINE', '홈택스', 'https://www.hometax.go.kr', 0,
-   NULL, NULL, '무료다. 정부24에서도 뗄 수 있다', 1),
+   NULL, NULL,
+   '홈택스 > 증명·등록·신청 > 즉시발급 증명 > 소득금액증명. 무료다. 정부24에서도 뗄 수 있다', 1),
   ('INCOME_CERT', 'KIOSK', '무인민원발급기', NULL, 0, NULL, '신분증', NULL, 2),
   ('INCOME_CERT', 'VISIT', '세무서·주민센터', NULL, 0, NULL, '신분증', '평일 09:00~18:00', 3),
 
@@ -144,11 +154,13 @@ FROM (VALUES
    '회사 양식이라 며칠 걸릴 수 있다. 은행 상담 전에 미리 요청해 둔다', 1),
 
   ('NATIONAL_TAX_PAYMENT', 'ONLINE', '홈택스', 'https://www.hometax.go.kr', 0,
-   NULL, NULL, '무료다. 임대인 본인만 뗄 수 있으므로 계약 자리에서 요청한다', 1),
+   NULL, NULL,
+   '홈택스 > 증명·등록·신청 > 즉시발급 증명 > 납세증명서. 임대인 본인만 뗄 수 있으므로 계약 자리에서 요청한다', 1),
   ('NATIONAL_TAX_PAYMENT', 'VISIT', '세무서', NULL, 0, NULL, '신분증', '평일 09:00~18:00', 2),
 
   ('LOCAL_TAX_PAYMENT', 'ONLINE', '위택스', 'https://www.wetax.go.kr', 0,
-   NULL, NULL, '무료다. 국세와 별개라 둘 다 받아야 한다', 1),
+   NULL, NULL,
+   '위택스 > 납부결과 > 납세증명서. 무료다. 국세와 별개라 둘 다 받아야 한다', 1),
   ('LOCAL_TAX_PAYMENT', 'KIOSK', '무인민원발급기', NULL, 0, NULL, '신분증', NULL, 2),
   ('LOCAL_TAX_PAYMENT', 'VISIT', '주민센터·구청', NULL, 0, NULL, '신분증', '평일 09:00~18:00', 3),
 
