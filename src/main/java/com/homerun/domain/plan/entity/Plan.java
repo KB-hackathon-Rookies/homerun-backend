@@ -4,6 +4,8 @@ import com.homerun.domain.plan.type.LeaseType;
 import com.homerun.domain.plan.type.PlanStage;
 import com.homerun.domain.plan.type.PlanStatus;
 import com.homerun.domain.plan.type.StartSituation;
+import com.homerun.global.exception.BusinessException;
+import com.homerun.global.exception.ErrorCode;
 import jakarta.persistence.*;
 import java.time.LocalDate;
 import java.time.OffsetDateTime;
@@ -122,7 +124,11 @@ public class Plan {
         return null;
     }
 
-    public void verifyOwner(Long memberId) {}
+    public void verifyOwner(Long memberId) {
+        if (!userId.equals(memberId)) {
+            throw new BusinessException(ErrorCode.PLAN_ACCESS_DENIED);
+        }
+    }
 
     public PlanStage getLastVisitedStage() {
         return null;
