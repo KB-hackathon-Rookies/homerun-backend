@@ -1,5 +1,6 @@
 package com.homerun.domain.document.entity;
 
+import com.homerun.domain.document.type.IssueAgency;
 import com.homerun.domain.document.type.IssueMethod;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
@@ -33,6 +34,10 @@ public class DocumentIssueMethod {
 
     @Column(length = 100)
     private String agency;
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "agency_code", nullable = false, length = 30)
+    private IssueAgency agencyCode;
 
     @Column
     private String url;
@@ -68,6 +73,10 @@ public class DocumentIssueMethod {
 
     public String getAgency() {
         return agency;
+    }
+
+    public IssueAgency getAgencyCode() {
+        return agencyCode;
     }
 
     public String getUrl() {
