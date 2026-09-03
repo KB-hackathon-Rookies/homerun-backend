@@ -78,6 +78,26 @@ public class Deadline {
         this.factCode = factCode;
     }
 
+    /**
+     * 계약 날짜에서 역산한 마감(SEQ-01-04).
+     *
+     * <p>{@code movePreparation} 은 계획을 만들 때 희망 이사일로 잡는 어림값이다. 계약이
+     * 맺어져 잔금일이 정해지면 그 날짜로 다시 만든다.
+     *
+     * @param factCode 근거 기준. 다시 계산할 때 이 코드로 옛 마감을 찾아 지운다
+     */
+    public static Deadline derived(
+            Long planId,
+            Long taskId,
+            DeadlineType type,
+            String label,
+            String baseEvent,
+            LocalDate baseDate,
+            int offsetDays,
+            String factCode) {
+        return new Deadline(planId, taskId, type, label, baseEvent, baseDate, offsetDays, false, factCode);
+    }
+
     public static Deadline movePreparation(Long planId, Long taskId, LocalDate targetMoveDate) {
         return new Deadline(
                 planId,
@@ -117,5 +137,22 @@ public class Deadline {
 
     public boolean isAbsolute() {
         return absolute;
+    }
+
+    public String getBaseEvent() {
+        return baseEvent;
+    }
+
+    public LocalDate getBaseDate() {
+        return baseDate;
+    }
+
+    public int getOffsetDays() {
+        return offsetDays;
+    }
+
+    /** 어떤 기준에서 나온 마감인지. 다시 계산할 때 이 코드로 옛 것을 찾는다. */
+    public String getFactCode() {
+        return factCode;
     }
 }

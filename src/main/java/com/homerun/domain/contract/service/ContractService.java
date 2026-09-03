@@ -32,6 +32,7 @@ public class ContractService {
     private final SettlementAdvisor settlement;
     private final PropertyVerificationService verification;
     private final PropertyRepository properties;
+    private final ContractDeadlineWriter deadlines;
 
     public ContractService(
             LeaseContractRepository contracts,
@@ -42,7 +43,8 @@ public class ContractService {
             SpecialTermAdvisor specialTerms,
             SettlementAdvisor settlement,
             PropertyVerificationService verification,
-            PropertyRepository properties) {
+            PropertyRepository properties,
+            ContractDeadlineWriter deadlines) {
         this.contracts = contracts;
         this.plans = plans;
         this.progress = progress;
@@ -52,6 +54,7 @@ public class ContractService {
         this.settlement = settlement;
         this.verification = verification;
         this.properties = properties;
+        this.deadlines = deadlines;
     }
 
     /** 남의 계획을 건드리지 못하게 한다(SEC-01-04). */
@@ -103,7 +106,10 @@ public class ContractService {
                 request.balancePaidAt(),
                 request.electronic());
 
-        return toGuide(contracts.save(contract));
+        LeaseContract saved = contracts.save(contract);
+        // 마감은 계약 날짜에서 나온다. 잔금일이 바뀌면 같이 다시 잡아야 한다(SEQ-01-04).
+        deadlines.rewrite(planId, saved);
+        return toGuide(saved);
     }
 
     /**
