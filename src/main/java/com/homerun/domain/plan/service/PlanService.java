@@ -154,7 +154,56 @@ public class PlanService {
 
     /**
      * Task 완료
+     *
+     * stepCode (enum 으로 정의 예정)
+     *
+     *
+     * "USER_INFO"
+     * "DIAGNOSIS"
+     * "PROGRESS"
+     * "AFTERCARE"
+     *
+     * "사용자 정보 입력 받기"
+     * "진단"
+     * "진행"
+     * "사후"
+     *
+     *
+     * taskCode  (enum 으로 정의 예정 , 플로우 정의 테스트 후 재정의 예정)
+     *
+     * "BANK_CONSULTATION"
+     * "LOAN_LIMIT_CHECK"
+     * "DOCUMENT_CHECK"
+     * "PROPERTY_SEARCH"
+     * "BUILDING_REGISTER_CHECK"
+     * "ACTUAL_PRICE_CHECK"
+     * "REGISTER_CHECK"
+     * "CONTRACT_CHECK"
+     * "SPECIAL_CLAUSE_CHECK"
+     * "DEPOSIT_PAYMENT"
+     * "BALANCE_PAYMENT"
+     * "MOVE_IN_REPORT"
+     * "FIXED_DATE"
+     * "GUARANTEE_CHECK"
+     *
+     * "은행 상담"
+     * "전세대출 한도 확인"
+     * "대출 필요 서류 확인"
+     * "매물 확인"
+     * "건축물대장 확인"
+     * "실거래가 확인"
+     * "등기부등본 확인"
+     * "계약서 확인"
+     * "특약 확인"
+     * "계약금 지급"
+     * "잔금 지급"
+     * "전입신고"
+     * "확정일자 확인"
+     * "전세보증 가입 확인"
      */
+
+
+
     public PlanProgressResponse completeTask(Long memberId, Long planId, String stepCode, String taskCode) {
 
         Plan plan = getPlan(memberId, planId);
