@@ -11,32 +11,16 @@ import com.homerun.domain.plan.repository.PlanInputRepository;
 import com.homerun.domain.plan.repository.PlanRepository;
 import com.homerun.domain.plan.repository.PlanStepRepository;
 import com.homerun.domain.plan.type.PlanGate;
+import com.homerun.domain.plan.type.PlanInputUnknownField;
 import com.homerun.domain.region.repository.RegionRepository;
 import com.homerun.global.exception.BusinessException;
 import com.homerun.global.exception.ErrorCode;
 import java.util.List;
-import java.util.Set;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 @Service
 public class PlanInputService {
-
-    private static final Set<String> UNKNOWN_CAPABLE_FIELDS = Set.of(
-            "hopeDeposit",
-            "currentDeposit",
-            "monthlyRent",
-            "maintenanceFee",
-            "maxMonthlyBurden",
-            "regionId",
-            "areaM2",
-            "houseType",
-            "isHomeless",
-            "householderStatus",
-            "maritalStatus",
-            "employmentType",
-            "employmentMonths",
-            "companySize");
 
     private final PlanRepository planRepository;
     private final PlanInputRepository inputRepository;
@@ -104,34 +88,32 @@ public class PlanInputService {
         }
     }
 
+    // 모름으로 둘 수 있는 항목은 PlanInputUnknownField 가 정한다. 역직렬화 단계에서
+    // 걸러지므로 여기서는 값이 함께 오지 않았는지만 본다(COM-05-04).
     private void validateUnknownFields(PlanInputRequest request) {
-        for (String field : request.normalizedUnknownFields()) {
-            if (!UNKNOWN_CAPABLE_FIELDS.contains(field)) {
-                throw new BusinessException(ErrorCode.INVALID_UNKNOWN_FIELD);
-            }
+        for (PlanInputUnknownField field : request.normalizedUnknownFields()) {
             if (valueOf(request, field) != null) {
                 throw new BusinessException(ErrorCode.UNKNOWN_FIELD_HAS_VALUE);
             }
         }
     }
 
-    private Object valueOf(PlanInputRequest request, String field) {
+    private Object valueOf(PlanInputRequest request, PlanInputUnknownField field) {
         return switch (field) {
-            case "hopeDeposit" -> request.hopeDeposit();
-            case "currentDeposit" -> request.currentDeposit();
-            case "monthlyRent" -> request.monthlyRent();
-            case "maintenanceFee" -> request.maintenanceFee();
-            case "maxMonthlyBurden" -> request.maxMonthlyBurden();
-            case "regionId" -> request.regionId();
-            case "areaM2" -> request.areaM2();
-            case "houseType" -> request.houseType();
-            case "isHomeless" -> request.isHomeless();
-            case "householderStatus" -> request.householderStatus();
-            case "maritalStatus" -> request.maritalStatus();
-            case "employmentType" -> request.employmentType();
-            case "employmentMonths" -> request.employmentMonths();
-            case "companySize" -> request.companySize();
-            default -> null;
+            case HOPE_DEPOSIT -> request.hopeDeposit();
+            case CURRENT_DEPOSIT -> request.currentDeposit();
+            case MONTHLY_RENT -> request.monthlyRent();
+            case MAINTENANCE_FEE -> request.maintenanceFee();
+            case MAX_MONTHLY_BURDEN -> request.maxMonthlyBurden();
+            case REGION_ID -> request.regionId();
+            case AREA_M2 -> request.areaM2();
+            case HOUSE_TYPE -> request.houseType();
+            case IS_HOMELESS -> request.isHomeless();
+            case HOUSEHOLDER_STATUS -> request.householderStatus();
+            case MARITAL_STATUS -> request.maritalStatus();
+            case EMPLOYMENT_TYPE -> request.employmentType();
+            case EMPLOYMENT_MONTHS -> request.employmentMonths();
+            case COMPANY_SIZE -> request.companySize();
         };
     }
 }

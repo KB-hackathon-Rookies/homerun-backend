@@ -17,8 +17,14 @@ import com.homerun.domain.plan.repository.PlanInputHistoryRepository;
 import com.homerun.domain.plan.repository.PlanInputRepository;
 import com.homerun.domain.plan.repository.PlanRepository;
 import com.homerun.domain.plan.repository.PlanStepRepository;
+import com.homerun.domain.plan.type.CompanySize;
+import com.homerun.domain.plan.type.EmploymentType;
+import com.homerun.domain.plan.type.HouseType;
+import com.homerun.domain.plan.type.HouseholderStatus;
 import com.homerun.domain.plan.type.LeaseType;
+import com.homerun.domain.plan.type.MaritalStatus;
 import com.homerun.domain.plan.type.PlanGate;
+import com.homerun.domain.plan.type.PlanInputUnknownField;
 import com.homerun.domain.plan.type.PlanStepStatus;
 import com.homerun.domain.region.repository.RegionRepository;
 import com.homerun.global.exception.BusinessException;
@@ -69,7 +75,8 @@ class PlanInputServiceTest {
     @Test
     void should_saveAndRestoreUnknownFields_when_inputIsCreated() {
         givenOwnedPlan();
-        PlanInputRequest request = request(100_000_000L, null, Set.of("monthlyRent", "maintenanceFee"));
+        PlanInputRequest request = request(
+                100_000_000L, null, Set.of(PlanInputUnknownField.MONTHLY_RENT, PlanInputUnknownField.MAINTENANCE_FEE));
         when(inputRepository.findByPlanId(PLAN_ID)).thenReturn(Optional.empty());
         when(inputRepository.save(any(PlanInput.class))).thenAnswer(invocation -> invocation.getArgument(0));
 
@@ -81,7 +88,8 @@ class PlanInputServiceTest {
 
         assertThat(saved.revision()).isEqualTo(1);
         assertThat(saved.saveStatus()).isEqualTo("SAVED");
-        assertThat(restored.unknownFields()).containsExactly("maintenanceFee", "monthlyRent");
+        assertThat(restored.unknownFields())
+                .containsExactly(PlanInputUnknownField.MAINTENANCE_FEE, PlanInputUnknownField.MONTHLY_RENT);
         assertThat(restored.monthlyRent()).isNull();
     }
 
@@ -135,18 +143,8 @@ class PlanInputServiceTest {
     }
 
     @Test
-    void should_rejectUnknownField_when_fieldNameIsNotSupported() {
-        PlanInputRequest request = request(null, null, Set.of("notExistingField"));
-
-        assertThatThrownBy(() -> inputService.save(MEMBER_ID, PLAN_ID, request))
-                .isInstanceOfSatisfying(
-                        BusinessException.class,
-                        exception -> assertThat(exception.errorCode()).isEqualTo(ErrorCode.INVALID_UNKNOWN_FIELD));
-    }
-
-    @Test
     void should_rejectUnknownField_when_valueIsAlsoProvided() {
-        PlanInputRequest request = request(null, 500_000L, Set.of("monthlyRent"));
+        PlanInputRequest request = request(null, 500_000L, Set.of(PlanInputUnknownField.MONTHLY_RENT));
 
         assertThatThrownBy(() -> inputService.save(MEMBER_ID, PLAN_ID, request))
                 .isInstanceOfSatisfying(
@@ -180,11 +178,12 @@ class PlanInputServiceTest {
         when(planRepository.findById(PLAN_ID)).thenReturn(Optional.of(plan));
     }
 
-    private PlanInputRequest request(Long hopeDeposit, Long monthlyRent, Set<String> unknownFields) {
+    private PlanInputRequest request(Long hopeDeposit, Long monthlyRent, Set<PlanInputUnknownField> unknownFields) {
         return request(hopeDeposit, monthlyRent, 1L, unknownFields);
     }
 
-    private PlanInputRequest request(Long hopeDeposit, Long monthlyRent, Long regionId, Set<String> unknownFields) {
+    private PlanInputRequest request(
+            Long hopeDeposit, Long monthlyRent, Long regionId, Set<PlanInputUnknownField> unknownFields) {
         return new PlanInputRequest(
                 hopeDeposit,
                 20_000_000L,
@@ -193,13 +192,13 @@ class PlanInputServiceTest {
                 800_000L,
                 regionId,
                 new BigDecimal("84.92"),
-                "APARTMENT",
+                HouseType.APARTMENT,
                 true,
-                "HOUSEHOLDER",
-                "SINGLE",
-                "EMPLOYEE",
+                HouseholderStatus.CURRENT,
+                MaritalStatus.SINGLE,
+                EmploymentType.FULL_TIME,
                 12,
-                "SMALL",
+                CompanySize.SMALL,
                 unknownFields);
     }
 }

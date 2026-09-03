@@ -1,8 +1,16 @@
 package com.homerun.domain.plan.entity;
 
 import com.homerun.domain.plan.dto.request.PlanInputRequest;
+import com.homerun.domain.plan.type.CompanySize;
+import com.homerun.domain.plan.type.EmploymentType;
+import com.homerun.domain.plan.type.HouseType;
+import com.homerun.domain.plan.type.HouseholderStatus;
+import com.homerun.domain.plan.type.MaritalStatus;
+import com.homerun.domain.plan.type.PlanInputUnknownField;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
+import jakarta.persistence.EnumType;
+import jakarta.persistence.Enumerated;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
@@ -47,30 +55,35 @@ public class PlanInput {
     @Column(name = "area_m2", precision = 6, scale = 2)
     private BigDecimal areaM2;
 
+    @Enumerated(EnumType.STRING)
     @Column(name = "house_type", length = 30)
-    private String houseType;
+    private HouseType houseType;
 
     @Column(name = "is_homeless")
     private Boolean homeless;
 
+    @Enumerated(EnumType.STRING)
     @Column(name = "householder_status", length = 30)
-    private String householderStatus;
+    private HouseholderStatus householderStatus;
 
+    @Enumerated(EnumType.STRING)
     @Column(name = "marital_status", length = 20)
-    private String maritalStatus;
+    private MaritalStatus maritalStatus;
 
+    @Enumerated(EnumType.STRING)
     @Column(name = "employment_type", length = 30)
-    private String employmentType;
+    private EmploymentType employmentType;
 
     @Column(name = "employment_months")
     private Integer employmentMonths;
 
+    @Enumerated(EnumType.STRING)
     @Column(name = "company_size", length = 30)
-    private String companySize;
+    private CompanySize companySize;
 
     @JdbcTypeCode(SqlTypes.JSON)
     @Column(name = "unknown_fields", nullable = false, columnDefinition = "jsonb")
-    private List<String> unknownFields;
+    private List<PlanInputUnknownField> unknownFields;
 
     @Column(name = "created_at", nullable = false)
     private Instant createdAt;
@@ -141,8 +154,10 @@ public class PlanInput {
         unknownFields = sortedUnknownFields(request);
     }
 
-    private List<String> sortedUnknownFields(PlanInputRequest request) {
-        return request.normalizedUnknownFields().stream().sorted().toList();
+    private List<PlanInputUnknownField> sortedUnknownFields(PlanInputRequest request) {
+        return request.normalizedUnknownFields().stream()
+                .sorted(java.util.Comparator.comparing(Enum::name))
+                .toList();
     }
 
     private boolean equalDecimal(BigDecimal left, BigDecimal right) {
@@ -188,7 +203,7 @@ public class PlanInput {
         return areaM2;
     }
 
-    public String getHouseType() {
+    public HouseType getHouseType() {
         return houseType;
     }
 
@@ -196,15 +211,15 @@ public class PlanInput {
         return homeless;
     }
 
-    public String getHouseholderStatus() {
+    public HouseholderStatus getHouseholderStatus() {
         return householderStatus;
     }
 
-    public String getMaritalStatus() {
+    public MaritalStatus getMaritalStatus() {
         return maritalStatus;
     }
 
-    public String getEmploymentType() {
+    public EmploymentType getEmploymentType() {
         return employmentType;
     }
 
@@ -212,11 +227,11 @@ public class PlanInput {
         return employmentMonths;
     }
 
-    public String getCompanySize() {
+    public CompanySize getCompanySize() {
         return companySize;
     }
 
-    public List<String> getUnknownFields() {
+    public List<PlanInputUnknownField> getUnknownFields() {
         return List.copyOf(unknownFields);
     }
 
