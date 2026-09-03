@@ -63,4 +63,28 @@ public final class OpenBankingResponses {
             String nextTraceInfo,
             List<Transaction> transactions,
             Instant fetchedAt) {}
+
+    public record Loan(
+            String bankCode,
+            String bankName,
+            String accountNumber,
+            String accountSequence,
+            String accountNumberMasked,
+            String productName,
+            String accountType,
+            String accountStatus) {}
+
+    public record LoanPage(boolean hasNextPage, String nextTraceInfo, List<Loan> loans, Instant fetchedAt) {}
+
+    public record LoanTransaction(LocalDate date, LocalTime time, String type, BigDecimal amount) {}
+
+    public record LoanBasicPage(
+            String repaymentDate,
+            String repaymentMethod,
+            String repaymentOrganizationCode,
+            LocalDate nextRepaymentDate,
+            boolean hasNextPage,
+            String nextTraceInfo,
+            List<LoanTransaction> transactions,
+            Instant fetchedAt) {}
 }

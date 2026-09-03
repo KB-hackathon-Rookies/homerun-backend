@@ -4,6 +4,10 @@ import com.homerun.global.exception.BusinessException;
 import com.homerun.global.exception.ErrorCode;
 import com.homerun.global.external.openbanking.OpenBankingResponses.Account;
 import com.homerun.global.external.openbanking.OpenBankingResponses.Balance;
+import com.homerun.global.external.openbanking.OpenBankingResponses.Loan;
+import com.homerun.global.external.openbanking.OpenBankingResponses.LoanBasicPage;
+import com.homerun.global.external.openbanking.OpenBankingResponses.LoanPage;
+import com.homerun.global.external.openbanking.OpenBankingResponses.LoanTransaction;
 import com.homerun.global.external.openbanking.OpenBankingResponses.Token;
 import com.homerun.global.external.openbanking.OpenBankingResponses.Transaction;
 import com.homerun.global.external.openbanking.OpenBankingResponses.TransactionPage;
@@ -181,6 +185,72 @@ public class OpenBankingClient {
                 Instant.now(clock));
     }
 
+    public LoanPage loans(String accessToken, String userSeqNo, String bankCode, String beforeInquiryTraceInfo) {
+        UriComponentsBuilder uriBuilder = UriComponentsBuilder.fromUriString(properties.apiBaseUrl())
+                .path("/v2.0/loans")
+                .queryParam("bank_tran_id", bankTransactionId())
+                .queryParam("user_seq_no", userSeqNo)
+                .queryParam("bank_code_std", bankCode);
+        addTraceInfo(uriBuilder, beforeInquiryTraceInfo);
+        JsonNode root = get(uriBuilder.build().encode().toUri(), accessToken);
+        List<Loan> loans = new ArrayList<>();
+        String responseBankCode = defaultIfBlank(text(root, "bank_code_std"), bankCode);
+        String responseBankName = text(root, "bank_name");
+        for (JsonNode loan : root.path("loan_list")) {
+            loans.add(new Loan(
+                    defaultIfBlank(text(loan, "bank_code_std"), responseBankCode),
+                    defaultIfBlank(text(loan, "bank_name"), responseBankName),
+                    text(loan, "account_num"),
+                    text(loan, "account_seq"),
+                    text(loan, "account_num_masked"),
+                    text(loan, "prod_name"),
+                    text(loan, "account_type"),
+                    text(loan, "account_status")));
+        }
+        return new LoanPage(
+                hasNextPage(root), text(root, "befor_inquiry_trace_info"), List.copyOf(loans), Instant.now(clock));
+    }
+
+    public LoanBasicPage loanBasic(
+            String accessToken,
+            String userSeqNo,
+            Loan loan,
+            LocalDate fromDate,
+            LocalDate toDate,
+            String beforeInquiryTraceInfo) {
+        UriComponentsBuilder uriBuilder = UriComponentsBuilder.fromUriString(properties.apiBaseUrl())
+                .path("/v2.0/loans/basic")
+                .queryParam("bank_tran_id", bankTransactionId())
+                .queryParam("bank_code_std", loan.bankCode())
+                .queryParam("account_num", loan.accountNumber());
+        if (!loan.accountSequence().isBlank()) {
+            uriBuilder.queryParam("account_seq", loan.accountSequence());
+        }
+        uriBuilder
+                .queryParam("user_seq_no", userSeqNo)
+                .queryParam("from_date", fromDate.format(TRANSACTION_DATE))
+                .queryParam("to_date", toDate.format(TRANSACTION_DATE));
+        addTraceInfo(uriBuilder, beforeInquiryTraceInfo);
+        JsonNode root = post(uriBuilder.build().encode().toUri(), accessToken);
+        List<LoanTransaction> transactions = new ArrayList<>();
+        for (JsonNode transaction : root.path("res_list")) {
+            transactions.add(new LoanTransaction(
+                    date(transaction, "trans_date"),
+                    time(transaction, "trans_time"),
+                    text(transaction, "trans_type"),
+                    decimal(transaction, "trans_amt")));
+        }
+        return new LoanBasicPage(
+                text(root, "repay_date"),
+                text(root, "repay_method"),
+                text(root, "repay_org_code"),
+                date(root, "next_repay_date"),
+                hasNextPage(root),
+                text(root, "befor_inquiry_trace_info"),
+                List.copyOf(transactions),
+                Instant.now(clock));
+    }
+
     private MultiValueMap<String, String> commonTokenForm(String grantType) {
         MultiValueMap<String, String> form = new LinkedMultiValueMap<>();
         form.add("grant_type", grantType);
@@ -236,6 +306,37 @@ public class OpenBankingClient {
         } catch (Exception exception) {
             throw new BusinessException(ErrorCode.OPEN_BANKING_PROVIDER_ERROR, exception);
         }
+    }
+
+    private JsonNode post(URI uri, String accessToken) {
+        try {
+            String response = restClient
+                    .post()
+                    .uri(uri)
+                    .header(HttpHeaders.AUTHORIZATION, "Bearer " + accessToken)
+                    .retrieve()
+                    .body(String.class);
+            JsonNode root = readJson(response);
+            String responseCode = text(root, "rsp_code");
+            if (!responseCode.isBlank() && !"A0000".equals(responseCode)) {
+                throw new BusinessException(ErrorCode.OPEN_BANKING_PROVIDER_ERROR);
+            }
+            return root;
+        } catch (BusinessException exception) {
+            throw exception;
+        } catch (Exception exception) {
+            throw new BusinessException(ErrorCode.OPEN_BANKING_PROVIDER_ERROR, exception);
+        }
+    }
+
+    private void addTraceInfo(UriComponentsBuilder uriBuilder, String beforeInquiryTraceInfo) {
+        if (beforeInquiryTraceInfo != null && !beforeInquiryTraceInfo.isBlank()) {
+            uriBuilder.queryParam("befor_inquiry_trace_info", beforeInquiryTraceInfo);
+        }
+    }
+
+    private boolean hasNextPage(JsonNode root) {
+        return "Y".equalsIgnoreCase(text(root, "next_page_yn"));
     }
 
     private JsonNode readJson(String response) {

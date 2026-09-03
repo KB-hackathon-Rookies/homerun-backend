@@ -4,6 +4,8 @@ import com.homerun.domain.openbanking.dto.response.OpenBankingAccountResponse;
 import com.homerun.domain.openbanking.dto.response.OpenBankingAuthorizationResponse;
 import com.homerun.domain.openbanking.dto.response.OpenBankingBalanceResponse;
 import com.homerun.domain.openbanking.dto.response.OpenBankingConnectionResponse;
+import com.homerun.domain.openbanking.dto.response.OpenBankingFinancialSummaryResponse;
+import com.homerun.domain.openbanking.dto.response.OpenBankingLoanListResponse;
 import com.homerun.domain.openbanking.dto.response.OpenBankingTransactionPageResponse;
 import com.homerun.domain.openbanking.service.OpenBankingService;
 import com.homerun.global.exception.BusinessException;
@@ -111,6 +113,26 @@ public class OpenBankingController {
             @RequestParam(required = false) @Size(max = 40) String nextTraceInfo) {
         return ApiResponse.success(
                 service.transactions(principal.memberId(), fintechUseNumber, fromDate, toDate, nextTraceInfo));
+    }
+
+    @GetMapping("/loans")
+    @Operation(summary = "대출 목록 조회", description = "연결 계좌의 금융기관과 bankCodes로 추가 지정한 금융기관에서 대출 목록을 조회합니다.")
+    public ApiResponse<OpenBankingLoanListResponse> loans(
+            @AuthenticationPrincipal MemberPrincipal principal,
+            @Parameter(description = "추가 조회할 금융기관 코드(숫자 3자리, 쉼표로 복수 입력)") @RequestParam(required = false)
+                    List<String> bankCodes) {
+        return ApiResponse.success(service.loans(principal.memberId(), bankCodes));
+    }
+
+    @GetMapping("/financial-summary")
+    @Operation(
+            summary = "대출 심사용 금융 요약 조회",
+            description = "계좌 잔액 합계와 최근 완료된 3개월의 급여 입금·대출 상환 거래를 집계합니다. " + "대출 상세가 제공되지 않으면 incomplete가 true입니다.")
+    public ApiResponse<OpenBankingFinancialSummaryResponse> financialSummary(
+            @AuthenticationPrincipal MemberPrincipal principal,
+            @Parameter(description = "대출을 추가 조회할 금융기관 코드(숫자 3자리, 쉼표로 복수 입력)") @RequestParam(required = false)
+                    List<String> bankCodes) {
+        return ApiResponse.success(service.financialSummary(principal.memberId(), bankCodes));
     }
 
     private String createState() {
