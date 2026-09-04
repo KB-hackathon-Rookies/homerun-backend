@@ -7,5 +7,7 @@ import org.springframework.data.jpa.repository.JpaRepository;
 public interface VerdictBasisRepository extends JpaRepository<VerdictBasis, Long> {
     List<VerdictBasis> findByVerdictId(Long verdictId);
 
+    List<VerdictBasis> findByVerdictIdInAndMetIsNull(List<Long> verdictIds);
+
     void deleteByVerdictId(Long verdictId);
 }
