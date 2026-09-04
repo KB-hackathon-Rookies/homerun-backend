@@ -28,6 +28,8 @@ import java.time.ZoneOffset;
 import java.util.List;
 import java.util.Set;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.CsvSource;
 
 /**
  * 룰엔진 조건 평가만 검증한다. plan_input ↔ rule_json 매핑이 핵심이라 경계값을 붙인다
@@ -598,6 +600,97 @@ class PolicyRuleEngineTest {
         ExpectedEstimate estimate = engine.estimate(document, List.of(), input, PolicyVerdictResult.PASS);
 
         assertThat(estimate.isEmpty()).isTrue();
+    }
+
+    @ParameterizedTest
+    @CsvSource({
+        "0,0",
+        "10000000,50000000",
+        "29999999,149999995",
+        "30000000,150000000",
+        "30000001,150000005",
+        "50000000,200000000"
+    })
+    void should_boundRecommendedDepositByOwnCashAndRatio(long cash, long expected) {
+        when(facts.require("FCT-008")).thenReturn(fact("FCT-008", "80"));
+        when(facts.require("FCT-171")).thenReturn(fact("FCT-171", "150000000"));
+        ExpectedEstimate estimate = engine.estimate(
+                estimateDocument(), List.of(), depositInput(180_000_000L, cash), PolicyVerdictResult.PASS);
+        assertThat(estimate.recommendedDepositLimit()).isEqualTo(expected);
+        assertThat(estimate.estimatedLoanAmount()).isEqualTo(144_000_000L);
+        assertThat(estimate.ownFundsRequired()).isEqualTo(36_000_000L);
+    }
+
+    @ParameterizedTest
+    @CsvSource({"0,10000000", "100,160000000", "66.7,30030030"})
+    void should_handleRatioBoundariesAndFractionalPercent(String ratio, long expected) {
+        when(facts.require("FCT-008")).thenReturn(fact("FCT-008", ratio));
+        when(facts.require("FCT-171")).thenReturn(fact("FCT-171", "150000000"));
+        ExpectedEstimate estimate = engine.estimate(
+                estimateDocument(), List.of(), depositInput(180_000_000L, 10_000_000L), PolicyVerdictResult.PASS);
+        assertThat(estimate.recommendedDepositLimit()).isEqualTo(expected);
+    }
+
+    @Test
+    void should_preserveAmount_when_rateSpecIsMissing() {
+        when(facts.require("FCT-008")).thenReturn(fact("FCT-008", "80"));
+        when(facts.require("FCT-171")).thenReturn(fact("FCT-171", "150000000"));
+        var document = new RuleDocument("AND", List.of(), new AmountSpec("FCT-008", "FCT-171"), null);
+        var estimate =
+                engine.estimate(document, List.of(), depositInput(180_000_000L, null), PolicyVerdictResult.NEED_INFO);
+        assertThat(estimate.isEmpty()).isFalse();
+        assertThat(estimate.estimatedLoanAmount()).isEqualTo(144_000_000L);
+        assertThat(estimate.recommendedDepositLimit()).isNull();
+        assertThat(estimate.rateMin()).isNull();
+        assertThat(estimate.rateMax()).isNull();
+        assertThat(estimate.monthlyInterestMin()).isNull();
+        assertThat(estimate.monthlyInterestMax()).isNull();
+    }
+
+    @ParameterizedTest
+    @CsvSource(
+            value = {"2.2,NULL", "3.3,2.2", "-1,2.2", "NULL,3.3"},
+            nullValues = "NULL")
+    void should_notInventRate_when_rangeIsIncompleteOrInvalid(String min, String max) {
+        when(facts.require("FCT-008")).thenReturn(fact("FCT-008", "80"));
+        when(facts.require("FCT-171")).thenReturn(fact("FCT-171", "150000000"));
+        if (min != null) when(facts.require("FCT-172")).thenReturn(fact("FCT-172", min));
+        if (max != null) when(facts.require("FCT-173")).thenReturn(fact("FCT-173", max));
+        var estimate = engine.estimate(
+                estimateDocument(), List.of(), depositInput(180_000_000L, null), PolicyVerdictResult.PASS);
+        assertThat(estimate.estimatedLoanAmount()).isEqualTo(144_000_000L);
+        assertThat(estimate.rateMin()).isNull();
+        assertThat(estimate.rateMax()).isNull();
+        assertThat(estimate.monthlyInterestMin()).isNull();
+        assertThat(estimate.monthlyInterestMax()).isNull();
+    }
+
+    @Test
+    void should_boundByDepositCap_butLeaveRecommendationUnknownWhenCapMissing() {
+        when(facts.require("FCT-008")).thenReturn(fact("FCT-008", "80"));
+        when(facts.require("FCT-171")).thenReturn(fact("FCT-171", "150000000"));
+        var conditions = List.of(new ConditionResult("DEPOSIT_CAP", "상한", null, null, "CAP", null));
+        var input = depositInput(180_000_000L, 100_000_000L);
+        var unknown = engine.estimate(estimateDocument(), conditions, input, PolicyVerdictResult.NEED_INFO);
+        assertThat(unknown.recommendedDepositLimit()).isNull();
+        assertThat(unknown.estimatedLoanAmount()).isEqualTo(144_000_000L);
+        when(facts.require("CAP")).thenReturn(fact("CAP", "200000000"));
+        assertThat(engine.estimate(estimateDocument(), conditions, input, PolicyVerdictResult.PASS)
+                        .recommendedDepositLimit())
+                .isEqualTo(200_000_000L);
+    }
+
+    @Test
+    void should_notOverflow_when_availableCashIsLongMax() {
+        when(facts.require("FCT-008")).thenReturn(fact("FCT-008", "80"));
+        when(facts.require("FCT-171")).thenReturn(fact("FCT-171", "150000000"));
+        assertThat(engine.estimate(
+                                estimateDocument(),
+                                List.of(),
+                                depositInput(180_000_000L, Long.MAX_VALUE),
+                                PolicyVerdictResult.PASS)
+                        .recommendedDepositLimit())
+                .isEqualTo(Long.MAX_VALUE);
     }
 
     private RuleDocument estimateDocument() {
