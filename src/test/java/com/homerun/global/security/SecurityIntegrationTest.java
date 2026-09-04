@@ -45,6 +45,12 @@ class SecurityIntegrationTest {
     @Autowired
     private MockMvc mockMvc;
 
+    @Autowired
+    private org.springframework.jdbc.core.JdbcTemplate jdbcTemplate;
+
+    @Autowired
+    private com.homerun.domain.contract.service.ContractChecklistGuideService checklistGuideService;
+
     @MockitoBean
     private TermsService termsService;
 
@@ -104,6 +110,30 @@ class SecurityIntegrationTest {
                                 "Bearer " + token(42L, Instant.now().plusSeconds(60))))
                 .andExpect(status().isForbidden())
                 .andExpect(jsonPath("$.code").value("TERMS_005"));
+    }
+
+    @Test
+    void should_requireAuthentication_forContractChecklist() throws Exception {
+        mockMvc.perform(get("/api/v1/contract-checklist")).andExpect(status().isUnauthorized());
+    }
+
+    @Test
+    void should_returnChecklistWithoutPlan_andLinkExistingDocuments() throws Exception {
+        mockMvc.perform(get("/api/v1/contract-checklist")
+                        .header(
+                                HttpHeaders.AUTHORIZATION,
+                                "Bearer " + token(42L, Instant.now().plusSeconds(60))))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.items.length()").value(8));
+        for (var item : checklistGuideService.get(null).items()) {
+            if (item.documentCode() != null) {
+                org.assertj.core.api.Assertions.assertThat(jdbcTemplate.queryForObject(
+                                "select count(*) from document_type where code = ?",
+                                Integer.class,
+                                item.documentCode()))
+                        .isEqualTo(1);
+            }
+        }
     }
 
     private String token(Long memberId, Instant expiresAt) {
