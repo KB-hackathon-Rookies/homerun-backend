@@ -75,11 +75,31 @@ public class VerdictBasis {
         return new VerdictBasis(verdictId, conditionCode, conditionLabel, requiredText, met, factCode, sourceUrl);
     }
 
+    public Long getVerdictId() {
+        return verdictId;
+    }
+
     public String getConditionCode() {
         return conditionCode;
     }
 
+    public String getConditionLabel() {
+        return conditionLabel;
+    }
+
+    public String getRequiredText() {
+        return requiredText;
+    }
+
     public Boolean getMet() {
         return met;
+    }
+
+    public String getFactCode() {
+        return factCode;
+    }
+
+    public String getSourceUrl() {
+        return sourceUrl;
     }
 }
