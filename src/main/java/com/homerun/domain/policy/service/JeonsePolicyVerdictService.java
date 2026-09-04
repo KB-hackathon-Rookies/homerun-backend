@@ -141,7 +141,7 @@ public class JeonsePolicyVerdictService {
                 .map(code -> evaluateOne(planId, code, input, property))
                 .toList();
 
-        return new JeonsePolicyVerdictListResponse(planId, results, Instant.now(clock));
+        return JeonsePolicyVerdictListResponse.loans(planId, results, Instant.now(clock), input.getAvailableCash());
     }
 
     /** 매물 기준 반환보증(HUG/HF/SGI) 판정. plan_input 은 필요 없다(#89). */

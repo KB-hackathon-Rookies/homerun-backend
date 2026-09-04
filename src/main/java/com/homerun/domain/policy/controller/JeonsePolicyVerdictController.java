@@ -34,7 +34,9 @@ public class JeonsePolicyVerdictController {
     @Operation(
             summary = "전세대출 정책 판정",
             description = "청년/일반 버팀목, 서울시 이자지원을 판정한다. propertyId 없이는 사람 조건만 본 예상 판정이고,"
-                    + " propertyId 를 주면 집 조건(위반건축물·다가구)까지 같이 봐서 최종 승인 여부에 가까워진다.")
+                    + " propertyId 를 주면 집 조건까지 확인하지만 대출 승인을 보장하지 않는다."
+                    + " results는 전체 판정, cards는 PASS/NEED_INFO 정책과 은행 상담 안내다."
+                    + " 일반 버팀목이나 자기자금 부족 상품을 숨기지 않는다. 상담 카드에는 금리·한도·PASS를 부여하지 않는다.")
     public ApiResponse<JeonsePolicyVerdictListResponse> evaluate(
             @AuthenticationPrincipal MemberPrincipal principal,
             @PathVariable Long planId,
