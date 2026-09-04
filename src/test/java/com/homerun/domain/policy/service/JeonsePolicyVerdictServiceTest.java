@@ -22,6 +22,7 @@ import com.homerun.domain.policy.entity.Policy;
 import com.homerun.domain.policy.entity.PolicyRule;
 import com.homerun.domain.policy.entity.PolicyVerdict;
 import com.homerun.domain.policy.model.ConditionResult;
+import com.homerun.domain.policy.model.ExpectedEstimate;
 import com.homerun.domain.policy.model.RuleDocument;
 import com.homerun.domain.policy.repository.PolicyRepository;
 import com.homerun.domain.policy.repository.PolicyRuleRepository;
@@ -78,6 +79,7 @@ class JeonsePolicyVerdictServiceTest {
                 .thenReturn(Optional.of(Plan.create(MEMBER_ID, LeaseType.JEONSE, LocalDate.of(2026, 12, 1))));
         when(inputs.findByPlanId(PLAN_ID)).thenReturn(Optional.of(PlanInput.create(PLAN_ID, emptyRequest())));
         when(verdicts.save(any())).thenAnswer(invocation -> invocation.getArgument(0));
+        when(engine.estimate(any(), any(), any(), any())).thenReturn(ExpectedEstimate.empty());
 
         long id = 1L;
         for (String code : CODES) {

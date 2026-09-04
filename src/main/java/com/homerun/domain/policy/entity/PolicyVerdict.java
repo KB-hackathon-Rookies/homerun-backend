@@ -9,15 +9,18 @@ import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
 import jakarta.persistence.Table;
+import java.math.BigDecimal;
 import java.time.Instant;
 
 /**
  * 계획(plan) × 정책(policy) 판정 결과 하나. 여정과 정책 마스터가 만나는 지점이다.
  *
  * <p>재판정은 새 행을 쌓지 않고 같은 (plan_id, policy_id, rule_id) 행을 덮어쓴다 — 이력이
- * 필요해지면 별도 이슈에서 다룬다. v1 은 예상 금액·금리를 계산하지 않는다(#80 과의 관계가
- * 정리되기 전까지는 판정만 한다). 매물 기준 판정(반환보증)은 {@code property_id} 에 남지만
+ * 필요해지면 별도 이슈에서 다룬다. 매물 기준 판정(반환보증)은 {@code property_id} 에 남지만
  * UNIQUE 제약에는 안 들어가 있어 매물별 이력은 못 남긴다(#89).
+ *
+ * <p>{@code expected_rate} 컬럼은 하나뿐이라 최저·최고 금리 범위를 그대로 못 담는다. 최저금리를
+ * 저장하고, 범위 전체는 응답 DTO({@code ExpectedEstimate})로만 노출한다(#95).
  */
 @Entity
 @Table(name = "policy_verdict")
@@ -46,6 +49,12 @@ public class PolicyVerdict {
     @Column(nullable = false, length = 20)
     private PolicyVerdictResult verdict;
 
+    @Column(name = "expected_amount")
+    private Long expectedAmount;
+
+    @Column(name = "expected_rate", precision = 6, scale = 3)
+    private BigDecimal expectedRate;
+
     @Column(name = "is_selected", nullable = false)
     private boolean selected;
 
@@ -63,12 +72,16 @@ public class PolicyVerdict {
             Long ruleId,
             Long propertyId,
             PolicyVerdictResult verdict,
+            Long expectedAmount,
+            BigDecimal expectedRate,
             String engineVersion) {
         this.planId = planId;
         this.policyId = policyId;
         this.ruleId = ruleId;
         this.propertyId = propertyId;
         this.verdict = verdict;
+        this.expectedAmount = expectedAmount;
+        this.expectedRate = expectedRate;
         this.selected = false;
         this.engineVersion = engineVersion;
         this.createdAt = Instant.now();
@@ -80,13 +93,23 @@ public class PolicyVerdict {
             Long ruleId,
             Long propertyId,
             PolicyVerdictResult verdict,
+            Long expectedAmount,
+            BigDecimal expectedRate,
             String engineVersion) {
-        return new PolicyVerdict(planId, policyId, ruleId, propertyId, verdict, engineVersion);
+        return new PolicyVerdict(
+                planId, policyId, ruleId, propertyId, verdict, expectedAmount, expectedRate, engineVersion);
     }
 
-    public void reevaluate(PolicyVerdictResult verdict, Long propertyId, String engineVersion) {
+    public void reevaluate(
+            PolicyVerdictResult verdict,
+            Long propertyId,
+            Long expectedAmount,
+            BigDecimal expectedRate,
+            String engineVersion) {
         this.verdict = verdict;
         this.propertyId = propertyId;
+        this.expectedAmount = expectedAmount;
+        this.expectedRate = expectedRate;
         this.engineVersion = engineVersion;
     }
 

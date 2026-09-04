@@ -6,10 +6,13 @@ import com.homerun.domain.fact.model.Fact;
 import com.homerun.domain.fact.service.FactRegistry;
 import com.homerun.domain.plan.entity.PlanInput;
 import com.homerun.domain.policy.model.ConditionResult;
+import com.homerun.domain.policy.model.ExpectedEstimate;
 import com.homerun.domain.policy.model.RuleCondition;
 import com.homerun.domain.policy.model.RuleDocument;
+import com.homerun.domain.policy.type.PolicyVerdictResult;
 import com.homerun.domain.property.entity.Property;
 import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.time.Clock;
 import java.time.LocalDate;
 import java.util.ArrayList;
@@ -56,6 +59,82 @@ public class PolicyRuleEngine {
             results.add(evaluateOne(condition, input, property));
         }
         return results;
+    }
+
+    /**
+     * 조건 판정과 별개로 예상 대출 스펙을 계산한다({@code #95} — 원래 {@code #80} 하드코딩
+     * 서비스가 하던 계산을 여기로 옮겼다). {@code amount}/{@code rate} 스펙이 없는 정책, FAIL
+     * 판정, 필요한 입력·팩트가 없으면 전부 비운다 — 안 되는 걸 숫자로 보여주면 안 된다.
+     */
+    public ExpectedEstimate estimate(
+            RuleDocument document,
+            List<ConditionResult> conditionResults,
+            PlanInput input,
+            PolicyVerdictResult verdict) {
+        if (document.amount() == null
+                || document.rate() == null
+                || input == null
+                || input.getHopeDeposit() == null
+                || verdict == PolicyVerdictResult.FAIL) {
+            return ExpectedEstimate.empty();
+        }
+
+        Optional<Fact> ratioFact = resolveFact(document.amount().ratioFactCode());
+        Optional<Fact> capFact = resolveFact(document.amount().capFactCode());
+        Optional<Fact> rateMinFact = resolveFact(document.rate().minFactCode());
+        Optional<Fact> rateMaxFact = resolveFact(document.rate().maxFactCode());
+        if (ratioFact.isEmpty() || capFact.isEmpty() || rateMinFact.isEmpty() || rateMaxFact.isEmpty()) {
+            return ExpectedEstimate.empty();
+        }
+
+        long hopeDeposit = input.getHopeDeposit();
+        long loanCap = capFact.get().requireWon();
+        long estimatedLoan = Math.min(percent(hopeDeposit, ratioFact.get().requireNumber()), loanCap);
+        long ownFunds = Math.max(0, hopeDeposit - estimatedLoan);
+        BigDecimal rateMin = rateMinFact.get().requireNumber();
+        BigDecimal rateMax = rateMaxFact.get().requireNumber();
+
+        return new ExpectedEstimate(
+                recommendedDeposit(conditionResults, input, loanCap),
+                estimatedLoan,
+                ownFunds,
+                rateMin,
+                rateMax,
+                monthlyInterest(estimatedLoan, rateMin),
+                monthlyInterest(estimatedLoan, rateMax));
+    }
+
+    /** DEPOSIT_CAP 조건이 이미 참조하는 fact_code 를 그대로 재사용한다 — amount 스펙에 따로
+     * 안 두고 조건식에서 읽어서, 같은 상한을 두 군데서 따로 관리하지 않는다. */
+    private Long recommendedDeposit(List<ConditionResult> conditionResults, PlanInput input, long loanCap) {
+        if (input.getAvailableCash() == null) {
+            return null;
+        }
+        long uncapped = input.getAvailableCash() + loanCap;
+        return conditionResults.stream()
+                .filter(condition -> "DEPOSIT_CAP".equals(condition.code()))
+                .map(ConditionResult::factCode)
+                .flatMap(factCode -> resolveFact(factCode).stream())
+                .findFirst()
+                .map(fact -> Math.min(uncapped, fact.requireWon()))
+                .orElse(uncapped);
+    }
+
+    private Long monthlyInterest(Long loan, BigDecimal rate) {
+        if (loan == null || rate == null) {
+            return null;
+        }
+        return BigDecimal.valueOf(loan)
+                .multiply(rate)
+                .divide(new BigDecimal("1200"), 0, RoundingMode.HALF_UP)
+                .longValueExact();
+    }
+
+    private long percent(long amount, BigDecimal percent) {
+        return BigDecimal.valueOf(amount)
+                .multiply(percent)
+                .divide(new BigDecimal("100"), 0, RoundingMode.DOWN)
+                .longValueExact();
     }
 
     private ConditionResult evaluateOne(RuleCondition condition, PlanInput input, Property property) {

@@ -202,6 +202,50 @@ class JeonsePolicyVerdictIntegrationTest {
         assertThat(((Number) rows.get(0)[1]).longValue()).isEqualTo(sgiPolicyId);
     }
 
+    @Test
+    void should_persistExpectedAmountAndRate_when_youthPolicyHasAmountSpec() {
+        // 최소 조건 + amount/rate 스펙까지 포함한 ACTIVE 버전(version 3)을 새로 만든다 —
+        // setUp() 이 이미 넣은 version 2(조건만)보다 최신이라 이게 선택된다.
+        em.createNativeQuery("""
+                        INSERT INTO policy_rule (policy_id, version, rule_json, status, effective_from, reviewed_by)
+                        SELECT id, 3,
+                            '{"operator":"AND","conditions":[
+                                {"code":"HOUSEHOLD_HOMELESS","field":"household_homeless","op":"eq","value":true}
+                            ],
+                            "amount":{"ratio_fact_code":"FCT-008","cap_fact_code":"FCT-171"},
+                            "rate":{"min_fact_code":"FCT-172","max_fact_code":"FCT-173"}}'::jsonb,
+                            'ACTIVE', '2026-09-04', 'integration-test'
+                        FROM policy WHERE code = 'JEONSE-YOUTH-BEOTIMMOK'
+                        """).executeUpdate();
+        em.createNativeQuery("UPDATE plan_input SET hope_deposit = 200000000 WHERE plan_id = :pid")
+                .setParameter("pid", planId)
+                .executeUpdate();
+
+        service.evaluate(memberId, planId);
+        em.flush();
+        em.clear();
+
+        // 시드값을 직접 읽어서 같은 공식으로 재계산 — 판정 결과끼리 비교하지 않는다.
+        double ratio = ((Number)
+                        em.createNativeQuery("SELECT value_num FROM config_effective WHERE fact_code = 'FCT-008'")
+                                .getSingleResult())
+                .doubleValue();
+        long cap = ((Number) em.createNativeQuery("SELECT value_num FROM config_effective WHERE fact_code = 'FCT-171'")
+                        .getSingleResult())
+                .longValue();
+        long expectedLoan = Math.min((long) (200_000_000L * ratio / 100), cap);
+
+        Object[] row =
+                (Object[]) em.createNativeQuery("""
+                        SELECT v.expected_amount, v.expected_rate
+                        FROM policy_verdict v JOIN policy p ON p.id = v.policy_id
+                        WHERE v.plan_id = :pid AND p.code = 'JEONSE-YOUTH-BEOTIMMOK'
+                        """).setParameter("pid", planId).getSingleResult();
+
+        assertThat(((Number) row[0]).longValue()).isEqualTo(expectedLoan);
+        assertThat(row[1]).isNotNull();
+    }
+
     private void activatePriceRatioRule(String policyCode) {
         em.createNativeQuery("""
                         INSERT INTO policy_rule (policy_id, version, rule_json, status, effective_from, reviewed_by)

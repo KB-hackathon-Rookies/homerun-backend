@@ -7,9 +7,15 @@ import java.util.List;
  * {@code policy_rule.rule_json} 전체.
  *
  * <p>v1 은 {@code operator: "AND"} 만 지원한다 — 조건 하나라도 FAIL 이면 FAIL, 전부 확인됐으면
- * PASS, 그 사이 확인 못 한 게 있으면 NEED_INFO. {@code amount}/{@code rate} 는 예상 금액·금리
- * 계산용으로 시드에 남겨는 뒀지만 v1 판정 로직은 안 읽는다 — 그 계산은 #80 하드코딩 서비스와의
- * 관계가 정리된 다음 이슈다.
+ * PASS, 그 사이 확인 못 한 게 있으면 NEED_INFO. {@code amount}/{@code rate} 는 조건 판정과
+ * 별개로 예상 대출액·금리를 계산할 때만 쓴다({@link com.homerun.domain.policy.service.PolicyRuleEngine#estimate}) —
+ * 없는 정책(반환보증 등)은 null 이라 예상치를 안 준다.
  */
 @JsonIgnoreProperties(ignoreUnknown = true)
-public record RuleDocument(String operator, List<RuleCondition> conditions) {}
+public record RuleDocument(String operator, List<RuleCondition> conditions, AmountSpec amount, RateSpec rate) {
+
+    /** amount/rate 스펙이 없는 정책(반환보증 등)이나 테스트 픽스처용 편의 생성자. */
+    public RuleDocument(String operator, List<RuleCondition> conditions) {
+        this(operator, conditions, null, null);
+    }
+}

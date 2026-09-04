@@ -10,9 +10,13 @@ import com.homerun.domain.fact.service.FactRegistry;
 import com.homerun.domain.fact.type.Confidence;
 import com.homerun.domain.plan.dto.request.PlanInputRequest;
 import com.homerun.domain.plan.entity.PlanInput;
+import com.homerun.domain.policy.model.AmountSpec;
 import com.homerun.domain.policy.model.ConditionResult;
+import com.homerun.domain.policy.model.ExpectedEstimate;
+import com.homerun.domain.policy.model.RateSpec;
 import com.homerun.domain.policy.model.RuleCondition;
 import com.homerun.domain.policy.model.RuleDocument;
+import com.homerun.domain.policy.type.PolicyVerdictResult;
 import com.homerun.domain.property.entity.Property;
 import java.math.BigDecimal;
 import java.time.Clock;
@@ -171,6 +175,95 @@ class PolicyRuleEngineTest {
         List<ConditionResult> results = engine.evaluate(document, input);
 
         assertThat(results.get(0).isMet()).isNull();
+    }
+
+    @Test
+    void should_calculateEstimate_when_amountAndRateSpecPresent() {
+        // #80(JeonseLoanDiagnosisService)의 원래 테스트값과 동일하게 맞춰서 이관 결과가 같은지 본다.
+        when(facts.require("FCT-008")).thenReturn(fact("FCT-008", "80"));
+        when(facts.require("FCT-171")).thenReturn(fact("FCT-171", "150000000"));
+        when(facts.require("FCT-175")).thenReturn(fact("FCT-175", "300000000"));
+        when(facts.require("FCT-172")).thenReturn(fact("FCT-172", "2.2"));
+        when(facts.require("FCT-173")).thenReturn(fact("FCT-173", "3.3"));
+        RuleDocument document = estimateDocument();
+        List<ConditionResult> conditions =
+                List.of(new ConditionResult("DEPOSIT_CAP", "임차보증금 상한", "3억원", true, "FCT-175", null));
+        PlanInput input = depositInput(200_000_000L, 50_000_000L);
+
+        ExpectedEstimate estimate = engine.estimate(document, conditions, input, PolicyVerdictResult.PASS);
+
+        assertThat(estimate.estimatedLoanAmount()).isEqualTo(150_000_000L); // min(200M*80%=160M, cap 150M)
+        assertThat(estimate.ownFundsRequired()).isEqualTo(50_000_000L); // 200M - 150M
+        assertThat(estimate.recommendedDepositLimit()).isEqualTo(200_000_000L); // min(300M cap, 50M+150M)
+        assertThat(estimate.monthlyInterestMin()).isEqualTo(275_000L); // 150M*2.2/1200
+        assertThat(estimate.monthlyInterestMax()).isEqualTo(412_500L); // 150M*3.3/1200
+    }
+
+    @Test
+    void should_returnEmptyEstimate_when_verdictIsFail() {
+        RuleDocument document = estimateDocument();
+        PlanInput input = depositInput(200_000_000L, 50_000_000L);
+
+        ExpectedEstimate estimate = engine.estimate(document, List.of(), input, PolicyVerdictResult.FAIL);
+
+        assertThat(estimate.isEmpty()).isTrue();
+    }
+
+    @Test
+    void should_returnEmptyEstimate_when_documentHasNoAmountSpec() {
+        // 일반버팀목·서울시이자지원처럼 amount/rate 스펙이 없는 정책.
+        RuleDocument document = new RuleDocument("AND", List.of());
+        PlanInput input = depositInput(200_000_000L, 50_000_000L);
+
+        ExpectedEstimate estimate = engine.estimate(document, List.of(), input, PolicyVerdictResult.PASS);
+
+        assertThat(estimate.isEmpty()).isTrue();
+    }
+
+    @Test
+    void should_returnEmptyEstimate_when_hopeDepositIsMissing() {
+        RuleDocument document = estimateDocument();
+        PlanInput input = depositInput(null, 50_000_000L);
+
+        ExpectedEstimate estimate = engine.estimate(document, List.of(), input, PolicyVerdictResult.PASS);
+
+        assertThat(estimate.isEmpty()).isTrue();
+    }
+
+    private RuleDocument estimateDocument() {
+        return new RuleDocument(
+                "AND", List.of(), new AmountSpec("FCT-008", "FCT-171"), new RateSpec("FCT-172", "FCT-173"));
+    }
+
+    private PlanInput depositInput(Long hopeDeposit, Long availableCash) {
+        return PlanInput.create(
+                PLAN_ID,
+                new PlanInputRequest(
+                        hopeDeposit,
+                        null,
+                        null,
+                        null,
+                        null,
+                        null,
+                        null,
+                        null,
+                        null,
+                        null,
+                        null,
+                        null,
+                        null,
+                        null,
+                        null,
+                        null,
+                        null,
+                        null,
+                        null,
+                        availableCash,
+                        null,
+                        null,
+                        null,
+                        true,
+                        Set.of()));
     }
 
     private RuleDocument priceRatioDocument() {
