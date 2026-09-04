@@ -17,6 +17,7 @@ import com.homerun.domain.plan.type.LeaseType;
 import com.homerun.domain.policy.dto.response.ConditionBasisResponse;
 import com.homerun.domain.policy.dto.response.JeonsePolicyVerdictListResponse;
 import com.homerun.domain.policy.dto.response.PolicyVerdictResponse;
+import com.homerun.domain.policy.dto.response.RejectionReasonResponse;
 import com.homerun.domain.policy.entity.Policy;
 import com.homerun.domain.policy.entity.PolicyRule;
 import com.homerun.domain.policy.entity.PolicyVerdict;
@@ -25,6 +26,7 @@ import com.homerun.domain.policy.model.RuleDocument;
 import com.homerun.domain.policy.repository.PolicyRepository;
 import com.homerun.domain.policy.repository.PolicyRuleRepository;
 import com.homerun.domain.policy.repository.PolicyVerdictRepository;
+import com.homerun.domain.policy.repository.RejectionReasonRepository;
 import com.homerun.domain.policy.repository.VerdictBasisRepository;
 import com.homerun.domain.policy.type.PolicyRuleStatus;
 import com.homerun.domain.policy.type.PolicyVerdictResult;
@@ -65,9 +67,10 @@ class JeonsePolicyVerdictServiceTest {
     private final PolicyRuleRepository rules = mock(PolicyRuleRepository.class);
     private final PolicyVerdictRepository verdicts = mock(PolicyVerdictRepository.class);
     private final VerdictBasisRepository basisRepository = mock(VerdictBasisRepository.class);
+    private final RejectionReasonRepository rejectionReasons = mock(RejectionReasonRepository.class);
     private final PolicyRuleEngine engine = mock(PolicyRuleEngine.class);
     private final JeonsePolicyVerdictService service = new JeonsePolicyVerdictService(
-            plans, inputs, properties, policies, rules, verdicts, basisRepository, engine, CLOCK);
+            plans, inputs, properties, policies, rules, verdicts, basisRepository, rejectionReasons, engine, CLOCK);
 
     @BeforeEach
     void setUp() {
@@ -159,6 +162,63 @@ class JeonsePolicyVerdictServiceTest {
                 .isInstanceOf(BusinessException.class)
                 .satisfies(e -> assertThat(((BusinessException) e).errorCode())
                         .isEqualTo(ErrorCode.POLICY_JEONSE_PLAN_REQUIRED));
+    }
+
+    @Test
+    void should_includeAlternativePolicy_when_failedConditionHasMapping() {
+        List<ConditionResult> pass = List.of(new ConditionResult("A", "라벨", "텍스트", true, null, null));
+        List<ConditionResult> failWithAlternative =
+                List.of(new ConditionResult("AGE_UPPER_BOUND", "연령 상한", "만 34세 이하", false, "FCT-174", null));
+        when(engine.evaluate(any(), any(), any())).thenReturn(failWithAlternative, pass, pass);
+
+        JeonsePolicyVerdictListResponse response = service.evaluate(MEMBER_ID, PLAN_ID);
+
+        PolicyVerdictResponse youth = response.results().get(0);
+        assertThat(youth.verdict()).isEqualTo(PolicyVerdictResult.FAIL);
+        assertThat(youth.rejectionReasons()).hasSize(1);
+        RejectionReasonResponse reason = youth.rejectionReasons().get(0);
+        assertThat(reason.reasonCode()).isEqualTo("AGE_UPPER_BOUND");
+        assertThat(reason.alternativePolicyCode()).isEqualTo("JEONSE-GENERAL-BEOTIMMOK");
+    }
+
+    @Test
+    void should_haveNoAlternative_when_failedConditionIsUnmapped() {
+        List<ConditionResult> pass = List.of(new ConditionResult("A", "라벨", "텍스트", true, null, null));
+        List<ConditionResult> failUnmapped =
+                List.of(new ConditionResult("HOUSEHOLD_HOMELESS", "무주택", "무주택", false, null, null));
+        when(engine.evaluate(any(), any(), any())).thenReturn(failUnmapped, pass, pass);
+
+        JeonsePolicyVerdictListResponse response = service.evaluate(MEMBER_ID, PLAN_ID);
+
+        RejectionReasonResponse reason =
+                response.results().get(0).rejectionReasons().get(0);
+        assertThat(reason.alternativePolicyCode()).isNull();
+    }
+
+    @Test
+    void should_returnEmptyRejectionReasons_when_verdictIsPass() {
+        List<ConditionResult> pass = List.of(new ConditionResult("A", "라벨", "텍스트", true, null, null));
+        when(engine.evaluate(any(), any(), any())).thenReturn(pass, pass, pass);
+
+        JeonsePolicyVerdictListResponse response = service.evaluate(MEMBER_ID, PLAN_ID);
+
+        assertThat(response.results().get(0).rejectionReasons()).isEmpty();
+    }
+
+    @Test
+    void should_notRecommendSelf_when_alternativeCodeEqualsFailingPolicy() {
+        // AGE_UPPER_BOUND의 매핑 대안은 JEONSE-GENERAL-BEOTIMMOK 이다. 두번째 정책(GENERAL,
+        // id=2) 자체가 이 조건으로 실패해도 자기 자신을 대안으로 추천하면 안 된다.
+        List<ConditionResult> pass = List.of(new ConditionResult("A", "라벨", "텍스트", true, null, null));
+        List<ConditionResult> failSelfReferential =
+                List.of(new ConditionResult("AGE_UPPER_BOUND", "연령 상한", "텍스트", false, "FCT-174", null));
+        when(engine.evaluate(any(), any(), any())).thenReturn(pass, failSelfReferential, pass);
+
+        JeonsePolicyVerdictListResponse response = service.evaluate(MEMBER_ID, PLAN_ID);
+
+        RejectionReasonResponse reason =
+                response.results().get(1).rejectionReasons().get(0);
+        assertThat(reason.alternativePolicyCode()).isNull();
     }
 
     @Test

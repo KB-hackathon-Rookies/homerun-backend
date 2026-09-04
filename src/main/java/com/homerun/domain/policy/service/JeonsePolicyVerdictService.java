@@ -8,14 +8,17 @@ import com.homerun.domain.plan.type.LeaseType;
 import com.homerun.domain.policy.dto.response.ConditionBasisResponse;
 import com.homerun.domain.policy.dto.response.JeonsePolicyVerdictListResponse;
 import com.homerun.domain.policy.dto.response.PolicyVerdictResponse;
+import com.homerun.domain.policy.dto.response.RejectionReasonResponse;
 import com.homerun.domain.policy.entity.Policy;
 import com.homerun.domain.policy.entity.PolicyRule;
 import com.homerun.domain.policy.entity.PolicyVerdict;
+import com.homerun.domain.policy.entity.RejectionReason;
 import com.homerun.domain.policy.entity.VerdictBasis;
 import com.homerun.domain.policy.model.ConditionResult;
 import com.homerun.domain.policy.repository.PolicyRepository;
 import com.homerun.domain.policy.repository.PolicyRuleRepository;
 import com.homerun.domain.policy.repository.PolicyVerdictRepository;
+import com.homerun.domain.policy.repository.RejectionReasonRepository;
 import com.homerun.domain.policy.repository.VerdictBasisRepository;
 import com.homerun.domain.policy.type.PolicyRuleStatus;
 import com.homerun.domain.policy.type.PolicyVerdictResult;
@@ -26,6 +29,7 @@ import com.homerun.global.exception.ErrorCode;
 import java.time.Clock;
 import java.time.Instant;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -50,6 +54,16 @@ public class JeonsePolicyVerdictService {
     private static final List<String> RETURN_GUARANTEE_POLICY_CODES =
             List.of("RETURN-GUARANTEE-HUG", "RETURN-GUARANTEE-HF", "RETURN-GUARANTEE-SGI");
 
+    /** FAIL 조건 코드 → 대안으로 보여줄 정책 코드. 지금 구현된 4개 정책 범위 안에서만 채운다
+     * (#93) — 맵에 없는 조건은 alternative 없이 사유만 남는다. */
+    private static final Map<String, String> ALTERNATIVE_POLICY_BY_CONDITION = Map.of(
+            "AGE_UPPER_BOUND", "JEONSE-GENERAL-BEOTIMMOK",
+            "INCOME_CAP", "JEONSE-GENERAL-BEOTIMMOK",
+            "NET_ASSET_CAP", "JEONSE-GENERAL-BEOTIMMOK",
+            "DEPOSIT_CAP", "JEONSE-GENERAL-BEOTIMMOK",
+            "PRICE_RATIO_126", "RETURN-GUARANTEE-SGI",
+            "REQUIRES_HF_JEONSE_LOAN", "RETURN-GUARANTEE-HUG");
+
     private final PlanRepository planRepository;
     private final PlanInputRepository planInputRepository;
     private final PropertyRepository propertyRepository;
@@ -57,6 +71,7 @@ public class JeonsePolicyVerdictService {
     private final PolicyRuleRepository policyRuleRepository;
     private final PolicyVerdictRepository policyVerdictRepository;
     private final VerdictBasisRepository verdictBasisRepository;
+    private final RejectionReasonRepository rejectionReasonRepository;
     private final PolicyRuleEngine engine;
     private final Clock clock;
 
@@ -68,6 +83,7 @@ public class JeonsePolicyVerdictService {
             PolicyRuleRepository policyRuleRepository,
             PolicyVerdictRepository policyVerdictRepository,
             VerdictBasisRepository verdictBasisRepository,
+            RejectionReasonRepository rejectionReasonRepository,
             PolicyRuleEngine engine,
             Clock clock) {
         this.planRepository = planRepository;
@@ -77,6 +93,7 @@ public class JeonsePolicyVerdictService {
         this.policyRuleRepository = policyRuleRepository;
         this.policyVerdictRepository = policyVerdictRepository;
         this.verdictBasisRepository = verdictBasisRepository;
+        this.rejectionReasonRepository = rejectionReasonRepository;
         this.engine = engine;
         this.clock = clock;
     }
@@ -141,9 +158,15 @@ public class JeonsePolicyVerdictService {
         Long propertyId = property == null ? null : property.getId();
 
         PolicyVerdict saved = save(planId, policy.getId(), ruleId, propertyId, verdict, conditionResults);
+        List<RejectionReasonResponse> rejectionReasons =
+                saveRejectionReasons(saved.getId(), policy.getCode(), verdict, conditionResults);
 
         return new PolicyVerdictResponse(
-                policy.getCode(), policy.getName(), saved.getVerdict(), toBasisResponses(conditionResults));
+                policy.getCode(),
+                policy.getName(),
+                saved.getVerdict(),
+                toBasisResponses(conditionResults),
+                rejectionReasons);
     }
 
     private PolicyVerdict save(
@@ -173,6 +196,39 @@ public class JeonsePolicyVerdictService {
                 condition.sourceUrl())));
 
         return saved;
+    }
+
+    /** verdict 가 FAIL 일 때만 채운다. 재판정마다 기존 사유를 지우고 다시 쓴다(verdict_basis 와
+     * 같은 패턴) — 이력이 아니라 최신 상태만 남긴다. */
+    private List<RejectionReasonResponse> saveRejectionReasons(
+            Long verdictId, String policyCode, PolicyVerdictResult verdict, List<ConditionResult> conditions) {
+        rejectionReasonRepository.deleteByVerdictId(verdictId);
+        if (verdict != PolicyVerdictResult.FAIL) {
+            return List.of();
+        }
+
+        return conditions.stream()
+                .filter(condition -> Boolean.FALSE.equals(condition.isMet()))
+                .map(condition -> saveOneRejectionReason(verdictId, policyCode, condition))
+                .toList();
+    }
+
+    private RejectionReasonResponse saveOneRejectionReason(
+            Long verdictId, String policyCode, ConditionResult condition) {
+        String alternativeCode = ALTERNATIVE_POLICY_BY_CONDITION.get(condition.code());
+        Policy alternative = alternativeCode == null || alternativeCode.equals(policyCode)
+                ? null
+                : policyRepository.findByCode(alternativeCode).orElse(null);
+        Long alternativeId = alternative == null ? null : alternative.getId();
+
+        rejectionReasonRepository.save(
+                RejectionReason.create(verdictId, condition.code(), condition.label(), alternativeId));
+
+        return new RejectionReasonResponse(
+                condition.code(),
+                condition.label(),
+                alternative == null ? null : alternative.getCode(),
+                alternative == null ? null : alternative.getName());
     }
 
     private PolicyVerdictResult aggregate(List<ConditionResult> results) {
