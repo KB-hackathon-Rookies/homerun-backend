@@ -3,8 +3,8 @@ package com.homerun.domain.policy.model;
 import java.math.BigDecimal;
 
 /**
- * 예상 대출 스펙. 값이 없으면(정책에 amount/rate 스펙이 없거나, 필요한 입력·팩트가 없거나,
- * verdict 가 FAIL 이면) 전부 null 이다 — 안 되는 정책에 금액을 붙여 보여주지 않는다.
+ * 예상 대출 스펙. amount 스펙·금액 기준이 없거나 FAIL이면 전부 null이다.
+ * 금리만 미확인일 때는 금액을 유지하고 금리·월이자만 null로 둔다.
  */
 public record ExpectedEstimate(
         Long recommendedDepositLimit,

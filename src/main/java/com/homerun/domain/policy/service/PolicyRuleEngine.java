@@ -67,8 +67,8 @@ public class PolicyRuleEngine {
 
     /**
      * 조건 판정과 별개로 예상 대출 스펙을 계산한다({@code #95} — 원래 {@code #80} 하드코딩
-     * 서비스가 하던 계산을 여기로 옮겼다). {@code amount}/{@code rate} 스펙이 없는 정책, FAIL
-     * 판정, 필요한 입력·팩트가 없으면 전부 비운다 — 안 되는 걸 숫자로 보여주면 안 된다.
+     * 서비스가 하던 계산을 여기로 옮겼다). 금액과 금리의 확인 가능 여부는 분리한다.
+     * 금리 미확인은 금리·이자만 비우며, 금액 계산에 필요한 기준이 없거나 FAIL이면 전부 비운다.
      */
     public ExpectedEstimate estimate(
             RuleDocument document,
@@ -76,7 +76,6 @@ public class PolicyRuleEngine {
             PlanInput input,
             PolicyVerdictResult verdict) {
         if (document.amount() == null
-                || document.rate() == null
                 || input == null
                 || input.getHopeDeposit() == null
                 || verdict == PolicyVerdictResult.FAIL) {
@@ -85,21 +84,31 @@ public class PolicyRuleEngine {
 
         Optional<Fact> ratioFact = resolveFact(document.amount().ratioFactCode());
         Optional<Fact> capFact = resolveFact(document.amount().capFactCode());
-        Optional<Fact> rateMinFact = resolveFact(document.rate().minFactCode());
-        Optional<Fact> rateMaxFact = resolveFact(document.rate().maxFactCode());
-        if (ratioFact.isEmpty() || capFact.isEmpty() || rateMinFact.isEmpty() || rateMaxFact.isEmpty()) {
+        if (ratioFact.isEmpty() || capFact.isEmpty()) {
             return ExpectedEstimate.empty();
         }
 
         long hopeDeposit = input.getHopeDeposit();
         long loanCap = capFact.get().requireWon();
-        long estimatedLoan = Math.min(percent(hopeDeposit, ratioFact.get().requireNumber()), loanCap);
+        BigDecimal ratio = ratioFact.get().requireNumber();
+        if (hopeDeposit < 0 || loanCap < 0 || ratio.signum() < 0 || ratio.compareTo(new BigDecimal("100")) > 0) {
+            return ExpectedEstimate.empty();
+        }
+        long estimatedLoan = Math.min(percent(hopeDeposit, ratio), loanCap);
         long ownFunds = Math.max(0, hopeDeposit - estimatedLoan);
-        BigDecimal rateMin = rateMinFact.get().requireNumber();
-        BigDecimal rateMax = rateMaxFact.get().requireNumber();
+        BigDecimal rateMin = document.rate() == null
+                ? null
+                : resolveFact(document.rate().minFactCode()).map(Fact::number).orElse(null);
+        BigDecimal rateMax = document.rate() == null
+                ? null
+                : resolveFact(document.rate().maxFactCode()).map(Fact::number).orElse(null);
+        if (rateMin == null || rateMax == null || rateMin.signum() < 0 || rateMin.compareTo(rateMax) > 0) {
+            rateMin = null;
+            rateMax = null;
+        }
 
         return new ExpectedEstimate(
-                recommendedDeposit(conditionResults, input, loanCap),
+                recommendedDeposit(conditionResults, input, loanCap, ratio),
                 estimatedLoan,
                 ownFunds,
                 rateMin,
@@ -110,18 +119,31 @@ public class PolicyRuleEngine {
 
     /** DEPOSIT_CAP 조건이 이미 참조하는 fact_code 를 그대로 재사용한다 — amount 스펙에 따로
      * 안 두고 조건식에서 읽어서, 같은 상한을 두 군데서 따로 관리하지 않는다. */
-    private Long recommendedDeposit(List<ConditionResult> conditionResults, PlanInput input, long loanCap) {
-        if (input.getAvailableCash() == null) {
+    private Long recommendedDeposit(
+            List<ConditionResult> conditionResults, PlanInput input, long loanCap, BigDecimal ratio) {
+        if (input.getAvailableCash() == null || input.getAvailableCash() < 0) {
             return null;
         }
-        long uncapped = input.getAvailableCash() + loanCap;
-        return conditionResults.stream()
-                .filter(condition -> "DEPOSIT_CAP".equals(condition.code()))
-                .map(ConditionResult::factCode)
-                .flatMap(factCode -> resolveFact(factCode).stream())
-                .findFirst()
-                .map(fact -> Math.min(uncapped, fact.requireWon()))
-                .orElse(uncapped);
+        BigDecimal cash = BigDecimal.valueOf(input.getAvailableCash());
+        BigDecimal limit = cash.add(BigDecimal.valueOf(loanCap)).min(BigDecimal.valueOf(Long.MAX_VALUE));
+        BigDecimal ownRatio = new BigDecimal("100").subtract(ratio);
+        if (ownRatio.signum() > 0) {
+            // 대출 비율이 80%라면 나머지 20%는 현금으로 충당해야 한다.
+            limit = limit.min(cash.multiply(new BigDecimal("100")).divide(ownRatio, 0, RoundingMode.DOWN));
+        }
+        for (ConditionResult condition : conditionResults) {
+            if (!"DEPOSIT_CAP".equals(condition.code())) {
+                continue;
+            }
+            Optional<Fact> depositCap = resolveFact(condition.factCode());
+            if (depositCap.isEmpty()
+                    || depositCap.get().number() == null
+                    || depositCap.get().number().signum() < 0) {
+                return null;
+            }
+            limit = limit.min(depositCap.get().number());
+        }
+        return limit.setScale(0, RoundingMode.DOWN).longValueExact();
     }
 
     private Long monthlyInterest(Long loan, BigDecimal rate) {
