@@ -289,6 +289,37 @@ class JeonsePolicyVerdictIntegrationTest {
         assertThat(withoutPropertyResult.verdict()).isEqualTo(PolicyVerdictResult.NEED_INFO); // 매물 없으면 단정 안 함
     }
 
+    @Test
+    void should_failYouthLoan_when_areaExceedsCapAgainstRealPostgres() {
+        activateAreaConditionRule("JEONSE-YOUTH-BEOTIMMOK");
+        em.createNativeQuery("UPDATE plan_input SET area_m2 = 90.0 WHERE plan_id = :pid")
+                .setParameter("pid", planId)
+                .executeUpdate();
+
+        JeonsePolicyVerdictListResponse result = service.evaluate(memberId, planId);
+
+        PolicyVerdictResponse youthResult = result.results().stream()
+                .filter(r -> r.policyCode().equals("JEONSE-YOUTH-BEOTIMMOK"))
+                .findFirst()
+                .orElseThrow();
+
+        assertThat(youthResult.verdict()).isEqualTo(PolicyVerdictResult.FAIL);
+    }
+
+    private void activateAreaConditionRule(String policyCode) {
+        // version 8: 7은 activateHouseConditionRule, 5는 activateSimpleReviewedRule, 2는 V24(#100) 실 시드가 쓴다.
+        em.createNativeQuery("""
+                        INSERT INTO policy_rule (policy_id, version, rule_json, status, effective_from, reviewed_by)
+                        SELECT id, 8,
+                            '{"operator":"AND","conditions":[
+                                {"code":"HOUSEHOLD_HOMELESS","field":"household_homeless","op":"eq","value":true},
+                                {"code":"AREA_CAP","field":"area_m2","fact_code":"FCT-005","op":"lte"}
+                            ]}'::jsonb,
+                            'ACTIVE', '2026-09-04', 'integration-test'
+                        FROM policy WHERE code = :code
+                        """).setParameter("code", policyCode).executeUpdate();
+    }
+
     private void activateHouseConditionRule(String policyCode) {
         em.createNativeQuery("""
                         INSERT INTO policy_rule (policy_id, version, rule_json, status, effective_from, reviewed_by)
