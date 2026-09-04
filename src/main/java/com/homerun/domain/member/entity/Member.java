@@ -12,6 +12,7 @@ import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
 import jakarta.persistence.Table;
 import java.time.Instant;
+import java.time.LocalDate;
 
 @Entity
 @Table(name = "app_user")
@@ -33,6 +34,15 @@ public class Member {
 
     @Column(length = 50)
     private String nickname;
+
+    @Column(name = "birth_date")
+    private LocalDate birthDate;
+
+    @Column(name = "military_months", nullable = false)
+    private int militaryMonths;
+
+    @Column(name = "military_months_confirmed", nullable = false)
+    private boolean militaryMonthsConfirmed;
 
     @Column(name = "password_hash", length = 100)
     private String passwordHash;
@@ -75,6 +85,22 @@ public class Member {
         requireActive();
         this.nickname = nickname;
         this.updatedAt = Instant.now();
+    }
+
+    public void updateDiagnosisProfile(LocalDate birthDate, Integer militaryMonths) {
+        requireActive();
+        this.birthDate = birthDate;
+        this.militaryMonths = militaryMonths == null ? 0 : militaryMonths;
+        this.militaryMonthsConfirmed = militaryMonths != null;
+        this.updatedAt = Instant.now();
+    }
+
+    public LocalDate getBirthDate() {
+        return birthDate;
+    }
+
+    public Integer getConfirmedMilitaryMonths() {
+        return militaryMonthsConfirmed ? militaryMonths : null;
     }
 
     public void withdraw() {
