@@ -13,6 +13,8 @@ import com.homerun.domain.policy.model.RuleCondition;
 import com.homerun.domain.policy.model.RuleDocument;
 import com.homerun.domain.policy.type.PolicyVerdictResult;
 import com.homerun.domain.property.entity.Property;
+import com.homerun.domain.region.service.PolicyRegionResolver;
+import com.homerun.domain.region.type.PolicyArea;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.time.Clock;
@@ -41,14 +43,17 @@ public class PolicyRuleEngine {
             "HOUSEHOLDER_STATUS", "세대주 또는 예비 세대주",
             "NO_DUPLICATE_LOAN", "기존 전세자금대출 없음",
             "NOT_VIOLATION_BUILDING", "위반건축물이 아님",
-            "NOT_MULTI_HOUSEHOLD", "다가구 주택이 아님");
+            "NOT_MULTI_HOUSEHOLD", "다가구 주택이 아님",
+            "REGION_TARGET", "희망 지역이 서울");
 
     private final FactRegistry facts;
     private final Clock clock;
+    private final PolicyRegionResolver regions;
 
-    public PolicyRuleEngine(FactRegistry facts, Clock clock) {
+    public PolicyRuleEngine(FactRegistry facts, Clock clock, PolicyRegionResolver regions) {
         this.facts = facts;
         this.clock = clock;
+        this.regions = regions;
     }
 
     /** plan_input 기반 조건만 쓰는 정책(청년/일반 버팀목, 서울시 이자지원)용. */
@@ -83,7 +88,13 @@ public class PolicyRuleEngine {
         }
 
         Optional<Fact> ratioFact = resolveFact(document.amount().ratioFactCode());
-        Optional<Fact> capFact = resolveFact(document.amount().capFactCode());
+        String capCode = document.amount().capFactCode();
+        if (document.amount().nonCapitalCapFactCode() != null) {
+            PolicyArea area = regions.resolve(input.getRegionId());
+            if (area == null) return ExpectedEstimate.empty();
+            if (area == PolicyArea.NON_CAPITAL) capCode = document.amount().nonCapitalCapFactCode();
+        }
+        Optional<Fact> capFact = resolveFact(capCode);
         if (ratioFact.isEmpty() || capFact.isEmpty()) {
             return ExpectedEstimate.empty();
         }
@@ -168,6 +179,8 @@ public class PolicyRuleEngine {
             case "eq" -> equalityCheck(condition, input, property, true);
             case "ne" -> equalityCheck(condition, input, property, false);
             case "lte" -> numericCheck(condition, input, false);
+            case "lte_by_region" -> regionalLimit(condition, input);
+            case "region_eq" -> regionEquals(condition, input);
             case "gte" -> numericCheck(condition, input, true);
             case "annual_lte" -> annualIncomeCheck(condition, input);
             case "annual_lte_by_age_group" -> annualLteByAgeGroup(condition, input);
@@ -207,6 +220,24 @@ public class PolicyRuleEngine {
         int cmp = amount.compareTo(fact.get().requireNumber());
         boolean pass = gte ? cmp >= 0 : cmp <= 0;
         return met(condition, pass, fact.get());
+    }
+
+    private ConditionResult regionalLimit(RuleCondition condition, PlanInput input) {
+        PolicyArea area = regions.resolve(input == null ? null : input.getRegionId());
+        if (area == null) return needInfo(condition, "희망 지역을 확인해야 상한을 결정할 수 있습니다.");
+        String factCode = area == PolicyArea.NON_CAPITAL ? condition.altFactCode() : condition.factCode();
+        RuleCondition selected =
+                new RuleCondition(condition.code(), condition.field(), "lte", condition.value(), factCode, null);
+        return numericCheck(selected, input, false);
+    }
+
+    private ConditionResult regionEquals(RuleCondition condition, PlanInput input) {
+        PolicyArea area = regions.resolve(input == null ? null : input.getRegionId());
+        if (area == null) return needInfo(condition, "희망 지역을 확인해 주세요.");
+        return met(
+                condition,
+                area.name().equals(String.valueOf(condition.value())),
+                resolveFact(condition.factCode()).orElse(null));
     }
 
     private BigDecimal toComparable(Object fieldValue) {

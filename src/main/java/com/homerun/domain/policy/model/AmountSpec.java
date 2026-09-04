@@ -10,4 +10,9 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 @JsonIgnoreProperties(ignoreUnknown = true)
 public record AmountSpec(
         @JsonProperty("ratio_fact_code") String ratioFactCode,
-        @JsonProperty("cap_fact_code") String capFactCode) {}
+        @JsonProperty("cap_fact_code") String capFactCode,
+        @JsonProperty("non_capital_cap_fact_code") String nonCapitalCapFactCode) {
+    public AmountSpec(String ratioFactCode, String capFactCode) {
+        this(ratioFactCode, capFactCode, null);
+    }
+}
