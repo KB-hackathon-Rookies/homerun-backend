@@ -81,6 +81,25 @@ class AssetComparisonServiceTest {
     }
 
     @Test
+    void should_leaveTaxFieldsNull_when_youthSavings() {
+        // AST-01-06. 손실액은 과거 납입 이력에 달려 있어 계산하지 않는다 — 주택청약과 같은 이유.
+        when(facts.require("FCT-083")).thenReturn(fact("FCT-083", "정부기여금 못 받음 + 이자소득 비과세 상실"));
+        when(facts.require("FCT-084")).thenReturn(fact("FCT-084", "기여금·비과세 유지"));
+        when(facts.require("FCT-172")).thenReturn(fact("FCT-172", "2.2"));
+        when(facts.require("FCT-173")).thenReturn(fact("FCT-173", "3.3"));
+
+        AssetComparisonResponse response =
+                service.compare(MEMBER_ID, PLAN_ID, request(AssetType.YOUTH_SAVINGS, 6_000_000L));
+
+        AssetComparisonResult result = response.results().get(0);
+        assertThat(result.taxPenaltyRate()).isNull();
+        assertThat(result.taxPenaltyAmount()).isNull();
+        assertThat(result.netAmount()).isNull(); // 0원이 아니라 모른다는 뜻
+        assertThat(result.comparedLoanInterestMin()).isEqualTo(132_000L); // 600만 × 2.2%
+        assertThat(result.notes()).hasSize(3); // 일반해지 + 특별해지 조건 + 계산 안내
+    }
+
+    @Test
     void should_returnNullComparedInterest_when_rateFactMissing() {
         when(facts.require("FCT-078")).thenReturn(fact("FCT-078", "16.5"));
         when(facts.require("FCT-172")).thenThrow(new FactNotFoundException("FCT-172"));
