@@ -8,4 +8,5 @@ public record PolicyVerdictResponse(
         String policyName,
         PolicyVerdictResult verdict,
         List<ConditionBasisResponse> basis,
-        List<RejectionReasonResponse> rejectionReasons) {}
+        List<RejectionReasonResponse> rejectionReasons,
+        LoanEstimateResponse estimate) {}
