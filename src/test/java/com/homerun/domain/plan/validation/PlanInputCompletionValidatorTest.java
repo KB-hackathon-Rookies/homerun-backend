@@ -3,16 +3,20 @@ package com.homerun.domain.plan.validation;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatCode;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
 import com.homerun.domain.plan.dto.request.PlanInputRequest;
+import com.homerun.domain.plan.entity.Plan;
 import com.homerun.domain.plan.entity.PlanInput;
 import com.homerun.domain.plan.repository.PlanInputRepository;
+import com.homerun.domain.plan.repository.PlanRepository;
 import com.homerun.domain.plan.type.CompanySize;
 import com.homerun.domain.plan.type.EmploymentType;
 import com.homerun.domain.plan.type.HouseType;
 import com.homerun.domain.plan.type.HouseholderStatus;
+import com.homerun.domain.plan.type.LeaseType;
 import com.homerun.domain.plan.type.MaritalStatus;
 import com.homerun.domain.plan.type.PlanGate;
 import com.homerun.domain.plan.type.PlanInputUnknownField;
@@ -36,11 +40,17 @@ class PlanInputCompletionValidatorTest {
     @Mock
     private PlanInputRepository inputRepository;
 
+    @Mock
+    private PlanRepository planRepository;
+
     private PlanInputCompletionValidator validator;
 
     @BeforeEach
     void setUp() {
-        validator = new PlanInputCompletionValidator(inputRepository);
+        validator = new PlanInputCompletionValidator(inputRepository, planRepository);
+        lenient()
+                .when(planRepository.findById(PLAN_ID))
+                .thenReturn(Optional.of(Plan.create(1L, LeaseType.WOLSE, null)));
     }
 
     @Test

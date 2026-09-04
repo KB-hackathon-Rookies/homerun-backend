@@ -173,7 +173,10 @@ class DashboardDeadlineIntegrationTest {
                         null,
                         null,
                         null,
-                        Set.of(PlanInputUnknownField.REGION_ID)));
+                        Set.of(
+                                PlanInputUnknownField.REGION_ID,
+                                PlanInputUnknownField.MONTHLY_INCOME,
+                                PlanInputUnknownField.NET_ASSETS)));
     }
 
     private LocalDate moveDate() {
