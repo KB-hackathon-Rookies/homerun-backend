@@ -167,6 +167,41 @@ class JeonsePolicyVerdictIntegrationTest {
         });
     }
 
+    @Test
+    void should_persistRejectionReasonWithAlternative_when_returnGuaranteeFailsPriceRatio() {
+        // 공시가 5억 × 1.26 = 6억 3천 < 보증금 7억 → 126% 룰 위반 → FAIL.
+        Long badPropertyId = ((Number) em.createNativeQuery(
+                                "INSERT INTO property (plan_id, deposit, official_price) VALUES (:pid, 700000000, 500000000) RETURNING id")
+                        .setParameter("pid", planId)
+                        .getSingleResult())
+                .longValue();
+
+        service.evaluateReturnGuarantees(memberId, planId, badPropertyId);
+        em.flush();
+        em.clear();
+
+        Long hugPolicyId = ((Number) em.createNativeQuery("SELECT id FROM policy WHERE code = 'RETURN-GUARANTEE-HUG'")
+                        .getSingleResult())
+                .longValue();
+        Long sgiPolicyId = ((Number) em.createNativeQuery("SELECT id FROM policy WHERE code = 'RETURN-GUARANTEE-SGI'")
+                        .getSingleResult())
+                .longValue();
+
+        @SuppressWarnings("unchecked")
+        List<Object[]> rows = em.createNativeQuery("""
+                        SELECT r.reason_code, r.alternative_id
+                        FROM rejection_reason r JOIN policy_verdict v ON v.id = r.verdict_id
+                        WHERE v.plan_id = :pid AND v.policy_id = :policyId
+                        """)
+                .setParameter("pid", planId)
+                .setParameter("policyId", hugPolicyId)
+                .getResultList();
+
+        assertThat(rows).hasSize(1);
+        assertThat(rows.get(0)[0]).isEqualTo("PRICE_RATIO_126");
+        assertThat(((Number) rows.get(0)[1]).longValue()).isEqualTo(sgiPolicyId);
+    }
+
     private void activatePriceRatioRule(String policyCode) {
         em.createNativeQuery("""
                         INSERT INTO policy_rule (policy_id, version, rule_json, status, effective_from, reviewed_by)
