@@ -9,6 +9,7 @@ import com.homerun.domain.plan.entity.StepTask;
 import com.homerun.domain.plan.repository.StepTaskRepository;
 import com.homerun.domain.plan.type.StepTaskTemplate;
 import java.time.LocalDate;
+import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -33,8 +34,10 @@ import org.springframework.stereotype.Component;
 class ContractDeadlineWriter {
 
     /** 이 클래스가 만드는 마감. 다시 계산할 때 이 코드들만 지운다. */
-    private static final Set<String> MANAGED_FACTS = Set.of("FCT-104", "FCT-105", "FCT-106", "FCT-107", "FCT-109");
+    private static final Set<String> MANAGED_FACTS =
+            Set.of("FCT-103", "FCT-104", "FCT-105", "FCT-106", "FCT-107", "FCT-109");
 
+    private static final String LOAN_APPLICATION_FACT = "FCT-103";
     private static final String CONSULT_FACT = "FCT-104";
     private static final String DOCUMENT_FACT = "FCT-105";
     private static final String VERIFY_FACT = "FCT-106";
@@ -138,8 +141,51 @@ class ContractDeadlineWriter {
                 VERIFY_FACT);
 
         addGuaranteeDeadline(built, planId, taskIds, contract, balanceDate);
+        addLoanApplicationDeadline(built, planId, taskIds, contract);
 
         return built;
+    }
+
+    /**
+     * 대출 신청 법정 마감(FCT-103, LEGAL). 잔금일·전입일 중 빠른 날부터 3개월 — 놓치면
+     * 정책자금을 영구히 못 쓴다. #67: {@code APPLY_LOAN} 할 일에 붙인다 — 은행 사전상담
+     * (RECOMMENDED, D-21)에 붙이면 대시보드가 더 가까운 날짜를 골라 이 절대 마감이 가려진다.
+     *
+     * <p>둘 다 아직 모르면 만들지 않는다 — 지어낸 날짜로 재촉하지 않는다(NFR-01-06).
+     */
+    private void addLoanApplicationDeadline(
+            List<Deadline> built, Long planId, Map<String, Long> taskIds, LeaseContract contract) {
+        LocalDate balanceDate = contract.getBalanceDate();
+        LocalDate moveIn = contract.getMoveInReportAt();
+        LocalDate earliest = earliestKnown(balanceDate, moveIn);
+        if (earliest == null) {
+            return;
+        }
+        String baseEvent = balanceDate != null && balanceDate.equals(earliest) ? "BALANCE_DATE" : "MOVE_IN_REPORT_DATE";
+        LocalDate legalDeadline = earliest.plusMonths(months(LOAN_APPLICATION_FACT));
+        int offsetDays = (int) ChronoUnit.DAYS.between(earliest, legalDeadline);
+
+        add(
+                built,
+                planId,
+                taskIds,
+                StepTaskTemplate.APPLY_LOAN,
+                DeadlineType.LEGAL,
+                "대출 신청 법정 마감(잔금일·전입일 중 빠른 날 + 3개월)",
+                baseEvent,
+                earliest,
+                offsetDays,
+                LOAN_APPLICATION_FACT);
+    }
+
+    private LocalDate earliestKnown(LocalDate a, LocalDate b) {
+        if (a == null) {
+            return b;
+        }
+        if (b == null) {
+            return a;
+        }
+        return a.isBefore(b) ? a : b;
     }
 
     /**
@@ -209,6 +255,11 @@ class ContractDeadlineWriter {
 
     /** 며칠인지는 레지스트리에서 읽는다. 상수로 박으면 기준이 바뀔 때 아무도 못 찾는다. */
     private int days(String factCode) {
+        return facts.require(factCode).requireNumber().intValueExact();
+    }
+
+    /** FCT-103 은 단위가 '개월'이다 — days() 와 다른 단위라 따로 둔다. */
+    private int months(String factCode) {
         return facts.require(factCode).requireNumber().intValueExact();
     }
 }

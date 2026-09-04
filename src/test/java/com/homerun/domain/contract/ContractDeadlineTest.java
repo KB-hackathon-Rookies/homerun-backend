@@ -76,6 +76,7 @@ class ContractDeadlineTest {
                 StepTaskTemplate.REGISTER_CHECK,
                 StepTaskTemplate.MOVE_IN_REPORT,
                 StepTaskTemplate.FIXED_DATE,
+                StepTaskTemplate.APPLY_LOAN,
                 StepTaskTemplate.GUARANTEE_CHECK)) {
             em.createNativeQuery("""
                             INSERT INTO step_task (plan_step_id, task_code, task_name, sequence, status)
@@ -141,14 +142,38 @@ class ContractDeadlineTest {
     }
 
     @Test
-    @DisplayName("법정기한이라고 표시하는 마감은 아직 없다")
-    void should_not_write_any_legal_deadline_yet() {
-        // 진짜 LEGAL 은 대출 신청 마감(FCT-103)인데 붙일 할 일이 없어 미뤘다(#67).
-        // 그 자리를 권고로 메우지 않는다.
+    @DisplayName("대출 신청 마감은 잔금일부터 3개월인 법정기한이다(#67)")
+    void should_write_loan_application_deadline_as_legal() {
+        // FCT-103: 잔금일·전입일 중 빠른 날 + 3개월. 전입일을 모르면 잔금일 기준이다.
         service.save(ownerId, planId, contractWith(CONTRACT, BALANCE, null));
 
-        assertThat(deadlines.findAllByPlanIdAndTaskIdIsNotNull(planId))
-                .noneMatch(deadline -> deadline.getType() == DeadlineType.LEGAL);
+        Deadline loanApplication = byFact().get("FCT-103");
+
+        assertThat(loanApplication.getType()).isEqualTo(DeadlineType.LEGAL);
+        assertThat(loanApplication.getDueDate()).isEqualTo(BALANCE.plusMonths(3));
+        assertThat(loanApplication.getBaseEvent()).isEqualTo("BALANCE_DATE");
+    }
+
+    @Test
+    @DisplayName("전입일이 잔금일보다 빠르면 전입일이 기준이다(#67)")
+    void should_baseLoanApplicationDeadline_onEarlierMoveInDate() {
+        LocalDate earlyMoveIn = BALANCE.minusDays(5);
+
+        service.save(ownerId, planId, contractWith(CONTRACT, BALANCE, earlyMoveIn));
+
+        Deadline loanApplication = byFact().get("FCT-103");
+
+        assertThat(loanApplication.getDueDate()).isEqualTo(earlyMoveIn.plusMonths(3));
+        assertThat(loanApplication.getBaseEvent()).isEqualTo("MOVE_IN_REPORT_DATE");
+    }
+
+    @Test
+    @DisplayName("법정기한이 아닌 마감은 여전히 권고다")
+    void should_keep_other_deadlines_as_recommended_or_more() {
+        // FCT-103 을 LEGAL 로 추가했다고 다른 마감의 종류가 바뀌면 안 된다.
+        service.save(ownerId, planId, contractWith(CONTRACT, BALANCE, null));
+
+        assertThat(byFact().get("FCT-104").getType()).isEqualTo(DeadlineType.RECOMMENDED);
     }
 
     @Test
@@ -196,7 +221,8 @@ class ContractDeadlineTest {
 
         Map<String, Deadline> written = byFact();
 
-        assertThat(written).doesNotContainKeys("FCT-104", "FCT-105", "FCT-107", "FCT-109");
+        // 잔금일도 전입일도 없으면 대출 신청 마감(FCT-103)의 기준(빠른 날)조차 없다.
+        assertThat(written).doesNotContainKeys("FCT-103", "FCT-104", "FCT-105", "FCT-107", "FCT-109");
         // 계약일은 알고 있으므로 계약 전 검증만 남는다.
         assertThat(written).containsKey("FCT-106");
     }
