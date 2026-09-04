@@ -68,6 +68,16 @@ class PlanInputCompletionValidatorTest {
                 EmploymentType.FULL_TIME,
                 12,
                 CompanySize.SMALL,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
                 Set.of(PlanInputUnknownField.MONTHLY_RENT));
         when(inputRepository.findByPlanId(PLAN_ID)).thenReturn(Optional.of(PlanInput.create(PLAN_ID, request)));
 
@@ -117,6 +127,16 @@ class PlanInputCompletionValidatorTest {
                 EmploymentType.FULL_TIME,
                 12,
                 CompanySize.SMALL,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
                 Set.of());
     }
 }

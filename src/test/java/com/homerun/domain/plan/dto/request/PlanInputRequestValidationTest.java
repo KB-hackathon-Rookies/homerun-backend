@@ -16,7 +16,31 @@ class PlanInputRequestValidationTest {
     @Test
     void should_rejectAmountsAndAreaOutsideAllowedRange() {
         PlanInputRequest request = new PlanInputRequest(
-                -1L, 0L, -100L, null, null, null, BigDecimal.ZERO, null, null, null, null, null, null, null, Set.of());
+                -1L,
+                0L,
+                -100L,
+                null,
+                null,
+                null,
+                BigDecimal.ZERO,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                Set.of());
 
         assertThat(validator.validate(request))
                 .extracting(violation -> violation.getPropertyPath().toString())

@@ -163,6 +163,16 @@ class DashboardDeadlineIntegrationTest {
                         EmploymentType.FULL_TIME,
                         12,
                         CompanySize.SMALL,
+                        null,
+                        null,
+                        null,
+                        null,
+                        null,
+                        null,
+                        null,
+                        null,
+                        null,
+                        null,
                         Set.of(PlanInputUnknownField.REGION_ID)));
     }
 

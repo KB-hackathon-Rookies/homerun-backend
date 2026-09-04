@@ -71,6 +71,8 @@ public enum ErrorCode {
     PLAN_REGION_NOT_FOUND(HttpStatus.BAD_REQUEST, "PLAN_012", "존재하지 않는 지역입니다."),
     PLAN_REQUIRED_INPUT_MISSING(HttpStatus.BAD_REQUEST, "PLAN_013", "단계 완료에 필요한 입력을 확인해 주세요."),
 
+    JEONSE_PLAN_REQUIRED(HttpStatus.BAD_REQUEST, "LOAN_001", "전세 또는 반전세 계획에서만 대출 진단을 이용할 수 있습니다."),
+
     HOUSEHOLD_MEMBER_NOT_FOUND(HttpStatus.NOT_FOUND, "FAM_001", "가구원을 찾을 수 없습니다."),
     CONSENT_NOT_FOUND(HttpStatus.NOT_FOUND, "FAM_002", "동의 건을 찾을 수 없습니다."),
     CONSENT_ALREADY_RESPONDED(HttpStatus.CONFLICT, "FAM_003", "이미 응답이 끝난 동의 건입니다."),
@@ -82,6 +84,7 @@ public enum ErrorCode {
 
     CONTRACT_NOT_FOUND(HttpStatus.NOT_FOUND, "PRP_001", "계약 정보를 찾을 수 없습니다."),
     PROPERTY_NOT_IN_PLAN(HttpStatus.BAD_REQUEST, "PRP_002", "이 계획의 매물이 아닙니다."),
+    PROPERTY_CANDIDATE_LIMIT(HttpStatus.CONFLICT, "PRP_003", "매물 후보는 계획당 최대 3개까지 저장할 수 있습니다."),
 
     DOCUMENT_NOT_FOUND(HttpStatus.NOT_FOUND, "ISS_001", "존재하지 않는 서류입니다."),
     DOCUMENT_STATUS_NOT_SELECTABLE(HttpStatus.BAD_REQUEST, "ISS_002", "직접 지정할 수 없는 서류 상태입니다."),

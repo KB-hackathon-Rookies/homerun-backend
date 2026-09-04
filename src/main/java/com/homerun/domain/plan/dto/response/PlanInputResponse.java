@@ -3,12 +3,14 @@ package com.homerun.domain.plan.dto.response;
 import com.homerun.domain.plan.entity.PlanInput;
 import com.homerun.domain.plan.type.CompanySize;
 import com.homerun.domain.plan.type.EmploymentType;
+import com.homerun.domain.plan.type.FinancialValueSource;
 import com.homerun.domain.plan.type.HouseType;
 import com.homerun.domain.plan.type.HouseholderStatus;
 import com.homerun.domain.plan.type.MaritalStatus;
 import com.homerun.domain.plan.type.PlanInputUnknownField;
 import java.math.BigDecimal;
 import java.time.Instant;
+import java.time.LocalDate;
 import java.util.List;
 
 public record PlanInputResponse(
@@ -27,6 +29,16 @@ public record PlanInputResponse(
         EmploymentType employmentType,
         Integer employmentMonths,
         CompanySize companySize,
+        Boolean householdHomeless,
+        LocalDate birthDate,
+        Integer militaryMonths,
+        Long monthlyIncome,
+        Long netAssets,
+        Long availableCash,
+        Boolean existingJeonseLoan,
+        FinancialValueSource incomeSource,
+        FinancialValueSource assetSource,
+        Boolean financialDataConfirmed,
         List<PlanInputUnknownField> unknownFields,
         int revision,
         Instant savedAt,
@@ -49,6 +61,16 @@ public record PlanInputResponse(
                 input.getEmploymentType(),
                 input.getEmploymentMonths(),
                 input.getCompanySize(),
+                input.getHouseholdHomeless(),
+                input.getBirthDate(),
+                input.getMilitaryMonths(),
+                input.getMonthlyIncome(),
+                input.getNetAssets(),
+                input.getAvailableCash(),
+                input.getExistingJeonseLoan(),
+                input.getIncomeSource(),
+                input.getAssetSource(),
+                input.getFinancialDataConfirmed(),
                 input.getUnknownFields(),
                 input.getRevision(),
                 input.getUpdatedAt(),

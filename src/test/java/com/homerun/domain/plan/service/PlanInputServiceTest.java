@@ -19,6 +19,7 @@ import com.homerun.domain.plan.repository.PlanRepository;
 import com.homerun.domain.plan.repository.PlanStepRepository;
 import com.homerun.domain.plan.type.CompanySize;
 import com.homerun.domain.plan.type.EmploymentType;
+import com.homerun.domain.plan.type.FinancialValueSource;
 import com.homerun.domain.plan.type.HouseType;
 import com.homerun.domain.plan.type.HouseholderStatus;
 import com.homerun.domain.plan.type.LeaseType;
@@ -30,6 +31,7 @@ import com.homerun.domain.region.repository.RegionRepository;
 import com.homerun.global.exception.BusinessException;
 import com.homerun.global.exception.ErrorCode;
 import java.math.BigDecimal;
+import java.time.LocalDate;
 import java.util.List;
 import java.util.Optional;
 import java.util.Set;
@@ -199,6 +201,16 @@ class PlanInputServiceTest {
                 EmploymentType.FULL_TIME,
                 12,
                 CompanySize.SMALL,
+                true,
+                LocalDate.of(2000, 1, 1),
+                18,
+                3_000_000L,
+                100_000_000L,
+                20_000_000L,
+                false,
+                FinancialValueSource.OPEN_BANKING,
+                FinancialValueSource.OPEN_BANKING,
+                true,
                 unknownFields);
     }
 }

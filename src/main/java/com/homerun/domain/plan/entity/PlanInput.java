@@ -3,6 +3,7 @@ package com.homerun.domain.plan.entity;
 import com.homerun.domain.plan.dto.request.PlanInputRequest;
 import com.homerun.domain.plan.type.CompanySize;
 import com.homerun.domain.plan.type.EmploymentType;
+import com.homerun.domain.plan.type.FinancialValueSource;
 import com.homerun.domain.plan.type.HouseType;
 import com.homerun.domain.plan.type.HouseholderStatus;
 import com.homerun.domain.plan.type.MaritalStatus;
@@ -18,6 +19,7 @@ import jakarta.persistence.Table;
 import jakarta.persistence.Version;
 import java.math.BigDecimal;
 import java.time.Instant;
+import java.time.LocalDate;
 import java.util.List;
 import java.util.Objects;
 import org.hibernate.annotations.JdbcTypeCode;
@@ -81,6 +83,38 @@ public class PlanInput {
     @Column(name = "company_size", length = 30)
     private CompanySize companySize;
 
+    @Column(name = "household_homeless")
+    private Boolean householdHomeless;
+
+    @Column(name = "birth_date")
+    private LocalDate birthDate;
+
+    @Column(name = "military_months")
+    private Integer militaryMonths;
+
+    @Column(name = "monthly_income")
+    private Long monthlyIncome;
+
+    @Column(name = "net_assets")
+    private Long netAssets;
+
+    @Column(name = "available_cash")
+    private Long availableCash;
+
+    @Column(name = "has_existing_jeonse_loan")
+    private Boolean existingJeonseLoan;
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "income_source", length = 20)
+    private FinancialValueSource incomeSource;
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "asset_source", length = 20)
+    private FinancialValueSource assetSource;
+
+    @Column(name = "financial_data_confirmed")
+    private Boolean financialDataConfirmed;
+
     @JdbcTypeCode(SqlTypes.JSON)
     @Column(name = "unknown_fields", nullable = false, columnDefinition = "jsonb")
     private List<PlanInputUnknownField> unknownFields;
@@ -127,6 +161,16 @@ public class PlanInput {
                 && Objects.equals(employmentType, request.employmentType())
                 && Objects.equals(employmentMonths, request.employmentMonths())
                 && Objects.equals(companySize, request.companySize())
+                && Objects.equals(householdHomeless, request.householdHomeless())
+                && Objects.equals(birthDate, request.birthDate())
+                && Objects.equals(militaryMonths, request.militaryMonths())
+                && Objects.equals(monthlyIncome, request.monthlyIncome())
+                && Objects.equals(netAssets, request.netAssets())
+                && Objects.equals(availableCash, request.availableCash())
+                && Objects.equals(existingJeonseLoan, request.existingJeonseLoan())
+                && Objects.equals(incomeSource, request.incomeSource())
+                && Objects.equals(assetSource, request.assetSource())
+                && Objects.equals(financialDataConfirmed, request.financialDataConfirmed())
                 && Objects.equals(unknownFields, sortedUnknownFields(request));
     }
 
@@ -151,6 +195,16 @@ public class PlanInput {
         employmentType = request.employmentType();
         employmentMonths = request.employmentMonths();
         companySize = request.companySize();
+        householdHomeless = request.householdHomeless();
+        birthDate = request.birthDate();
+        militaryMonths = request.militaryMonths();
+        monthlyIncome = request.monthlyIncome();
+        netAssets = request.netAssets();
+        availableCash = request.availableCash();
+        existingJeonseLoan = request.existingJeonseLoan();
+        incomeSource = request.incomeSource();
+        assetSource = request.assetSource();
+        financialDataConfirmed = request.financialDataConfirmed();
         unknownFields = sortedUnknownFields(request);
     }
 
@@ -229,6 +283,46 @@ public class PlanInput {
 
     public CompanySize getCompanySize() {
         return companySize;
+    }
+
+    public Boolean getHouseholdHomeless() {
+        return householdHomeless;
+    }
+
+    public LocalDate getBirthDate() {
+        return birthDate;
+    }
+
+    public Integer getMilitaryMonths() {
+        return militaryMonths;
+    }
+
+    public Long getMonthlyIncome() {
+        return monthlyIncome;
+    }
+
+    public Long getNetAssets() {
+        return netAssets;
+    }
+
+    public Long getAvailableCash() {
+        return availableCash;
+    }
+
+    public Boolean getExistingJeonseLoan() {
+        return existingJeonseLoan;
+    }
+
+    public FinancialValueSource getIncomeSource() {
+        return incomeSource;
+    }
+
+    public FinancialValueSource getAssetSource() {
+        return assetSource;
+    }
+
+    public Boolean getFinancialDataConfirmed() {
+        return financialDataConfirmed;
     }
 
     public List<PlanInputUnknownField> getUnknownFields() {
