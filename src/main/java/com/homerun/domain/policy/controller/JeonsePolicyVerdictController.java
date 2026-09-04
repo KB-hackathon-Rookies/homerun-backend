@@ -44,4 +44,13 @@ public class JeonsePolicyVerdictController {
             @PathVariable Long propertyId) {
         return ApiResponse.success(service.evaluateReturnGuarantees(principal.memberId(), planId, propertyId));
     }
+
+    @PostMapping("/guarantee-fee-support/evaluate")
+    @Operation(
+            summary = "보증료 지원 판정",
+            description = "전세보증금 반환보증료 지원사업 자격을 소득 기준으로 판정한다(GTE-01-04). 선착순 예산 소진 사업이라" + " PASS 가 최종 지원 확정을 뜻하지 않는다.")
+    public ApiResponse<JeonsePolicyVerdictListResponse> evaluateGuaranteeFeeSupport(
+            @AuthenticationPrincipal MemberPrincipal principal, @PathVariable Long planId) {
+        return ApiResponse.success(service.evaluateGuaranteeFeeSupport(principal.memberId(), planId));
+    }
 }

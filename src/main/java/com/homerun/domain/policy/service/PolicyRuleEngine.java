@@ -5,6 +5,7 @@ import com.homerun.domain.fact.exception.UnusableFactException;
 import com.homerun.domain.fact.model.Fact;
 import com.homerun.domain.fact.service.FactRegistry;
 import com.homerun.domain.plan.entity.PlanInput;
+import com.homerun.domain.plan.type.MaritalStatus;
 import com.homerun.domain.policy.model.ConditionResult;
 import com.homerun.domain.policy.model.ExpectedEstimate;
 import com.homerun.domain.policy.model.RuleCondition;
@@ -146,6 +147,7 @@ public class PolicyRuleEngine {
             case "lte" -> numericCheck(condition, input, false);
             case "gte" -> numericCheck(condition, input, true);
             case "annual_lte" -> annualIncomeCheck(condition, input);
+            case "annual_lte_by_age_group" -> annualLteByAgeGroup(condition, input);
             case "age_within_years_adjusted" -> ageWithinYearsAdjusted(condition, input);
             case "deposit_lte_price_times_fact" -> depositWithinPriceRatio(condition, property);
             default -> needInfo(condition, "이 조건은 자동판정 대상이 아닙니다. 원문을 직접 확인해야 합니다.");
@@ -198,6 +200,40 @@ public class PolicyRuleEngine {
             return needInfo(condition, null);
         }
         Optional<Fact> fact = resolveFact(condition.factCode());
+        if (fact.isEmpty()) {
+            return needInfo(condition, null);
+        }
+        long annual = Math.multiplyExact(monthly, 12L);
+        boolean pass = BigDecimal.valueOf(annual).compareTo(fact.get().requireNumber()) <= 0;
+        return met(condition, pass, fact.get());
+    }
+
+    /**
+     * FCT-033 분해(GTE-01-04, #104). 혼인 여부에 따라 갈리는 소득 상한 — 신혼부부(혼인 7년
+     * 이내)는 {@code plan_input}에 혼인 기간이 없어 항상 NEED_INFO 로 둔다(모르는 걸 청년/일반
+     * 어느 쪽으로도 단정하지 않는다). 미혼일 때만 나이로 청년(factCode)/일반(altFactCode)을
+     * 가른다.
+     */
+    private ConditionResult annualLteByAgeGroup(RuleCondition condition, PlanInput input) {
+        if (input == null) {
+            return needInfo(condition, null);
+        }
+        MaritalStatus maritalStatus = input.getMaritalStatus();
+        if (maritalStatus == null) {
+            return needInfo(condition, "혼인 여부를 확인해야 소득 기준을 알 수 있습니다.");
+        }
+        if (maritalStatus == MaritalStatus.MARRIED) {
+            return needInfo(condition, "신혼부부(혼인 7년 이내) 여부를 확인해야 소득 기준을 알 수 있습니다.");
+        }
+        Long monthly = input.getMonthlyIncome();
+        LocalDate birthDate = input.getBirthDate();
+        if (monthly == null || birthDate == null) {
+            return needInfo(condition, null);
+        }
+        LocalDate today = LocalDate.now(clock);
+        boolean isYouthAge = !today.isBefore(birthDate.plusYears(19)) && today.isBefore(birthDate.plusYears(40));
+        String factCode = isYouthAge ? condition.factCode() : condition.altFactCode();
+        Optional<Fact> fact = resolveFact(factCode);
         if (fact.isEmpty()) {
             return needInfo(condition, null);
         }
@@ -285,11 +321,15 @@ public class PolicyRuleEngine {
         }
     }
 
+    /** factCode 는 조건식이 아니라 실제로 쓴 fact(fact.code())를 기준으로 남긴다 — 대부분의
+     * op 는 둘이 같지만, annual_lte_by_age_group 처럼 갈래에 따라 factCode/altFactCode 중
+     * 하나를 골라 쓰는 op 는 다르다. 틀린 factCode 가 verdict_basis 에 남으면 안 된다. */
     private ConditionResult met(RuleCondition condition, boolean isMet, Fact fact) {
         String label = fact != null ? fact.item() : STATIC_LABELS.getOrDefault(condition.code(), condition.code());
         String requiredText = fact != null ? fact.text() : null;
         String sourceUrl = fact != null ? fact.sourceUrl() : null;
-        return new ConditionResult(condition.code(), label, requiredText, isMet, condition.factCode(), sourceUrl);
+        String factCode = fact != null ? fact.code() : condition.factCode();
+        return new ConditionResult(condition.code(), label, requiredText, isMet, factCode, sourceUrl);
     }
 
     private ConditionResult needInfo(RuleCondition condition, String requiredTextOverride) {

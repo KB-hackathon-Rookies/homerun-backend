@@ -10,6 +10,7 @@ import com.homerun.domain.fact.service.FactRegistry;
 import com.homerun.domain.fact.type.Confidence;
 import com.homerun.domain.plan.dto.request.PlanInputRequest;
 import com.homerun.domain.plan.entity.PlanInput;
+import com.homerun.domain.plan.type.MaritalStatus;
 import com.homerun.domain.policy.model.AmountSpec;
 import com.homerun.domain.policy.model.ConditionResult;
 import com.homerun.domain.policy.model.ExpectedEstimate;
@@ -300,6 +301,99 @@ class PolicyRuleEngineTest {
                 new PlanInputRequest(
                         null, null, null, null, null, null, areaM2, null, null, null, null, null, null, null, null,
                         null, null, null, null, null, null, null, null, true, Set.of()));
+    }
+
+    @Test
+    void should_useYouthFactCode_when_singleAndWithinYouthAge() {
+        when(facts.require("FCT-176")).thenReturn(fact("FCT-176", "50000000"));
+        RuleDocument document = guaranteeFeeDocument();
+        // 만 30세, 월 400만(연 4800만) → 청년 상한(연 5000만) 이내.
+        PlanInput input = guaranteeFeeInput(MaritalStatus.SINGLE, LocalDate.of(1996, 9, 4), 4_000_000L);
+
+        List<ConditionResult> results = engine.evaluate(document, input);
+
+        assertThat(results.get(0).isMet()).isTrue();
+        assertThat(results.get(0).factCode()).isEqualTo("FCT-176"); // 실제로 쓴 fact 를 남긴다
+    }
+
+    @Test
+    void should_useGeneralFactCode_when_singleAndOutsideYouthAge() {
+        when(facts.require("FCT-177")).thenReturn(fact("FCT-177", "60000000"));
+        RuleDocument document = guaranteeFeeDocument();
+        // 만 45세(청년 범위 밖) → altFactCode(일반, FCT-177)로 비교해야 한다.
+        PlanInput input = guaranteeFeeInput(MaritalStatus.SINGLE, LocalDate.of(1981, 9, 4), 5_500_000L);
+
+        List<ConditionResult> results = engine.evaluate(document, input);
+
+        // 연 6600만 > 일반 상한 6000만 → 불충족. 청년 상한(5000만)과 헷갈렸다면 FCT-176 을
+        // 찾다가 스텁이 없어 NEED_INFO 로 잘못 떨어졌을 것 — 그게 아니라 FAIL 이어야 한다.
+        assertThat(results.get(0).isMet()).isFalse();
+        assertThat(results.get(0).factCode()).isEqualTo("FCT-177");
+    }
+
+    @Test
+    void should_returnNeedInfo_when_married() {
+        // 신혼부부(혼인 7년 이내) 여부를 plan_input 이 모른다 — 소득이 아무리 낮아도 단정 못 한다.
+        RuleDocument document = guaranteeFeeDocument();
+        PlanInput input = guaranteeFeeInput(MaritalStatus.MARRIED, LocalDate.of(1996, 9, 4), 1_000_000L);
+
+        List<ConditionResult> results = engine.evaluate(document, input);
+
+        assertThat(results.get(0).isMet()).isNull();
+    }
+
+    @Test
+    void should_returnNeedInfo_when_maritalStatusIsMissing() {
+        RuleDocument document = guaranteeFeeDocument();
+        PlanInput input = guaranteeFeeInput(null, LocalDate.of(1996, 9, 4), 1_000_000L);
+
+        List<ConditionResult> results = engine.evaluate(document, input);
+
+        assertThat(results.get(0).isMet()).isNull();
+    }
+
+    private RuleDocument guaranteeFeeDocument() {
+        return new RuleDocument(
+                "AND",
+                List.of(new RuleCondition(
+                        "INCOME_CAP_FEE_SUPPORT",
+                        "monthly_income",
+                        "annual_lte_by_age_group",
+                        null,
+                        "FCT-176",
+                        null,
+                        "FCT-177")));
+    }
+
+    private PlanInput guaranteeFeeInput(MaritalStatus maritalStatus, LocalDate birthDate, Long monthlyIncome) {
+        return PlanInput.create(
+                PLAN_ID,
+                new PlanInputRequest(
+                        null,
+                        null,
+                        null,
+                        null,
+                        null,
+                        null,
+                        null,
+                        null,
+                        null,
+                        null,
+                        maritalStatus,
+                        null,
+                        null,
+                        null,
+                        null,
+                        birthDate,
+                        null,
+                        monthlyIncome,
+                        null,
+                        null,
+                        null,
+                        null,
+                        null,
+                        true,
+                        Set.of()));
     }
 
     @Test
