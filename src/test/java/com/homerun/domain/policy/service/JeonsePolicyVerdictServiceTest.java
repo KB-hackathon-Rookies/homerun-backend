@@ -246,6 +246,34 @@ class JeonsePolicyVerdictServiceTest {
     }
 
     @Test
+    void should_stampPropertyId_when_evaluatingFundLoanWithProperty() {
+        // #100: propertyId 를 주면 청년/일반버팀목·서울시이자지원도 집 조건을 같이 본다.
+        Property property = mock(Property.class);
+        when(property.getId()).thenReturn(PROPERTY_ID);
+        when(properties.findByIdAndPlanId(PROPERTY_ID, PLAN_ID)).thenReturn(Optional.of(property));
+        when(engine.evaluate(any(), any(), any()))
+                .thenReturn(List.of(new ConditionResult("A", "라벨", "텍스트", true, null, null)));
+
+        service.evaluate(MEMBER_ID, PLAN_ID, PROPERTY_ID);
+
+        ArgumentCaptor<Property> propertyCaptor = ArgumentCaptor.forClass(Property.class);
+        verify(engine, times(3)).evaluate(any(), any(), propertyCaptor.capture());
+        assertThat(propertyCaptor.getAllValues()).allMatch(p -> p == property);
+    }
+
+    @Test
+    void should_passNullProperty_when_evaluatingFundLoanWithoutPropertyId() {
+        when(engine.evaluate(any(), any(), any()))
+                .thenReturn(List.of(new ConditionResult("A", "라벨", "텍스트", true, null, null)));
+
+        service.evaluate(MEMBER_ID, PLAN_ID);
+
+        ArgumentCaptor<Property> propertyCaptor = ArgumentCaptor.forClass(Property.class);
+        verify(engine, times(3)).evaluate(any(), any(), propertyCaptor.capture());
+        assertThat(propertyCaptor.getAllValues()).allMatch(p -> p == null);
+    }
+
+    @Test
     void should_throw_when_propertyNotInPlan() {
         when(properties.findByIdAndPlanId(PROPERTY_ID, PLAN_ID)).thenReturn(Optional.empty());
 

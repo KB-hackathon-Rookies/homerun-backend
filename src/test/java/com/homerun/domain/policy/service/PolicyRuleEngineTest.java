@@ -178,6 +178,87 @@ class PolicyRuleEngineTest {
     }
 
     @Test
+    void should_failFundLoan_when_propertyIsViolationBuilding() {
+        // CLAUDE.md: "근생빌라는 대출·보증 둘 다 거절" — 위반건축물이면 기금대출도 막힌다(#100).
+        RuleDocument document = houseConditionDocument();
+        PlanInput input = input(null, null, null, null, null);
+        Property property = houseConditionProperty(true, false);
+
+        List<ConditionResult> results = engine.evaluate(document, input, property);
+
+        assertThat(results)
+                .filteredOn(r -> r.code().equals("NOT_VIOLATION_BUILDING"))
+                .extracting(ConditionResult::isMet)
+                .containsExactly(false);
+    }
+
+    @Test
+    void should_failFundLoan_when_propertyIsMultiHousehold() {
+        // CLAUDE.md: 다가구는 "전세대출 자체가 안 되는 경우가 많다"(#100).
+        RuleDocument document = houseConditionDocument();
+        PlanInput input = input(null, null, null, null, null);
+        Property property = houseConditionProperty(false, true);
+
+        List<ConditionResult> results = engine.evaluate(document, input, property);
+
+        assertThat(results)
+                .filteredOn(r -> r.code().equals("NOT_MULTI_HOUSEHOLD"))
+                .extracting(ConditionResult::isMet)
+                .containsExactly(false);
+    }
+
+    @Test
+    void should_passHouseConditions_when_propertyHasNeitherIssue() {
+        RuleDocument document = houseConditionDocument();
+        PlanInput input = input(null, null, null, null, null);
+        Property property = houseConditionProperty(false, false);
+
+        List<ConditionResult> results = engine.evaluate(document, input, property);
+
+        assertThat(results).extracting(ConditionResult::isMet).containsExactly(true, true);
+    }
+
+    @Test
+    void should_returnNeedInfoForHouseConditions_when_propertyNotYetChosen() {
+        // 매물을 아직 안 정했으면(propertyId 없이 판정) 집 조건은 NEED_INFO 로 빠져야지
+        // FAIL 로 단정하면 안 된다 — "모르는 것을 통과로 보지 않는다"의 반대 방향 실수다.
+        RuleDocument document = houseConditionDocument();
+        PlanInput input = input(null, null, null, null, null);
+
+        List<ConditionResult> results = engine.evaluate(document, input);
+
+        assertThat(results).extracting(ConditionResult::isMet).containsExactly((Boolean) null, null);
+    }
+
+    private RuleDocument houseConditionDocument() {
+        return new RuleDocument(
+                "AND",
+                List.of(
+                        new RuleCondition("NOT_VIOLATION_BUILDING", "is_violation_building", "eq", false, null, null),
+                        new RuleCondition("NOT_MULTI_HOUSEHOLD", "is_multi_household", "eq", false, null, null)));
+    }
+
+    private Property houseConditionProperty(boolean violationBuilding, boolean multiHousehold) {
+        return Property.candidate(
+                PLAN_ID,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                violationBuilding,
+                null,
+                multiHousehold,
+                null,
+                null);
+    }
+
+    @Test
     void should_calculateEstimate_when_amountAndRateSpecPresent() {
         // #80(JeonseLoanDiagnosisService)의 원래 테스트값과 동일하게 맞춰서 이관 결과가 같은지 본다.
         when(facts.require("FCT-008")).thenReturn(fact("FCT-008", "80"));

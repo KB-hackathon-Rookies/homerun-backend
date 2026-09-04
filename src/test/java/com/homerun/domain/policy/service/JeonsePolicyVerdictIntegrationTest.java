@@ -3,9 +3,12 @@ package com.homerun.domain.policy.service;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import com.homerun.TestcontainersConfiguration;
+import com.homerun.domain.policy.dto.response.JeonsePolicyVerdictListResponse;
+import com.homerun.domain.policy.dto.response.PolicyVerdictResponse;
 import com.homerun.domain.policy.entity.PolicyRule;
 import com.homerun.domain.policy.model.RuleCondition;
 import com.homerun.domain.policy.repository.PolicyRuleRepository;
+import com.homerun.domain.policy.type.PolicyVerdictResult;
 import jakarta.persistence.EntityManager;
 import java.util.List;
 import org.junit.jupiter.api.BeforeEach;
@@ -86,10 +89,12 @@ class JeonsePolicyVerdictIntegrationTest {
 
     @Test
     void should_deserializeSeededDraftRuleJson_when_readFromRealPostgres() {
-        Long draftRuleId = ((Number)
-                        em.createNativeQuery("SELECT id FROM policy_rule WHERE policy_id = :pid AND status = 'DRAFT'")
-                                .setParameter("pid", youthPolicyId)
-                                .getSingleResult())
+        // V22(#85)가 심은 최초 DRAFT(version 1)를 특정한다 — V24(#100)가 version 2를 더 심어서
+        // status 만으로 찾으면 more than one row가 나온다.
+        Long draftRuleId = ((Number) em.createNativeQuery(
+                                "SELECT id FROM policy_rule WHERE policy_id = :pid AND status = 'DRAFT' AND version = 1")
+                        .setParameter("pid", youthPolicyId)
+                        .getSingleResult())
                 .longValue();
 
         PolicyRule draft = policyRuleRepository.findById(draftRuleId).orElseThrow();
@@ -204,11 +209,11 @@ class JeonsePolicyVerdictIntegrationTest {
 
     @Test
     void should_persistExpectedAmountAndRate_when_youthPolicyHasAmountSpec() {
-        // 최소 조건 + amount/rate 스펙까지 포함한 ACTIVE 버전(version 3)을 새로 만든다 —
-        // setUp() 이 이미 넣은 version 2(조건만)보다 최신이라 이게 선택된다.
+        // 최소 조건 + amount/rate 스펙까지 포함한 ACTIVE 버전(version 6)을 새로 만든다 —
+        // setUp() 이 이미 넣은 version 5(조건만)보다 최신이라 이게 선택된다.
         em.createNativeQuery("""
                         INSERT INTO policy_rule (policy_id, version, rule_json, status, effective_from, reviewed_by)
-                        SELECT id, 3,
+                        SELECT id, 6,
                             '{"operator":"AND","conditions":[
                                 {"code":"HOUSEHOLD_HOMELESS","field":"household_homeless","op":"eq","value":true}
                             ],
@@ -259,10 +264,50 @@ class JeonsePolicyVerdictIntegrationTest {
                         """).setParameter("code", policyCode).executeUpdate();
     }
 
-    private void activateSimpleReviewedRule(String policyCode) {
+    @Test
+    void should_failYouthLoan_when_propertyIsViolationBuildingAgainstRealPostgres() {
+        activateHouseConditionRule("JEONSE-YOUTH-BEOTIMMOK");
+        Long violationPropertyId = ((Number) em.createNativeQuery(
+                                "INSERT INTO property (plan_id, is_violation_building, is_multi_household) VALUES (:pid, true, false) RETURNING id")
+                        .setParameter("pid", planId)
+                        .getSingleResult())
+                .longValue();
+
+        JeonsePolicyVerdictListResponse withProperty = service.evaluate(memberId, planId, violationPropertyId);
+        JeonsePolicyVerdictListResponse withoutProperty = service.evaluate(memberId, planId);
+
+        PolicyVerdictResponse withPropertyResult = withProperty.results().stream()
+                .filter(r -> r.policyCode().equals("JEONSE-YOUTH-BEOTIMMOK"))
+                .findFirst()
+                .orElseThrow();
+        PolicyVerdictResponse withoutPropertyResult = withoutProperty.results().stream()
+                .filter(r -> r.policyCode().equals("JEONSE-YOUTH-BEOTIMMOK"))
+                .findFirst()
+                .orElseThrow();
+
+        assertThat(withPropertyResult.verdict()).isEqualTo(PolicyVerdictResult.FAIL);
+        assertThat(withoutPropertyResult.verdict()).isEqualTo(PolicyVerdictResult.NEED_INFO); // 매물 없으면 단정 안 함
+    }
+
+    private void activateHouseConditionRule(String policyCode) {
         em.createNativeQuery("""
                         INSERT INTO policy_rule (policy_id, version, rule_json, status, effective_from, reviewed_by)
-                        SELECT id, 2,
+                        SELECT id, 7,
+                            '{"operator":"AND","conditions":[
+                                {"code":"HOUSEHOLD_HOMELESS","field":"household_homeless","op":"eq","value":true},
+                                {"code":"NOT_VIOLATION_BUILDING","field":"is_violation_building","op":"eq","value":false},
+                                {"code":"NOT_MULTI_HOUSEHOLD","field":"is_multi_household","op":"eq","value":false}
+                            ]}'::jsonb,
+                            'ACTIVE', '2026-09-04', 'integration-test'
+                        FROM policy WHERE code = :code
+                        """).setParameter("code", policyCode).executeUpdate();
+    }
+
+    private void activateSimpleReviewedRule(String policyCode) {
+        // version 2는 V24(#100)가 청년/일반버팀목에 실제로 쓰고 있어서 겹친다. 5로 비켜간다.
+        em.createNativeQuery("""
+                        INSERT INTO policy_rule (policy_id, version, rule_json, status, effective_from, reviewed_by)
+                        SELECT id, 5,
                             '{"operator":"AND","conditions":[
                                 {"code":"HOUSEHOLD_HOMELESS","field":"household_homeless","op":"eq","value":true},
                                 {"code":"NO_DUPLICATE_LOAN","field":"has_existing_jeonse_loan","op":"eq","value":false}
