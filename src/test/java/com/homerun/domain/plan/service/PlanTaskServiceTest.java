@@ -67,7 +67,7 @@ class PlanTaskServiceTest {
                 stepTaskRepository,
                 new PlanStageTransitionPolicy(),
                 new StepTaskSkipPolicy(),
-                new PlanInputCompletionValidator(planInputRepository));
+                new PlanInputCompletionValidator(planInputRepository, planRepository));
         plan = Plan.create(MEMBER_ID, LeaseType.JEONSE, LocalDate.of(2027, 2, 1));
         ReflectionTestUtils.setField(plan, "id", PLAN_ID);
         steps = PlanStep.defaultSteps(PLAN_ID);

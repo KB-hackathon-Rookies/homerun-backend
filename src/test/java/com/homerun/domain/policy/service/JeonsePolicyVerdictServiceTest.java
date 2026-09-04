@@ -107,6 +107,23 @@ class JeonsePolicyVerdictServiceTest {
     }
 
     @Test
+    void should_includeGeneralCardWithShortfall_when_availableCashIsInsufficient() {
+        PlanInput input = mock(PlanInput.class);
+        when(input.getAvailableCash()).thenReturn(10_000_000L);
+        when(inputs.findByPlanId(PLAN_ID)).thenReturn(Optional.of(input));
+        when(engine.evaluate(any(), any(), any()))
+                .thenReturn(List.of(new ConditionResult("A", "조건", null, true, null, null)));
+        when(engine.estimate(any(), any(), any(), any()))
+                .thenReturn(new ExpectedEstimate(null, 144_000_000L, 36_000_000L, null, null, null, null));
+
+        var response = service.evaluate(MEMBER_ID, PLAN_ID);
+
+        assertThat(response.cards()).hasSize(4);
+        assertThat(response.cards().get(1).code()).isEqualTo("JEONSE-GENERAL-BEOTIMMOK");
+        assertThat(response.cards().get(1).ownFundsShortfall()).isEqualTo(26_000_000L);
+    }
+
+    @Test
     void should_aggregateAsFail_when_anyConditionIsNotMet() {
         List<ConditionResult> pass = List.of(new ConditionResult("A", "라벨", "텍스트", true, null, null));
         List<ConditionResult> fail = List.of(new ConditionResult("B", "라벨", "텍스트", false, null, null));
@@ -339,6 +356,7 @@ class JeonsePolicyVerdictServiceTest {
         JeonsePolicyVerdictListResponse response = service.evaluateReturnGuarantees(MEMBER_ID, PLAN_ID, PROPERTY_ID);
 
         assertThat(response.results()).hasSize(3);
+        assertThat(response.cards()).isEmpty();
         assertThat(response.results())
                 .extracting(PolicyVerdictResponse::verdict)
                 .containsOnly(PolicyVerdictResult.PASS);

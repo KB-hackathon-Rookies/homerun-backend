@@ -30,8 +30,10 @@ public class PlanInputController {
     @PutMapping
     @Operation(
             summary = "계획 입력 저장",
-            description =
-                    "미완성 상태를 포함한 전체 입력 스냅샷을 멱등하게 생성하거나 갱신합니다. 자동 저장 단계에서는 누락을 허용하고, FIRST_DIAGNOSIS 완료 요청에서 필수 입력을 검사합니다. 확인하기 어려운 값은 값 없이 unknownFields에 필드 코드를 전달합니다.")
+            description = "미완성 상태를 포함한 전체 입력 스냅샷을 멱등하게 저장합니다. 전세 FIRST_DIAGNOSIS 완료에는"
+                    + " 희망보증금·지역·본인 무주택·세대주·고용형태·월소득·순자산이 필요하며, 급여근로자만 기업규모·재직개월이 추가로 필요합니다."
+                    + " 혼인·월세·관리비·면적·주택유형은 전세 진단 필수가 아닙니다. 확인하기 어려운 값은 값 없이 unknownFields에 전달합니다."
+                    + " 모름이나 입력 완료는 자격 충족을 뜻하지 않습니다.")
     public ApiResponse<PlanInputResponse> save(
             @AuthenticationPrincipal MemberPrincipal principal,
             @PathVariable Long planId,
