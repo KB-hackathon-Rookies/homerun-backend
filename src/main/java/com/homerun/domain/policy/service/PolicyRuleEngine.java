@@ -245,6 +245,9 @@ public class PolicyRuleEngine {
     /**
      * FCT-002 (병역 보정: 만 34세 종료일 + 복무기간, 최대 만 39세) 를 그대로 옮긴다. 종료
      * 상한을 만 40세 생일 전까지로 못박아서, 복무기간이 길어도 그 이상은 인정하지 않는다.
+     *
+     * <p>{@code eligibleUntil} 을 결과에 실어 자격이 사라지는 날짜를 노출한다(POL-01-04, #110).
+     * PASS 든 FAIL 이든 채운다 — 이미 지났어도 "언제 지났는지"는 여전히 의미 있는 정보다.
      */
     private ConditionResult ageWithinYearsAdjusted(RuleCondition condition, PlanInput input) {
         LocalDate birthDate = input == null ? null : input.getBirthDate();
@@ -265,7 +268,7 @@ public class PolicyRuleEngine {
         LocalDate hardCap = birthDate.plusYears(40L);
         LocalDate eligibleUntil = militaryAdjustedUntil.isAfter(hardCap) ? hardCap : militaryAdjustedUntil;
         boolean pass = !today.isBefore(birthDate.plusYears(19)) && today.isBefore(eligibleUntil);
-        return met(condition, pass, fact.get());
+        return met(condition, pass, fact.get(), eligibleUntil);
     }
 
     /**
@@ -321,15 +324,21 @@ public class PolicyRuleEngine {
         }
     }
 
+    private ConditionResult met(RuleCondition condition, boolean isMet, Fact fact) {
+        return met(condition, isMet, fact, null);
+    }
+
     /** factCode 는 조건식이 아니라 실제로 쓴 fact(fact.code())를 기준으로 남긴다 — 대부분의
      * op 는 둘이 같지만, annual_lte_by_age_group 처럼 갈래에 따라 factCode/altFactCode 중
-     * 하나를 골라 쓰는 op 는 다르다. 틀린 factCode 가 verdict_basis 에 남으면 안 된다. */
-    private ConditionResult met(RuleCondition condition, boolean isMet, Fact fact) {
+     * 하나를 골라 쓰는 op 는 다르다. 틀린 factCode 가 verdict_basis 에 남으면 안 된다.
+     *
+     * <p>eligibleUntil 은 연령 상한처럼 시간이 지나면 사라지는 조건에서만 채운다(POL-01-04). */
+    private ConditionResult met(RuleCondition condition, boolean isMet, Fact fact, LocalDate eligibleUntil) {
         String label = fact != null ? fact.item() : STATIC_LABELS.getOrDefault(condition.code(), condition.code());
         String requiredText = fact != null ? fact.text() : null;
         String sourceUrl = fact != null ? fact.sourceUrl() : null;
         String factCode = fact != null ? fact.code() : condition.factCode();
-        return new ConditionResult(condition.code(), label, requiredText, isMet, factCode, sourceUrl);
+        return new ConditionResult(condition.code(), label, requiredText, isMet, factCode, sourceUrl, eligibleUntil);
     }
 
     private ConditionResult needInfo(RuleCondition condition, String requiredTextOverride) {

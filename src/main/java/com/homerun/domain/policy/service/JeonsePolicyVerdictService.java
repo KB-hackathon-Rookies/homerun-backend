@@ -31,6 +31,7 @@ import com.homerun.global.exception.BusinessException;
 import com.homerun.global.exception.ErrorCode;
 import java.time.Clock;
 import java.time.Instant;
+import java.time.LocalDate;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -308,6 +309,9 @@ public class JeonsePolicyVerdictService {
     }
 
     private List<ConditionBasisResponse> toBasisResponses(List<ConditionResult> results) {
-        return results.stream().map(ConditionBasisResponse::from).toList();
+        LocalDate today = LocalDate.now(clock);
+        return results.stream()
+                .map(result -> ConditionBasisResponse.from(result, today))
+                .toList();
     }
 }
