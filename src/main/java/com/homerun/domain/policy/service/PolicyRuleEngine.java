@@ -5,6 +5,7 @@ import com.homerun.domain.fact.exception.UnusableFactException;
 import com.homerun.domain.fact.model.Fact;
 import com.homerun.domain.fact.service.FactRegistry;
 import com.homerun.domain.plan.entity.PlanInput;
+import com.homerun.domain.plan.type.EmploymentType;
 import com.homerun.domain.plan.type.MaritalStatus;
 import com.homerun.domain.policy.model.ConditionResult;
 import com.homerun.domain.policy.model.ExpectedEstimate;
@@ -149,6 +150,8 @@ public class PolicyRuleEngine {
             case "annual_lte" -> annualIncomeCheck(condition, input);
             case "annual_lte_by_age_group" -> annualLteByAgeGroup(condition, input);
             case "age_within_years_adjusted" -> ageWithinYearsAdjusted(condition, input);
+            case "age_range_adjusted" -> ageRangeAdjusted(condition, input);
+            case "annual_lte_by_employment_type" -> annualLteByEmploymentType(condition, input);
             case "deposit_lte_price_times_fact" -> depositWithinPriceRatio(condition, property);
             default -> needInfo(condition, "이 조건은 자동판정 대상이 아닙니다. 원문을 직접 확인해야 합니다.");
         };
@@ -269,6 +272,69 @@ public class PolicyRuleEngine {
         LocalDate eligibleUntil = militaryAdjustedUntil.isAfter(hardCap) ? hardCap : militaryAdjustedUntil;
         boolean pass = !today.isBefore(birthDate.plusYears(19)) && today.isBefore(eligibleUntil);
         return met(condition, pass, fact.get(), eligibleUntil);
+    }
+
+    /**
+     * FCT-085 분해(POL-02-02, #116). {@link #ageWithinYearsAdjusted}와 다르게 상한 하나가
+     * 아니라 하한도 있다 — factCode 를 하한, altFactCode 를 상한으로 재사용한다(둘 다 동시에
+     * 쓰는 경우라 annual_lte_by_age_group 의 "양자택일" 용법과는 다르다).
+     *
+     * <p>"병역 이행기간 제외"는 상한을 늘리는 방향으로 반영한다 — 복무 기간만큼 나이가 들어도
+     * 인정한다는 뜻이라 {@link #ageWithinYearsAdjusted}의 병역 보정과 같은 방향이다.
+     */
+    private ConditionResult ageRangeAdjusted(RuleCondition condition, PlanInput input) {
+        LocalDate birthDate = input == null ? null : input.getBirthDate();
+        if (birthDate == null) {
+            return needInfo(condition, null);
+        }
+        Optional<Fact> minFact = resolveFact(condition.factCode());
+        Optional<Fact> maxFact = resolveFact(condition.altFactCode());
+        if (minFact.isEmpty() || maxFact.isEmpty()) {
+            return needInfo(condition, null);
+        }
+        int minAge = minFact.get().requireNumber().intValueExact();
+        int maxAge = maxFact.get().requireNumber().intValueExact();
+        long adjustMonths = "military_months".equals(condition.adjustField()) && input.getMilitaryMonths() != null
+                ? Math.max(0, input.getMilitaryMonths())
+                : 0L;
+        LocalDate today = LocalDate.now(clock);
+        LocalDate minDate = birthDate.plusYears(minAge);
+        LocalDate maxDate = birthDate.plusYears(maxAge + 1L).plusMonths(adjustMonths);
+        boolean tooYoung = today.isBefore(minDate);
+        boolean pass = !tooYoung && today.isBefore(maxDate);
+        // 너무 어리면 하한 fact를, 그 외(충족·상한 초과)엔 상한 fact를 근거로 남긴다.
+        return met(condition, pass, tooYoung ? minFact.get() : maxFact.get());
+    }
+
+    /**
+     * FCT-086 분해(POL-02-02, #116). 급여소득자(factCode)/종합소득자(altFactCode) 기준이
+     * 다르다. 소상공인 매출 기준(FCT-183)은 매출 데이터를 안 걷어서 이 op가 못 다룬다 —
+     * UNEMPLOYED거나 고용형태를 모르면 NEED_INFO.
+     */
+    private ConditionResult annualLteByEmploymentType(RuleCondition condition, PlanInput input) {
+        if (input == null) {
+            return needInfo(condition, null);
+        }
+        EmploymentType employmentType = input.getEmploymentType();
+        if (employmentType == null || employmentType == EmploymentType.UNEMPLOYED) {
+            return needInfo(condition, "고용형태를 확인해야 소득 기준을 알 수 있습니다.");
+        }
+        Long monthly = input.getMonthlyIncome();
+        if (monthly == null) {
+            return needInfo(condition, null);
+        }
+        boolean isSalaried = employmentType == EmploymentType.FULL_TIME
+                || employmentType == EmploymentType.CONTRACT
+                || employmentType == EmploymentType.INTERN
+                || employmentType == EmploymentType.DAILY_WORKER;
+        String factCode = isSalaried ? condition.factCode() : condition.altFactCode();
+        Optional<Fact> fact = resolveFact(factCode);
+        if (fact.isEmpty()) {
+            return needInfo(condition, null);
+        }
+        long annual = Math.multiplyExact(monthly, 12L);
+        boolean pass = BigDecimal.valueOf(annual).compareTo(fact.get().requireNumber()) <= 0;
+        return met(condition, pass, fact.get());
     }
 
     /**
