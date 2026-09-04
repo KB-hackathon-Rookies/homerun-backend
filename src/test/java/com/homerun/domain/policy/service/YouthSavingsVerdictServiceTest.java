@@ -72,6 +72,7 @@ class YouthSavingsVerdictServiceTest {
         PolicyRule rule = mock(PolicyRule.class);
         when(rule.getId()).thenReturn(RULE_ID);
         when(rule.getRuleJson()).thenReturn(new RuleDocument("AND", List.of()));
+        when(rule.getVersion()).thenReturn(1);
         when(rules.findFirstByPolicyIdAndStatusOrderByVersionDesc(POLICY_ID, PolicyRuleStatus.ACTIVE))
                 .thenReturn(Optional.of(rule));
     }
@@ -106,6 +107,9 @@ class YouthSavingsVerdictServiceTest {
         PolicyVerdictResponse response = service.evaluate(MEMBER_ID, PLAN_ID);
 
         assertThat(response.verdict()).isEqualTo(PolicyVerdictResult.NEED_INFO);
+        // API 공통계약: missingFields[] 는 NEED_INFO 조건만 담는다. PASS 조건은 안 들어간다.
+        assertThat(response.missingFields()).containsExactly("HOUSEHOLD_INCOME_RATIO");
+        assertThat(response.ruleVersion()).isEqualTo(1);
     }
 
     @Test
@@ -133,6 +137,7 @@ class YouthSavingsVerdictServiceTest {
 
         assertThat(response.verdict()).isEqualTo(PolicyVerdictResult.NEED_INFO);
         assertThat(response.basis()).extracting(basis -> basis.code()).containsExactly("RULE_NOT_ACTIVE");
+        assertThat(response.ruleVersion()).isNull();
     }
 
     @Test

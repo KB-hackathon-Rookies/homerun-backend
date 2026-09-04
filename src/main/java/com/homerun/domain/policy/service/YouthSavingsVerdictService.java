@@ -102,9 +102,19 @@ public class YouthSavingsVerdictService {
                 policy.getCode(),
                 policy.getName(),
                 saved.getVerdict(),
+                activeRule.map(PolicyRule::getVersion).orElse(null),
                 toBasisResponses(conditionResults),
+                missingFields(conditionResults),
                 List.of(),
                 null);
+    }
+
+    /** NEED_INFO 로 빠진 조건 코드들 — API 공통계약의 missingFields[]. */
+    private List<String> missingFields(List<ConditionResult> conditionResults) {
+        return conditionResults.stream()
+                .filter(result -> result.isMet() == null)
+                .map(ConditionResult::code)
+                .toList();
     }
 
     private PolicyVerdict save(

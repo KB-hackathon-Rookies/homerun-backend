@@ -158,6 +158,35 @@ class JeonsePolicyVerdictServiceTest {
         PolicyVerdictResponse seoul = response.results().get(2);
         assertThat(seoul.verdict()).isEqualTo(PolicyVerdictResult.NEED_INFO);
         assertThat(seoul.basis()).extracting(ConditionBasisResponse::code).containsExactly("RULE_NOT_ACTIVE");
+        // API 공통계약: 판정에 쓸 규칙이 없으면 ruleVersion 도 없다.
+        assertThat(seoul.ruleVersion()).isNull();
+    }
+
+    @Test
+    void should_includeRuleVersion_when_activeRuleExists() {
+        // API 공통계약(Notion API 명세서 "판정 응답의 공통 계약"): ruleVersion — 판정에 쓴 규칙 버전.
+        List<ConditionResult> pass = List.of(new ConditionResult("A", "라벨", "텍스트", true, null, null));
+        when(engine.evaluate(any(), any(), any())).thenReturn(pass, pass, pass);
+
+        JeonsePolicyVerdictListResponse response = service.evaluate(MEMBER_ID, PLAN_ID);
+
+        assertThat(response.results())
+                .extracting(PolicyVerdictResponse::ruleVersion)
+                .containsOnly(1);
+    }
+
+    @Test
+    void should_includeMissingFields_when_conditionIsNeedInfo() {
+        // API 공통계약: missingFields[] — NEED_INFO 판정의 원인. PASS/FAIL 조건은 안 들어간다.
+        List<ConditionResult> mixed = List.of(
+                new ConditionResult("HOUSEHOLD_HOMELESS", "무주택", "텍스트", true, null, null),
+                new ConditionResult("INCOME_CAP", "소득", "텍스트", null, null, null),
+                new ConditionResult("NET_ASSET_CAP", "자산", "텍스트", null, null, null));
+        when(engine.evaluate(any(), any(), any())).thenReturn(mixed, mixed, mixed);
+
+        JeonsePolicyVerdictListResponse response = service.evaluate(MEMBER_ID, PLAN_ID);
+
+        assertThat(response.results().get(0).missingFields()).containsExactly("INCOME_CAP", "NET_ASSET_CAP");
     }
 
     @Test
@@ -371,6 +400,7 @@ class JeonsePolicyVerdictServiceTest {
         PolicyRule rule = mock(PolicyRule.class);
         when(rule.getId()).thenReturn(id);
         when(rule.getRuleJson()).thenReturn(new RuleDocument("AND", List.of()));
+        when(rule.getVersion()).thenReturn(1);
         return rule;
     }
 
