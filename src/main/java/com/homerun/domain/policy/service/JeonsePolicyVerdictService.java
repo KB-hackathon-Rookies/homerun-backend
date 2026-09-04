@@ -97,15 +97,27 @@ public class JeonsePolicyVerdictService {
         this.clock = clock;
     }
 
+    /** 매물을 아직 못 정했을 때 — 사람 조건만 본 예상 판정(#100 이전과 동일하게 동작). */
     @Transactional
     public JeonsePolicyVerdictListResponse evaluate(Long memberId, Long planId) {
+        return evaluate(memberId, planId, null);
+    }
+
+    /**
+     * propertyId 를 주면 집 조건(위반건축물·다가구 등, #100)까지 같이 본다 — 기금대출은
+     * 사람 조건과 집 조건을 둘 다 통과해야 최종 승인이라 매물이 정해진 뒤에는 이 형태로
+     * 다시 판정해야 한다. propertyId 가 없으면 사람 조건만 본 예상 판정이다.
+     */
+    @Transactional
+    public JeonsePolicyVerdictListResponse evaluate(Long memberId, Long planId, Long propertyId) {
         verifyJeonsePlan(memberId, planId);
         PlanInput input = planInputRepository
                 .findByPlanId(planId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.PLAN_INPUT_NOT_FOUND));
+        Property property = propertyId == null ? null : findOwnedProperty(planId, propertyId);
 
         List<PolicyVerdictResponse> results = JEONSE_POLICY_CODES.stream()
-                .map(code -> evaluateOne(planId, code, input, null))
+                .map(code -> evaluateOne(planId, code, input, property))
                 .toList();
 
         return new JeonsePolicyVerdictListResponse(planId, results, Instant.now(clock));
@@ -115,15 +127,19 @@ public class JeonsePolicyVerdictService {
     @Transactional
     public JeonsePolicyVerdictListResponse evaluateReturnGuarantees(Long memberId, Long planId, Long propertyId) {
         verifyJeonsePlan(memberId, planId);
-        Property property = propertyRepository
-                .findByIdAndPlanId(propertyId, planId)
-                .orElseThrow(() -> new BusinessException(ErrorCode.PROPERTY_NOT_IN_PLAN));
+        Property property = findOwnedProperty(planId, propertyId);
 
         List<PolicyVerdictResponse> results = RETURN_GUARANTEE_POLICY_CODES.stream()
                 .map(code -> evaluateOne(planId, code, null, property))
                 .toList();
 
         return new JeonsePolicyVerdictListResponse(planId, results, Instant.now(clock));
+    }
+
+    private Property findOwnedProperty(Long planId, Long propertyId) {
+        return propertyRepository
+                .findByIdAndPlanId(propertyId, planId)
+                .orElseThrow(() -> new BusinessException(ErrorCode.PROPERTY_NOT_IN_PLAN));
     }
 
     private void verifyJeonsePlan(Long memberId, Long planId) {
