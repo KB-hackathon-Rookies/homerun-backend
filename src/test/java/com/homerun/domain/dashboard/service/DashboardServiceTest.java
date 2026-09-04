@@ -67,15 +67,20 @@ class DashboardServiceTest {
 
     @BeforeEach
     void setUp() {
-        dashboardService =
-                new DashboardService(planRepository, planStepRepository, stepTaskRepository, deadlineRepository, CLOCK);
+        dashboardService = new DashboardService(
+                planRepository,
+                planStepRepository,
+                stepTaskRepository,
+                deadlineRepository,
+                CLOCK,
+                new com.homerun.domain.plan.policy.StepTaskSkipPolicy());
         plan = Plan.create(MEMBER_ID, LeaseType.WOLSE, LocalDate.of(2027, 2, 1));
         ReflectionTestUtils.setField(plan, "id", PLAN_ID);
     }
 
     @Test
-    @DisplayName("진행률은 관문이 아니라 할 일 기준으로 센다")
-    void should_countSettledTasks_when_calculatingProgress() {
+    @DisplayName("필수 작업의 DONE만 진행률에 포함하고 SKIPPED는 제외한다")
+    void should_countOnlyDoneRequiredTasks_when_calculatingProgress() {
         givenPlanAndTasks(List.of(
                 task("DONE", StepTaskStatus.DONE, 1),
                 task("SKIPPED", StepTaskStatus.SKIPPED, 2),
@@ -83,9 +88,9 @@ class DashboardServiceTest {
 
         DashboardResponse response = dashboardService.get(MEMBER_ID, PLAN_ID);
 
-        assertThat(response.progress().completedTasks()).isEqualTo(2);
+        assertThat(response.progress().completedTasks()).isEqualTo(1);
         assertThat(response.progress().totalTasks()).isEqualTo(3);
-        assertThat(response.progress().progressPercent()).isEqualTo(66);
+        assertThat(response.progress().progressPercent()).isEqualTo(33);
     }
 
     @Test

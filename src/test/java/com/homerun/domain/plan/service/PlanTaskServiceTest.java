@@ -2,25 +2,31 @@ package com.homerun.domain.plan.service;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
 import com.homerun.domain.plan.dto.request.UpdateStepTaskStatusRequest;
 import com.homerun.domain.plan.dto.response.PlanTaskProgressResponse;
 import com.homerun.domain.plan.entity.Plan;
+import com.homerun.domain.plan.entity.PlanInput;
 import com.homerun.domain.plan.entity.PlanStep;
 import com.homerun.domain.plan.entity.StepTask;
 import com.homerun.domain.plan.policy.PlanStageTransitionPolicy;
 import com.homerun.domain.plan.policy.StepTaskSkipPolicy;
+import com.homerun.domain.plan.repository.PlanInputRepository;
 import com.homerun.domain.plan.repository.PlanRepository;
 import com.homerun.domain.plan.repository.PlanStepRepository;
 import com.homerun.domain.plan.repository.StepTaskRepository;
 import com.homerun.domain.plan.type.LeaseType;
+import com.homerun.domain.plan.type.PlanInputUnknownField;
 import com.homerun.domain.plan.type.PlanStage;
 import com.homerun.domain.plan.type.PlanStepStatus;
 import com.homerun.domain.plan.type.StepTaskStatus;
 import com.homerun.domain.plan.type.StepTaskTemplate;
+import com.homerun.domain.plan.validation.PlanInputCompletionValidator;
 import com.homerun.global.exception.BusinessException;
 import com.homerun.global.exception.ErrorCode;
+import com.homerun.global.exception.FieldValidationException;
 import java.time.LocalDate;
 import java.util.List;
 import java.util.Optional;
@@ -46,6 +52,9 @@ class PlanTaskServiceTest {
     @Mock
     private StepTaskRepository stepTaskRepository;
 
+    @Mock
+    private PlanInputRepository planInputRepository;
+
     private PlanTaskService planTaskService;
     private Plan plan;
     private List<PlanStep> steps;
@@ -57,7 +66,8 @@ class PlanTaskServiceTest {
                 planStepRepository,
                 stepTaskRepository,
                 new PlanStageTransitionPolicy(),
-                new StepTaskSkipPolicy());
+                new StepTaskSkipPolicy(),
+                new PlanInputCompletionValidator(planInputRepository));
         plan = Plan.create(MEMBER_ID, LeaseType.JEONSE, LocalDate.of(2027, 2, 1));
         ReflectionTestUtils.setField(plan, "id", PLAN_ID);
         steps = PlanStep.defaultSteps(PLAN_ID);
@@ -77,7 +87,8 @@ class PlanTaskServiceTest {
         assertThat(response.totalTasks()).isEqualTo(2);
         assertThat(response.completedTasks()).isZero();
         assertThat(response.tasks()).extracting("taskCode").containsExactly("AGREE_TERMS", "FIRST_MONTH_CHECKIN");
-        assertThat(response.tasks()).extracting("skippable").containsExactly(false, true);
+        assertThat(response.tasks()).extracting("skippable").containsExactly(false, false);
+        assertThat(response.tasks()).extracting("required").containsExactly(true, true);
     }
 
     @Test
@@ -134,18 +145,17 @@ class PlanTaskServiceTest {
     }
 
     @Test
-    void should_allowSkip_when_taskIsOptional() {
+    void should_rejectSkip_when_optionalPolicyIsNotConfirmed() {
         PlanStep homeStep = steps.get(4);
         ReflectionTestUtils.setField(homeStep, "status", PlanStepStatus.READY);
         ReflectionTestUtils.setField(plan, "stage", PlanStage.HOME);
         StepTask task = task(homeStep, StepTaskTemplate.FIRST_MONTH_CHECKIN, 1000L);
         givenUpdate(List.of(task));
 
-        PlanTaskProgressResponse response = update(task, StepTaskStatus.SKIPPED);
-
-        assertThat(task.getStatus()).isEqualTo(StepTaskStatus.SKIPPED);
-        assertThat(homeStep.getStatus()).isEqualTo(PlanStepStatus.DONE);
-        assertThat(response.completedTasks()).isEqualTo(1);
+        assertThatThrownBy(() -> update(task, StepTaskStatus.SKIPPED))
+                .isInstanceOfSatisfying(
+                        BusinessException.class,
+                        exception -> assertThat(exception.errorCode()).isEqualTo(ErrorCode.PLAN_TASK_SKIP_NOT_ALLOWED));
     }
 
     @Test
@@ -171,6 +181,79 @@ class PlanTaskServiceTest {
                         BusinessException.class,
                         exception ->
                                 assertThat(exception.errorCode()).isEqualTo(ErrorCode.INVALID_TASK_STATUS_TRANSITION));
+    }
+
+    @Test
+    void should_rejectAutomaticGateCompletion_when_inputSnapshotIsMissing() {
+        StepTask last = prepareFirstGate();
+        when(planInputRepository.findByPlanId(PLAN_ID)).thenReturn(Optional.empty());
+
+        assertThatThrownBy(() -> update(last, StepTaskStatus.DONE))
+                .isInstanceOfSatisfying(
+                        FieldValidationException.class,
+                        exception ->
+                                assertThat(exception.errorCode()).isEqualTo(ErrorCode.PLAN_REQUIRED_INPUT_MISSING));
+        assertThat(steps.get(1).getStatus()).isNotEqualTo(PlanStepStatus.DONE);
+        assertThat(steps.get(2).getStatus()).isEqualTo(PlanStepStatus.LOCKED);
+        assertThat(plan.getStage()).isEqualTo(PlanStage.FIRST);
+    }
+
+    @Test
+    void should_unlockNextGate_when_requiredInputValidationPasses() {
+        StepTask last = prepareFirstGate();
+        PlanInput input = mock(PlanInput.class);
+        when(input.getUnknownFields()).thenReturn(List.of(PlanInputUnknownField.values()));
+        when(planInputRepository.findByPlanId(PLAN_ID)).thenReturn(Optional.of(input));
+
+        update(last, StepTaskStatus.DONE);
+
+        assertThat(steps.get(1).getStatus()).isEqualTo(PlanStepStatus.DONE);
+        assertThat(steps.get(2).getStatus()).isEqualTo(PlanStepStatus.READY);
+        assertThat(plan.getStage()).isEqualTo(PlanStage.SECOND);
+    }
+
+    @Test
+    void should_excludeOptionalTasksAndSkippedRequiredTasks_fromProgress() {
+        StepTask done = task(steps.get(0), StepTaskTemplate.AGREE_TERMS, 1000L);
+        StepTask skipped = task(steps.get(0), StepTaskTemplate.INPUT_BASIC_PROFILE, 1001L);
+        StepTask optional = task(steps.get(4), StepTaskTemplate.FIRST_MONTH_CHECKIN, 1002L);
+        done.complete();
+        skipped.skip();
+        optional.complete();
+        StepTaskSkipPolicy policy = new StepTaskSkipPolicy() {
+            @Override
+            public boolean isSkippable(String code) {
+                return code.equals("FIRST_MONTH_CHECKIN");
+            }
+        };
+
+        PlanTaskProgressResponse response =
+                PlanTaskProgressResponse.from(plan, steps, List.of(done, skipped, optional), policy);
+
+        assertThat(response.totalTasks()).isEqualTo(2);
+        assertThat(response.completedTasks()).isEqualTo(1);
+        assertThat(response.progressPercent()).isEqualTo(50);
+    }
+
+    @Test
+    void should_allowCompletionOfPreviouslySkippedRequiredTask() {
+        StepTask task = task(steps.get(0), StepTaskTemplate.INPUT_BASIC_PROFILE, 1000L);
+        task.skip();
+        givenUpdate(List.of(task));
+
+        update(task, StepTaskStatus.DONE);
+
+        assertThat(task.getStatus()).isEqualTo(StepTaskStatus.DONE);
+        assertThat(plan.getStage()).isEqualTo(PlanStage.FIRST);
+    }
+
+    private StepTask prepareFirstGate() {
+        steps.get(0).complete();
+        ReflectionTestUtils.setField(steps.get(1), "status", PlanStepStatus.READY);
+        ReflectionTestUtils.setField(plan, "stage", PlanStage.FIRST);
+        StepTask last = task(steps.get(1), StepTaskTemplate.REGISTER_CHECK, 1000L);
+        givenUpdate(List.of(last));
+        return last;
     }
 
     private StepTask task(PlanStep step, StepTaskTemplate template, Long id) {

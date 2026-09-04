@@ -69,9 +69,12 @@ public enum ErrorCode {
     UNKNOWN_FIELD_HAS_VALUE(HttpStatus.BAD_REQUEST, "PLAN_010", "모름 처리한 필드에는 값을 함께 저장할 수 없습니다."),
     PLAN_STAGE_LOCKED(HttpStatus.CONFLICT, "PLAN_011", "아직 진입할 수 없는 계획 단계입니다."),
     PLAN_REGION_NOT_FOUND(HttpStatus.BAD_REQUEST, "PLAN_012", "존재하지 않는 지역입니다."),
-    PLAN_TASK_NOT_FOUND(HttpStatus.NOT_FOUND, "PLAN_013", "계획 할 일을 찾을 수 없습니다."),
-    INVALID_TASK_STATUS_TRANSITION(HttpStatus.CONFLICT, "PLAN_014", "변경할 수 없는 할 일 상태입니다."),
-    PLAN_TASK_SKIP_NOT_ALLOWED(HttpStatus.CONFLICT, "PLAN_015", "건너뛸 수 없는 할 일입니다."),
+    PLAN_REQUIRED_INPUT_MISSING(HttpStatus.BAD_REQUEST, "PLAN_013", "단계 완료에 필요한 입력을 확인해 주세요."),
+    PLAN_TASK_NOT_FOUND(HttpStatus.NOT_FOUND, "PLAN_014", "계획 할 일을 찾을 수 없습니다."),
+    INVALID_TASK_STATUS_TRANSITION(HttpStatus.CONFLICT, "PLAN_015", "변경할 수 없는 할 일 상태입니다."),
+    PLAN_TASK_SKIP_NOT_ALLOWED(HttpStatus.CONFLICT, "PLAN_016", "건너뛸 수 없는 할 일입니다."),
+
+    JEONSE_PLAN_REQUIRED(HttpStatus.BAD_REQUEST, "LOAN_001", "전세 또는 반전세 계획에서만 대출 진단을 이용할 수 있습니다."),
 
     HOUSEHOLD_MEMBER_NOT_FOUND(HttpStatus.NOT_FOUND, "FAM_001", "가구원을 찾을 수 없습니다."),
     CONSENT_NOT_FOUND(HttpStatus.NOT_FOUND, "FAM_002", "동의 건을 찾을 수 없습니다."),
@@ -84,6 +87,7 @@ public enum ErrorCode {
 
     CONTRACT_NOT_FOUND(HttpStatus.NOT_FOUND, "PRP_001", "계약 정보를 찾을 수 없습니다."),
     PROPERTY_NOT_IN_PLAN(HttpStatus.BAD_REQUEST, "PRP_002", "이 계획의 매물이 아닙니다."),
+    PROPERTY_CANDIDATE_LIMIT(HttpStatus.CONFLICT, "PRP_003", "매물 후보는 계획당 최대 3개까지 저장할 수 있습니다."),
 
     DOCUMENT_NOT_FOUND(HttpStatus.NOT_FOUND, "ISS_001", "존재하지 않는 서류입니다."),
     DOCUMENT_STATUS_NOT_SELECTABLE(HttpStatus.BAD_REQUEST, "ISS_002", "직접 지정할 수 없는 서류 상태입니다."),

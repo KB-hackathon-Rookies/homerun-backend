@@ -76,7 +76,10 @@ public class PlanController {
     }
 
     @PostMapping("/{planId}/steps/{stepCode}/complete")
-    @Operation(summary = "계획 단계 완료")
+    @Operation(
+            summary = "계획 단계 완료",
+            description =
+                    "FIRST_DIAGNOSIS 단계는 모든 진단 입력이 저장되어 있어야 완료할 수 있습니다. 확인하기 어려운 값은 입력 저장 API의 unknownFields로 모름 처리할 수 있으며, 누락된 값은 PLAN_013의 fieldErrors로 한 번에 반환합니다.")
     public ApiResponse<PlanProgressResponse> completeStep(
             @AuthenticationPrincipal MemberPrincipal principal,
             @PathVariable Long planId,

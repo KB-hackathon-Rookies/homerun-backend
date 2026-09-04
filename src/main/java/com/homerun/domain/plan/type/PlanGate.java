@@ -6,10 +6,10 @@ import java.util.Optional;
 
 public enum PlanGate {
     BENCH_ONBOARDING("BENCH_ONBOARDING", "온보딩 완료", 1, PlanStage.BENCH, List.of(), false),
-    FIRST_DIAGNOSIS("FIRST_DIAGNOSIS", "독립 가능성 진단 완료", 2, PlanStage.FIRST, List.of("BENCH_ONBOARDING"), false),
+    FIRST_DIAGNOSIS("FIRST_DIAGNOSIS", "대출 진단·매물 안전 확인 완료", 2, PlanStage.FIRST, List.of("BENCH_ONBOARDING"), false),
     SECOND_POLICY_SELECTION(
-            "SECOND_POLICY_SELECTION", "정책 선택 완료", 3, PlanStage.SECOND, List.of("FIRST_DIAGNOSIS"), false),
-    THIRD_EXECUTION("THIRD_EXECUTION", "계약·신청 실행 완료", 4, PlanStage.THIRD, List.of("SECOND_POLICY_SELECTION"), true),
+            "SECOND_POLICY_SELECTION", "대출 상품·보증 확정 완료", 3, PlanStage.SECOND, List.of("FIRST_DIAGNOSIS"), false),
+    THIRD_EXECUTION("THIRD_EXECUTION", "계약·대출 실행 완료", 4, PlanStage.THIRD, List.of("SECOND_POLICY_SELECTION"), true),
     HOME_SETTLEMENT("HOME_SETTLEMENT", "입주 후 정착 완료", 5, PlanStage.HOME, List.of("THIRD_EXECUTION"), false);
 
     private final String code;

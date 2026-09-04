@@ -13,6 +13,7 @@ public record StepTaskResponse(
         int sequence,
         StepTaskStatus status,
         boolean irreversible,
+        boolean required,
         boolean skippable,
         Instant completedAt) {
 
@@ -25,6 +26,7 @@ public record StepTaskResponse(
                 task.getSequence(),
                 task.getStatus(),
                 task.isIrreversible(),
+                !skippable,
                 skippable,
                 task.getCompletedAt());
     }

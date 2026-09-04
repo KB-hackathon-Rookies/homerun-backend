@@ -18,6 +18,7 @@ import com.homerun.domain.plan.type.PlanGate;
 import com.homerun.domain.plan.type.PlanStage;
 import com.homerun.domain.plan.type.PlanStepStatus;
 import com.homerun.domain.plan.type.StepTaskTemplate;
+import com.homerun.domain.plan.validation.PlanInputCompletionValidator;
 import com.homerun.global.exception.BusinessException;
 import com.homerun.global.exception.ErrorCode;
 import java.util.List;
@@ -32,18 +33,21 @@ public class PlanService {
     private final StepTaskRepository stepTaskRepository;
     private final DeadlineRepository deadlineRepository;
     private final PlanStageTransitionPolicy transitionPolicy;
+    private final PlanInputCompletionValidator inputCompletionValidator;
 
     public PlanService(
             PlanRepository planRepository,
             PlanStepRepository planStepRepository,
             StepTaskRepository stepTaskRepository,
             DeadlineRepository deadlineRepository,
-            PlanStageTransitionPolicy transitionPolicy) {
+            PlanStageTransitionPolicy transitionPolicy,
+            PlanInputCompletionValidator inputCompletionValidator) {
         this.planRepository = planRepository;
         this.planStepRepository = planStepRepository;
         this.stepTaskRepository = stepTaskRepository;
         this.deadlineRepository = deadlineRepository;
         this.transitionPolicy = transitionPolicy;
+        this.inputCompletionValidator = inputCompletionValidator;
     }
 
     @Transactional
@@ -93,6 +97,14 @@ public class PlanService {
                 .findFirst()
                 .orElseThrow(() -> new BusinessException(ErrorCode.PLAN_STEP_NOT_FOUND));
 
+        if (target.getStatus() == PlanStepStatus.LOCKED) {
+            throw new BusinessException(ErrorCode.PLAN_STEP_LOCKED);
+        }
+        if (target.getStatus() != PlanStepStatus.DONE) {
+            PlanGate gate = PlanGate.findByCode(target.getStepCode())
+                    .orElseThrow(() -> new BusinessException(ErrorCode.PLAN_STEP_NOT_FOUND));
+            inputCompletionValidator.validate(planId, gate);
+        }
         if (target.complete()) {
             transitionPolicy.applyCompletedGate(plan, target);
             List<String> completedCodes = steps.stream()

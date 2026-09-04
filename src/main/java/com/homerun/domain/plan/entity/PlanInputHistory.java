@@ -71,6 +71,16 @@ public class PlanInputHistory {
         values.put("employmentType", input.getEmploymentType());
         values.put("employmentMonths", input.getEmploymentMonths());
         values.put("companySize", input.getCompanySize());
+        values.put("householdHomeless", input.getHouseholdHomeless());
+        values.put("birthDate", input.getBirthDate());
+        values.put("militaryMonths", input.getMilitaryMonths());
+        values.put("monthlyIncome", input.getMonthlyIncome());
+        values.put("netAssets", input.getNetAssets());
+        values.put("availableCash", input.getAvailableCash());
+        values.put("existingJeonseLoan", input.getExistingJeonseLoan());
+        values.put("incomeSource", input.getIncomeSource());
+        values.put("assetSource", input.getAssetSource());
+        values.put("financialDataConfirmed", input.getFinancialDataConfirmed());
         values.put("unknownFields", input.getUnknownFields());
         return values;
     }

@@ -11,11 +11,21 @@ import com.homerun.domain.member.entity.Member;
 import com.homerun.domain.member.repository.MemberRepository;
 import com.homerun.domain.plan.dto.request.CompletePlanStepRequest;
 import com.homerun.domain.plan.dto.request.CreatePlanRequest;
+import com.homerun.domain.plan.dto.request.PlanInputRequest;
 import com.homerun.domain.plan.dto.response.PlanResponse;
 import com.homerun.domain.plan.entity.Plan;
+import com.homerun.domain.plan.service.PlanInputService;
 import com.homerun.domain.plan.service.PlanService;
+import com.homerun.domain.plan.type.CompanySize;
+import com.homerun.domain.plan.type.EmploymentType;
+import com.homerun.domain.plan.type.HouseType;
+import com.homerun.domain.plan.type.HouseholderStatus;
 import com.homerun.domain.plan.type.LeaseType;
+import com.homerun.domain.plan.type.MaritalStatus;
+import com.homerun.domain.plan.type.PlanInputUnknownField;
+import java.math.BigDecimal;
 import java.time.LocalDate;
+import java.util.Set;
 import java.util.UUID;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -34,6 +44,9 @@ class DashboardDeadlineIntegrationTest {
 
     @Autowired
     private PlanService planService;
+
+    @Autowired
+    private PlanInputService planInputService;
 
     @Autowired
     private DashboardService dashboardService;
@@ -66,6 +79,7 @@ class DashboardDeadlineIntegrationTest {
 
         CompletePlanStepRequest completeRequest = new CompletePlanStepRequest(Plan.CURRENT_RULE_VERSION);
         planService.completeStep(memberId, plan.id(), "BENCH_ONBOARDING", completeRequest);
+        givenDiagnosisInput(memberId, plan.id());
         planService.completeStep(memberId, plan.id(), "FIRST_DIAGNOSIS", completeRequest);
 
         DashboardResponse dashboard = dashboardService.get(memberId, plan.id());
@@ -89,6 +103,7 @@ class DashboardDeadlineIntegrationTest {
 
         CompletePlanStepRequest completeRequest = new CompletePlanStepRequest(Plan.CURRENT_RULE_VERSION);
         planService.completeStep(memberId, plan.id(), "BENCH_ONBOARDING", completeRequest);
+        givenDiagnosisInput(memberId, plan.id());
         planService.completeStep(memberId, plan.id(), "FIRST_DIAGNOSIS", completeRequest);
         planService.completeStep(memberId, plan.id(), "SECOND_POLICY_SELECTION", completeRequest);
 
@@ -108,6 +123,7 @@ class DashboardDeadlineIntegrationTest {
 
         CompletePlanStepRequest completeRequest = new CompletePlanStepRequest(Plan.CURRENT_RULE_VERSION);
         planService.completeStep(memberId, plan.id(), "BENCH_ONBOARDING", completeRequest);
+        givenDiagnosisInput(memberId, plan.id());
         planService.completeStep(memberId, plan.id(), "FIRST_DIAGNOSIS", completeRequest);
 
         DashboardResponse dashboard = dashboardService.get(memberId, plan.id());
@@ -126,6 +142,38 @@ class DashboardDeadlineIntegrationTest {
                 .save(Member.create(
                         AuthProvider.GOOGLE, UUID.randomUUID().toString(), "dashboard@example.com", "대시보드 사용자"))
                 .getId();
+    }
+
+    private void givenDiagnosisInput(Long memberId, Long planId) {
+        planInputService.save(
+                memberId,
+                planId,
+                new PlanInputRequest(
+                        100_000_000L,
+                        20_000_000L,
+                        500_000L,
+                        100_000L,
+                        800_000L,
+                        null,
+                        new BigDecimal("33.25"),
+                        HouseType.APARTMENT,
+                        true,
+                        HouseholderStatus.CURRENT,
+                        MaritalStatus.SINGLE,
+                        EmploymentType.FULL_TIME,
+                        12,
+                        CompanySize.SMALL,
+                        null,
+                        null,
+                        null,
+                        null,
+                        null,
+                        null,
+                        null,
+                        null,
+                        null,
+                        null,
+                        Set.of(PlanInputUnknownField.REGION_ID)));
     }
 
     private LocalDate moveDate() {

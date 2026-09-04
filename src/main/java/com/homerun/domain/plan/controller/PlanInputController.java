@@ -28,7 +28,10 @@ public class PlanInputController {
     }
 
     @PutMapping
-    @Operation(summary = "계획 입력 저장", description = "전체 입력 스냅샷을 멱등하게 생성하거나 갱신합니다.")
+    @Operation(
+            summary = "계획 입력 저장",
+            description =
+                    "미완성 상태를 포함한 전체 입력 스냅샷을 멱등하게 생성하거나 갱신합니다. 자동 저장 단계에서는 누락을 허용하고, FIRST_DIAGNOSIS 완료 요청에서 필수 입력을 검사합니다. 확인하기 어려운 값은 값 없이 unknownFields에 필드 코드를 전달합니다.")
     public ApiResponse<PlanInputResponse> save(
             @AuthenticationPrincipal MemberPrincipal principal,
             @PathVariable Long planId,

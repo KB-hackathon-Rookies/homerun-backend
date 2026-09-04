@@ -7,8 +7,12 @@ import org.springframework.stereotype.Component;
 @Component
 public class StepTaskSkipPolicy {
 
-    private static final Set<String> SKIPPABLE_TASK_CODES =
-            Set.of("MONTHLY_SUPPORT_CHECK", "REGISTER_FIXED_EXPENSE", "FIRST_MONTH_CHECKIN");
+    // 명세에서 선택 작업으로 확정된 코드만 등록한다. 현재 확정된 선택 작업은 없다.
+    private static final Set<String> SKIPPABLE_TASK_CODES = Set.of();
+
+    public boolean isRequired(String taskCode) {
+        return !isSkippable(taskCode);
+    }
 
     public boolean isSkippable(String taskCode) {
         return SKIPPABLE_TASK_CODES.contains(taskCode);

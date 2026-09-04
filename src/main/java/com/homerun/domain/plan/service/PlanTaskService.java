@@ -10,8 +10,10 @@ import com.homerun.domain.plan.policy.StepTaskSkipPolicy;
 import com.homerun.domain.plan.repository.PlanRepository;
 import com.homerun.domain.plan.repository.PlanStepRepository;
 import com.homerun.domain.plan.repository.StepTaskRepository;
+import com.homerun.domain.plan.type.PlanGate;
 import com.homerun.domain.plan.type.PlanStepStatus;
 import com.homerun.domain.plan.type.StepTaskStatus;
+import com.homerun.domain.plan.validation.PlanInputCompletionValidator;
 import com.homerun.global.exception.BusinessException;
 import com.homerun.global.exception.ErrorCode;
 import java.util.List;
@@ -26,18 +28,21 @@ public class PlanTaskService {
     private final StepTaskRepository stepTaskRepository;
     private final PlanStageTransitionPolicy transitionPolicy;
     private final StepTaskSkipPolicy skipPolicy;
+    private final PlanInputCompletionValidator inputCompletionValidator;
 
     public PlanTaskService(
             PlanRepository planRepository,
             PlanStepRepository planStepRepository,
             StepTaskRepository stepTaskRepository,
             PlanStageTransitionPolicy transitionPolicy,
-            StepTaskSkipPolicy skipPolicy) {
+            StepTaskSkipPolicy skipPolicy,
+            PlanInputCompletionValidator inputCompletionValidator) {
         this.planRepository = planRepository;
         this.planStepRepository = planStepRepository;
         this.stepTaskRepository = stepTaskRepository;
         this.transitionPolicy = transitionPolicy;
         this.skipPolicy = skipPolicy;
+        this.inputCompletionValidator = inputCompletionValidator;
     }
 
     @Transactional(readOnly = true)
@@ -62,6 +67,11 @@ public class PlanTaskService {
                 .findFirst()
                 .orElseThrow(() -> new BusinessException(ErrorCode.PLAN_STEP_NOT_FOUND));
 
+        if (request.status() != StepTaskStatus.DOING
+                && request.status() != StepTaskStatus.DONE
+                && request.status() != StepTaskStatus.SKIPPED) {
+            throw new BusinessException(ErrorCode.INVALID_TASK_STATUS_TRANSITION);
+        }
         if (task.getStatus() == request.status()) {
             return response(plan, steps, tasks);
         }
@@ -72,8 +82,13 @@ public class PlanTaskService {
 
         boolean allTasksSettled = tasks.stream()
                 .filter(candidate -> candidate.getPlanStepId().equals(step.getId()))
-                .allMatch(StepTask::isSettled);
-        if (allTasksSettled && step.complete()) {
+                .filter(candidate -> skipPolicy.isRequired(candidate.getTaskCode()))
+                .allMatch(candidate -> candidate.getStatus() == StepTaskStatus.DONE);
+        if (allTasksSettled && step.getStatus() != PlanStepStatus.DONE) {
+            PlanGate gate = PlanGate.findByCode(step.getStepCode())
+                    .orElseThrow(() -> new BusinessException(ErrorCode.PLAN_STEP_NOT_FOUND));
+            inputCompletionValidator.validate(planId, gate);
+            step.complete();
             transitionPolicy.applyCompletedGate(plan, step);
             List<String> completedCodes = steps.stream()
                     .filter(candidate -> candidate.getStatus() == PlanStepStatus.DONE)
@@ -88,7 +103,10 @@ public class PlanTaskService {
         if (target != StepTaskStatus.DOING && target != StepTaskStatus.DONE && target != StepTaskStatus.SKIPPED) {
             throw new BusinessException(ErrorCode.INVALID_TASK_STATUS_TRANSITION);
         }
-        if (task.isSettled()) {
+        if (task.isSettled()
+                && !(task.getStatus() == StepTaskStatus.SKIPPED
+                        && skipPolicy.isRequired(task.getTaskCode())
+                        && target == StepTaskStatus.DONE)) {
             throw new BusinessException(ErrorCode.INVALID_TASK_STATUS_TRANSITION);
         }
         if (target == StepTaskStatus.SKIPPED && !skipPolicy.isSkippable(task.getTaskCode())) {

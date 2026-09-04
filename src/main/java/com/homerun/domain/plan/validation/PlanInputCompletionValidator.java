@@ -1,0 +1,76 @@
+package com.homerun.domain.plan.validation;
+
+import com.homerun.domain.plan.entity.PlanInput;
+import com.homerun.domain.plan.repository.PlanInputRepository;
+import com.homerun.domain.plan.type.PlanGate;
+import com.homerun.domain.plan.type.PlanInputUnknownField;
+import com.homerun.global.exception.ErrorCode;
+import com.homerun.global.exception.FieldValidationException;
+import com.homerun.global.response.FieldErrorDetail;
+import java.util.List;
+import java.util.Set;
+import java.util.function.Function;
+import org.springframework.stereotype.Component;
+
+@Component
+public class PlanInputCompletionValidator {
+
+    private static final String REQUIRED_MESSAGE = "값을 입력하거나 모름으로 표시해 주세요.";
+
+    private static final List<InputRequirement> FIRST_DIAGNOSIS_REQUIREMENTS = List.of(
+            requirement(PlanInputUnknownField.HOPE_DEPOSIT, "hopeDeposit", PlanInput::getHopeDeposit),
+            requirement(PlanInputUnknownField.CURRENT_DEPOSIT, "currentDeposit", PlanInput::getCurrentDeposit),
+            requirement(PlanInputUnknownField.MONTHLY_RENT, "monthlyRent", PlanInput::getMonthlyRent),
+            requirement(PlanInputUnknownField.MAINTENANCE_FEE, "maintenanceFee", PlanInput::getMaintenanceFee),
+            requirement(PlanInputUnknownField.MAX_MONTHLY_BURDEN, "maxMonthlyBurden", PlanInput::getMaxMonthlyBurden),
+            requirement(PlanInputUnknownField.REGION_ID, "regionId", PlanInput::getRegionId),
+            requirement(PlanInputUnknownField.AREA_M2, "areaM2", PlanInput::getAreaM2),
+            requirement(PlanInputUnknownField.HOUSE_TYPE, "houseType", PlanInput::getHouseType),
+            requirement(PlanInputUnknownField.IS_HOMELESS, "isHomeless", PlanInput::getHomeless),
+            requirement(PlanInputUnknownField.HOUSEHOLDER_STATUS, "householderStatus", PlanInput::getHouseholderStatus),
+            requirement(PlanInputUnknownField.MARITAL_STATUS, "maritalStatus", PlanInput::getMaritalStatus),
+            requirement(PlanInputUnknownField.EMPLOYMENT_TYPE, "employmentType", PlanInput::getEmploymentType),
+            requirement(PlanInputUnknownField.EMPLOYMENT_MONTHS, "employmentMonths", PlanInput::getEmploymentMonths),
+            requirement(PlanInputUnknownField.COMPANY_SIZE, "companySize", PlanInput::getCompanySize));
+
+    private final PlanInputRepository inputRepository;
+
+    public PlanInputCompletionValidator(PlanInputRepository inputRepository) {
+        this.inputRepository = inputRepository;
+    }
+
+    public void validate(Long planId, PlanGate gate) {
+        if (gate != PlanGate.FIRST_DIAGNOSIS) {
+            return;
+        }
+
+        PlanInput input = inputRepository.findByPlanId(planId).orElse(null);
+        Set<PlanInputUnknownField> unknownFields = input == null ? Set.of() : Set.copyOf(input.getUnknownFields());
+        List<FieldErrorDetail> fieldErrors = FIRST_DIAGNOSIS_REQUIREMENTS.stream()
+                .filter(requirement -> requirement.isMissing(input, unknownFields))
+                .map(requirement -> new FieldErrorDetail(requirement.fieldName(), REQUIRED_MESSAGE))
+                .toList();
+        if (!fieldErrors.isEmpty()) {
+            throw new FieldValidationException(ErrorCode.PLAN_REQUIRED_INPUT_MISSING, fieldErrors);
+        }
+    }
+
+    private static InputRequirement requirement(
+            PlanInputUnknownField unknownField, String fieldName, Function<PlanInput, Object> valueReader) {
+        return new InputRequirement(unknownField, fieldName, true, valueReader);
+    }
+
+    private record InputRequirement(
+            PlanInputUnknownField unknownField,
+            String fieldName,
+            boolean unknownAllowed,
+            Function<PlanInput, Object> valueReader) {
+
+        private boolean isMissing(PlanInput input, Set<PlanInputUnknownField> unknownFields) {
+            if (input != null && valueReader.apply(input) != null) {
+                return false;
+            }
+            return !unknownAllowed || !unknownFields.contains(unknownField);
+        }
+    }
+}
