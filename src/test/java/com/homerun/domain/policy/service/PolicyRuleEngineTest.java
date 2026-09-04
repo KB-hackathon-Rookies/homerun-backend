@@ -259,6 +259,50 @@ class PolicyRuleEngineTest {
     }
 
     @Test
+    void should_beMet_when_areaIsExactlyAtCap() {
+        when(facts.require("FCT-005")).thenReturn(fact("FCT-005", "85"));
+        RuleDocument document = areaDocument();
+        PlanInput input = areaInput(new BigDecimal("85.00"));
+
+        List<ConditionResult> results = engine.evaluate(document, input);
+
+        assertThat(results.get(0).isMet()).isTrue();
+    }
+
+    @Test
+    void should_beNotMet_when_areaExceedsCapBySmallestUnit() {
+        when(facts.require("FCT-005")).thenReturn(fact("FCT-005", "85"));
+        RuleDocument document = areaDocument();
+        PlanInput input = areaInput(new BigDecimal("85.01"));
+
+        List<ConditionResult> results = engine.evaluate(document, input);
+
+        assertThat(results.get(0).isMet()).isFalse();
+    }
+
+    @Test
+    void should_returnNeedInfo_when_areaIsMissing() {
+        RuleDocument document = areaDocument();
+        PlanInput input = areaInput(null);
+
+        List<ConditionResult> results = engine.evaluate(document, input);
+
+        assertThat(results.get(0).isMet()).isNull();
+    }
+
+    private RuleDocument areaDocument() {
+        return new RuleDocument("AND", List.of(new RuleCondition("AREA_CAP", "area_m2", "lte", null, "FCT-005", null)));
+    }
+
+    private PlanInput areaInput(BigDecimal areaM2) {
+        return PlanInput.create(
+                PLAN_ID,
+                new PlanInputRequest(
+                        null, null, null, null, null, null, areaM2, null, null, null, null, null, null, null, null,
+                        null, null, null, null, null, null, null, null, true, Set.of()));
+    }
+
+    @Test
     void should_calculateEstimate_when_amountAndRateSpecPresent() {
         // #80(JeonseLoanDiagnosisService)의 원래 테스트값과 동일하게 맞춰서 이관 결과가 같은지 본다.
         when(facts.require("FCT-008")).thenReturn(fact("FCT-008", "80"));

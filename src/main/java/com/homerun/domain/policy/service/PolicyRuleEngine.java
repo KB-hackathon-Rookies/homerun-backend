@@ -166,18 +166,30 @@ public class PolicyRuleEngine {
         return met(condition, expectEqual == equal, null);
     }
 
+    /** field 가 BIGINT(금액 등)든 NUMERIC(면적 등)이든 상관없이 fact 와 비교한다 — 둘 다
+     * plan_input 에 섞여 있어서(#102) 하나로 받는다. */
     private ConditionResult numericCheck(RuleCondition condition, PlanInput input, boolean gte) {
-        Object fieldValue = resolveField(condition.field(), input);
-        if (fieldValue == null || !(fieldValue instanceof Long amount)) {
+        BigDecimal amount = toComparable(resolveField(condition.field(), input));
+        if (amount == null) {
             return needInfo(condition, null);
         }
         Optional<Fact> fact = resolveFact(condition.factCode());
         if (fact.isEmpty()) {
             return needInfo(condition, null);
         }
-        int cmp = BigDecimal.valueOf(amount).compareTo(fact.get().requireNumber());
+        int cmp = amount.compareTo(fact.get().requireNumber());
         boolean pass = gte ? cmp >= 0 : cmp <= 0;
         return met(condition, pass, fact.get());
+    }
+
+    private BigDecimal toComparable(Object fieldValue) {
+        if (fieldValue instanceof Long amount) {
+            return BigDecimal.valueOf(amount);
+        }
+        if (fieldValue instanceof BigDecimal amount) {
+            return amount;
+        }
+        return null;
     }
 
     private ConditionResult annualIncomeCheck(RuleCondition condition, PlanInput input) {
@@ -255,6 +267,7 @@ public class PolicyRuleEngine {
             case "monthly_income" -> input == null ? null : input.getMonthlyIncome();
             case "net_assets" -> input == null ? null : input.getNetAssets();
             case "hope_deposit" -> input == null ? null : input.getHopeDeposit();
+            case "area_m2" -> input == null ? null : input.getAreaM2();
             case "is_violation_building" -> property == null ? null : property.getViolationBuilding();
             case "is_multi_household" -> property == null ? null : property.getMultiHousehold();
             default -> null;
