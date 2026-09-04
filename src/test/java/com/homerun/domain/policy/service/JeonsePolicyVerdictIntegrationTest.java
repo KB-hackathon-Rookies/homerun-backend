@@ -3,6 +3,7 @@ package com.homerun.domain.policy.service;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import com.homerun.TestcontainersConfiguration;
+import com.homerun.domain.policy.dto.response.ConditionBasisResponse;
 import com.homerun.domain.policy.dto.response.JeonsePolicyVerdictListResponse;
 import com.homerun.domain.policy.dto.response.PolicyVerdictResponse;
 import com.homerun.domain.policy.entity.PolicyRule;
@@ -10,6 +11,8 @@ import com.homerun.domain.policy.model.RuleCondition;
 import com.homerun.domain.policy.repository.PolicyRuleRepository;
 import com.homerun.domain.policy.type.PolicyVerdictResult;
 import jakarta.persistence.EntityManager;
+import java.time.LocalDate;
+import java.time.temporal.ChronoUnit;
 import java.util.List;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -408,6 +411,52 @@ class JeonsePolicyVerdictIntegrationTest {
 
         assertThat(incomeCap.op()).isEqualTo("annual_lte");
         assertThat(incomeCap.factCode()).isEqualTo("FCT-036");
+    }
+
+    @Test
+    void should_exposeEligibleUntilAndDaysRemaining_when_ageConditionAgainstRealPostgres() {
+        activateAgeOnlyRule("JEONSE-YOUTH-BEOTIMMOK");
+        LocalDate birthDate = LocalDate.now().minusYears(30);
+        em.createNativeQuery("UPDATE plan_input SET birth_date = :birthDate WHERE plan_id = :pid")
+                .setParameter("birthDate", birthDate)
+                .setParameter("pid", planId)
+                .executeUpdate();
+
+        // 시드값을 직접 읽어서 같은 공식으로 재계산한다 — 응답끼리 비교하지 않는다.
+        int maxAge = ((Number)
+                        em.createNativeQuery("SELECT value_num FROM config_effective WHERE fact_code = 'FCT-174'")
+                                .getSingleResult())
+                .intValue();
+        LocalDate expectedEligibleUntil = birthDate.plusYears(maxAge + 1L);
+
+        JeonsePolicyVerdictListResponse result = service.evaluate(memberId, planId);
+
+        ConditionBasisResponse basis = result.results().stream()
+                .filter(r -> r.policyCode().equals("JEONSE-YOUTH-BEOTIMMOK"))
+                .findFirst()
+                .orElseThrow()
+                .basis()
+                .stream()
+                .filter(b -> b.code().equals("AGE_UPPER_BOUND"))
+                .findFirst()
+                .orElseThrow();
+
+        assertThat(basis.eligibleUntil()).isEqualTo(expectedEligibleUntil);
+        assertThat(basis.daysRemaining()).isEqualTo(ChronoUnit.DAYS.between(LocalDate.now(), expectedEligibleUntil));
+    }
+
+    private void activateAgeOnlyRule(String policyCode) {
+        // version 9: 1(V22)/2(V24 실 시드)/3(V25 draft)/5(simple)/7(house)/8(area) 다음.
+        em.createNativeQuery("""
+                        INSERT INTO policy_rule (policy_id, version, rule_json, status, effective_from, reviewed_by)
+                        SELECT id, 9,
+                            '{"operator":"AND","conditions":[
+                                {"code":"AGE_UPPER_BOUND","field":"birth_date","adjust_field":"military_months",
+                                 "fact_code":"FCT-174","op":"age_within_years_adjusted"}
+                            ]}'::jsonb,
+                            'ACTIVE', '2026-09-04', 'integration-test'
+                        FROM policy WHERE code = :code
+                        """).setParameter("code", policyCode).executeUpdate();
     }
 
     private void activateSimpleReviewedRule(String policyCode) {

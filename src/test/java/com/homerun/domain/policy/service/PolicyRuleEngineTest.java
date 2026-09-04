@@ -110,6 +110,8 @@ class PolicyRuleEngineTest {
         List<ConditionResult> results = engine.evaluate(document, input);
 
         assertThat(results.get(0).isMet()).isTrue();
+        // POL-01-04: 자격이 사라지는 날짜(만 35세 생일)를 결과에 실어 노출한다.
+        assertThat(results.get(0).eligibleUntil()).isEqualTo(LocalDate.of(2026, 9, 5));
     }
 
     @Test
@@ -139,6 +141,8 @@ class PolicyRuleEngineTest {
         // 캡이 없다면 true 가 나와야 정상인데(2027-09-04 까지 유효), 캡을 걸면 2026-09-04 에서
         // 끊겨 오늘(clock)에 이미 불충족이다.
         assertThat(results.get(0).isMet()).isFalse();
+        // eligibleUntil 도 캡 없는 계산값(2027-09-04)이 아니라 만 40세 하드캡(2026-09-04)이어야 한다.
+        assertThat(results.get(0).eligibleUntil()).isEqualTo(LocalDate.of(2026, 9, 4));
     }
 
     @Test

@@ -131,6 +131,21 @@ class JeonsePolicyVerdictServiceTest {
     }
 
     @Test
+    void should_computeDaysRemaining_when_conditionHasEligibleUntil() {
+        // POL-01-04. CLOCK 이 2026-09-04 고정이라, eligibleUntil 2026-09-14 이면 10일 남아야 한다.
+        List<ConditionResult> pass = List.of(new ConditionResult("A", "라벨", "텍스트", true, null, null));
+        List<ConditionResult> withDeadline = List.of(new ConditionResult(
+                "AGE_UPPER_BOUND", "연령 상한", "만 34세 이하", true, "FCT-174", null, LocalDate.of(2026, 9, 14)));
+        when(engine.evaluate(any(), any(), any())).thenReturn(withDeadline, pass, pass);
+
+        JeonsePolicyVerdictListResponse response = service.evaluate(MEMBER_ID, PLAN_ID);
+
+        ConditionBasisResponse basis = response.results().get(0).basis().get(0);
+        assertThat(basis.eligibleUntil()).isEqualTo(LocalDate.of(2026, 9, 14));
+        assertThat(basis.daysRemaining()).isEqualTo(10L);
+    }
+
+    @Test
     void should_returnNeedInfo_when_noActiveRuleExists() {
         // 3번째 정책(SEOUL, policy id=3)만 검수된 조건식이 없다고 덮어쓴다.
         when(rules.findFirstByPolicyIdAndStatusOrderByVersionDesc(3L, PolicyRuleStatus.ACTIVE))
