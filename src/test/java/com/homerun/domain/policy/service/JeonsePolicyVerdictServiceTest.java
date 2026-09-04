@@ -4,6 +4,8 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.times;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import com.homerun.domain.plan.dto.request.PlanInputRequest;
@@ -17,6 +19,7 @@ import com.homerun.domain.policy.dto.response.JeonsePolicyVerdictListResponse;
 import com.homerun.domain.policy.dto.response.PolicyVerdictResponse;
 import com.homerun.domain.policy.entity.Policy;
 import com.homerun.domain.policy.entity.PolicyRule;
+import com.homerun.domain.policy.entity.PolicyVerdict;
 import com.homerun.domain.policy.model.ConditionResult;
 import com.homerun.domain.policy.model.RuleDocument;
 import com.homerun.domain.policy.repository.PolicyRepository;
@@ -25,6 +28,8 @@ import com.homerun.domain.policy.repository.PolicyVerdictRepository;
 import com.homerun.domain.policy.repository.VerdictBasisRepository;
 import com.homerun.domain.policy.type.PolicyRuleStatus;
 import com.homerun.domain.policy.type.PolicyVerdictResult;
+import com.homerun.domain.property.entity.Property;
+import com.homerun.domain.property.repository.PropertyRepository;
 import com.homerun.global.exception.BusinessException;
 import com.homerun.global.exception.ErrorCode;
 import java.time.Clock;
@@ -36,6 +41,7 @@ import java.util.Optional;
 import java.util.Set;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.mockito.ArgumentCaptor;
 
 /**
  * 룰엔진 결과를 어떻게 종합·저장하는지만 본다 — 조건 하나하나의 해석은
@@ -46,18 +52,22 @@ class JeonsePolicyVerdictServiceTest {
     private static final Long MEMBER_ID = 1L;
     private static final Long PLAN_ID = 10L;
     private static final Clock CLOCK = Clock.fixed(Instant.parse("2026-09-04T00:00:00Z"), ZoneOffset.UTC);
+    private static final Long PROPERTY_ID = 100L;
     private static final List<String> CODES =
             List.of("JEONSE-YOUTH-BEOTIMMOK", "JEONSE-GENERAL-BEOTIMMOK", "JEONSE-SEOUL-INTEREST-SUPPORT");
+    private static final List<String> RETURN_GUARANTEE_CODES =
+            List.of("RETURN-GUARANTEE-HUG", "RETURN-GUARANTEE-HF", "RETURN-GUARANTEE-SGI");
 
     private final PlanRepository plans = mock(PlanRepository.class);
     private final PlanInputRepository inputs = mock(PlanInputRepository.class);
+    private final PropertyRepository properties = mock(PropertyRepository.class);
     private final PolicyRepository policies = mock(PolicyRepository.class);
     private final PolicyRuleRepository rules = mock(PolicyRuleRepository.class);
     private final PolicyVerdictRepository verdicts = mock(PolicyVerdictRepository.class);
     private final VerdictBasisRepository basisRepository = mock(VerdictBasisRepository.class);
     private final PolicyRuleEngine engine = mock(PolicyRuleEngine.class);
-    private final JeonsePolicyVerdictService service =
-            new JeonsePolicyVerdictService(plans, inputs, policies, rules, verdicts, basisRepository, engine, CLOCK);
+    private final JeonsePolicyVerdictService service = new JeonsePolicyVerdictService(
+            plans, inputs, properties, policies, rules, verdicts, basisRepository, engine, CLOCK);
 
     @BeforeEach
     void setUp() {
@@ -68,24 +78,33 @@ class JeonsePolicyVerdictServiceTest {
 
         long id = 1L;
         for (String code : CODES) {
-            // policyStub()/ruleStub() 자체가 완결된 when/thenReturn 쌍을 만든다. 그 호출을
-            // 바깥 when(...).thenReturn(...) 의 인자 자리에서 바로 하면, 인자를 계산하는
-            // 동안 안쪽 when() 이 끼어들어 Mockito 가 UnfinishedStubbingException 을 던진다.
-            // 그래서 변수에 먼저 담아 완결시킨 뒤에 넘긴다.
-            Policy policy = policyStub(id, code);
-            PolicyRule rule = ruleStub(id + 100);
-            when(policies.findByCode(code)).thenReturn(Optional.of(policy));
-            when(rules.findFirstByPolicyIdAndStatusOrderByVersionDesc(id, PolicyRuleStatus.ACTIVE))
-                    .thenReturn(Optional.of(rule));
-            id++;
+            id = stubPolicyAndRule(code, id);
         }
+        for (String code : RETURN_GUARANTEE_CODES) {
+            id = stubPolicyAndRule(code, id);
+        }
+    }
+
+    /**
+     * policyStub()/ruleStub() 자체가 완결된 when/thenReturn 쌍을 만든다. 그 호출을 바깥
+     * when(...).thenReturn(...) 의 인자 자리에서 바로 하면, 인자를 계산하는 동안 안쪽 when()
+     * 이 끼어들어 Mockito 가 UnfinishedStubbingException 을 던진다. 그래서 변수에 먼저 담아
+     * 완결시킨 뒤에 넘긴다.
+     */
+    private long stubPolicyAndRule(String code, long id) {
+        Policy policy = policyStub(id, code);
+        PolicyRule rule = ruleStub(id + 100);
+        when(policies.findByCode(code)).thenReturn(Optional.of(policy));
+        when(rules.findFirstByPolicyIdAndStatusOrderByVersionDesc(id, PolicyRuleStatus.ACTIVE))
+                .thenReturn(Optional.of(rule));
+        return id + 1;
     }
 
     @Test
     void should_aggregateAsFail_when_anyConditionIsNotMet() {
         List<ConditionResult> pass = List.of(new ConditionResult("A", "라벨", "텍스트", true, null, null));
         List<ConditionResult> fail = List.of(new ConditionResult("B", "라벨", "텍스트", false, null, null));
-        when(engine.evaluate(any(), any())).thenReturn(pass, pass, fail);
+        when(engine.evaluate(any(), any(), any())).thenReturn(pass, pass, fail);
 
         JeonsePolicyVerdictListResponse response = service.evaluate(MEMBER_ID, PLAN_ID);
 
@@ -98,7 +117,7 @@ class JeonsePolicyVerdictServiceTest {
     void should_aggregateAsNeedInfo_when_someConditionIsUnknownAndNoneFailed() {
         List<ConditionResult> pass = List.of(new ConditionResult("A", "라벨", "텍스트", true, null, null));
         List<ConditionResult> needInfo = List.of(new ConditionResult("C", "라벨", "텍스트", null, null, null));
-        when(engine.evaluate(any(), any())).thenReturn(pass, needInfo, pass);
+        when(engine.evaluate(any(), any(), any())).thenReturn(pass, needInfo, pass);
 
         JeonsePolicyVerdictListResponse response = service.evaluate(MEMBER_ID, PLAN_ID);
 
@@ -110,7 +129,7 @@ class JeonsePolicyVerdictServiceTest {
         // 3번째 정책(SEOUL, policy id=3)만 검수된 조건식이 없다고 덮어쓴다.
         when(rules.findFirstByPolicyIdAndStatusOrderByVersionDesc(3L, PolicyRuleStatus.ACTIVE))
                 .thenReturn(Optional.empty());
-        when(engine.evaluate(any(), any()))
+        when(engine.evaluate(any(), any(), any()))
                 .thenReturn(List.of(new ConditionResult("A", "라벨", "텍스트", true, null, null)));
 
         JeonsePolicyVerdictListResponse response = service.evaluate(MEMBER_ID, PLAN_ID);
@@ -140,6 +159,38 @@ class JeonsePolicyVerdictServiceTest {
                 .isInstanceOf(BusinessException.class)
                 .satisfies(e -> assertThat(((BusinessException) e).errorCode())
                         .isEqualTo(ErrorCode.POLICY_JEONSE_PLAN_REQUIRED));
+    }
+
+    @Test
+    void should_evaluateReturnGuarantees_and_stampPropertyIdOnSavedVerdict() {
+        Property property = mock(Property.class);
+        when(property.getId()).thenReturn(PROPERTY_ID);
+        when(properties.findByIdAndPlanId(PROPERTY_ID, PLAN_ID)).thenReturn(Optional.of(property));
+        when(engine.evaluate(any(), any(), any()))
+                .thenReturn(List.of(new ConditionResult("PRICE_RATIO_126", "라벨", "텍스트", true, "FCT-054", null)));
+
+        JeonsePolicyVerdictListResponse response = service.evaluateReturnGuarantees(MEMBER_ID, PLAN_ID, PROPERTY_ID);
+
+        assertThat(response.results()).hasSize(3);
+        assertThat(response.results())
+                .extracting(PolicyVerdictResponse::verdict)
+                .containsOnly(PolicyVerdictResult.PASS);
+
+        ArgumentCaptor<PolicyVerdict> captor = ArgumentCaptor.forClass(PolicyVerdict.class);
+        verify(verdicts, times(3)).save(captor.capture());
+        assertThat(captor.getAllValues())
+                .extracting(PolicyVerdict::getPropertyId)
+                .containsOnly(PROPERTY_ID);
+    }
+
+    @Test
+    void should_throw_when_propertyNotInPlan() {
+        when(properties.findByIdAndPlanId(PROPERTY_ID, PLAN_ID)).thenReturn(Optional.empty());
+
+        assertThatThrownBy(() -> service.evaluateReturnGuarantees(MEMBER_ID, PLAN_ID, PROPERTY_ID))
+                .isInstanceOf(BusinessException.class)
+                .satisfies(
+                        e -> assertThat(((BusinessException) e).errorCode()).isEqualTo(ErrorCode.PROPERTY_NOT_IN_PLAN));
     }
 
     private Policy policyStub(long id, String code) {

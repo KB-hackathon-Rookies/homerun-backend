@@ -14,7 +14,7 @@ import org.springframework.web.bind.annotation.RestController;
 
 @RestController
 @RequestMapping("/api/v1/plans/{planId}/policies/jeonse")
-@Tag(name = "전세대출 정책 판정", description = "policy_rule 조건식으로 청년/일반 버팀목·서울시 이자지원 자격을 판정하고 근거를 남긴다")
+@Tag(name = "전세대출 정책 판정", description = "policy_rule 조건식으로 전세대출·반환보증 자격을 판정하고 근거를 남긴다")
 public class JeonsePolicyVerdictController {
 
     private final JeonsePolicyVerdictService service;
@@ -24,9 +24,18 @@ public class JeonsePolicyVerdictController {
     }
 
     @PostMapping("/evaluate")
-    @Operation(summary = "전세대출 정책 판정", description = "plan_input 기반 조건만 판정한다. 반환보증(HUG/HF/SGI)은 아직 대상이 아니다.")
+    @Operation(summary = "전세대출 정책 판정", description = "plan_input 기반 조건만 판정한다(청년/일반 버팀목, 서울시 이자지원).")
     public ApiResponse<JeonsePolicyVerdictListResponse> evaluate(
             @AuthenticationPrincipal MemberPrincipal principal, @PathVariable Long planId) {
         return ApiResponse.success(service.evaluate(principal.memberId(), planId));
+    }
+
+    @PostMapping("/properties/{propertyId}/return-guarantees/evaluate")
+    @Operation(summary = "반환보증 판정", description = "매물 기준(공시가격 등)으로 HUG/HF/SGI 반환보증 가입 가능성을 판정한다.")
+    public ApiResponse<JeonsePolicyVerdictListResponse> evaluateReturnGuarantees(
+            @AuthenticationPrincipal MemberPrincipal principal,
+            @PathVariable Long planId,
+            @PathVariable Long propertyId) {
+        return ApiResponse.success(service.evaluateReturnGuarantees(principal.memberId(), planId, propertyId));
     }
 }

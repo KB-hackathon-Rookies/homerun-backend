@@ -16,7 +16,8 @@ import java.time.Instant;
  *
  * <p>재판정은 새 행을 쌓지 않고 같은 (plan_id, policy_id, rule_id) 행을 덮어쓴다 — 이력이
  * 필요해지면 별도 이슈에서 다룬다. v1 은 예상 금액·금리를 계산하지 않는다(#80 과의 관계가
- * 정리되기 전까지는 판정만 한다).
+ * 정리되기 전까지는 판정만 한다). 매물 기준 판정(반환보증)은 {@code property_id} 에 남지만
+ * UNIQUE 제약에는 안 들어가 있어 매물별 이력은 못 남긴다(#89).
  */
 @Entity
 @Table(name = "policy_verdict")
@@ -35,6 +36,12 @@ public class PolicyVerdict {
     @Column(name = "rule_id")
     private Long ruleId;
 
+    /** 반환보증처럼 매물 기준으로 판정한 경우에만 채워진다(#89). plan_input 기반 정책은 계속
+     * NULL 이다 — UNIQUE 제약(plan_id, policy_id, rule_id)에는 안 들어가 있으니 매물을 여러
+     * 개 비교해도 가장 최근 판정 하나만 남는다는 점을 호출하는 쪽이 알아야 한다. */
+    @Column(name = "property_id")
+    private Long propertyId;
+
     @Enumerated(EnumType.STRING)
     @Column(nullable = false, length = 20)
     private PolicyVerdictResult verdict;
@@ -50,10 +57,17 @@ public class PolicyVerdict {
 
     protected PolicyVerdict() {}
 
-    private PolicyVerdict(Long planId, Long policyId, Long ruleId, PolicyVerdictResult verdict, String engineVersion) {
+    private PolicyVerdict(
+            Long planId,
+            Long policyId,
+            Long ruleId,
+            Long propertyId,
+            PolicyVerdictResult verdict,
+            String engineVersion) {
         this.planId = planId;
         this.policyId = policyId;
         this.ruleId = ruleId;
+        this.propertyId = propertyId;
         this.verdict = verdict;
         this.selected = false;
         this.engineVersion = engineVersion;
@@ -61,12 +75,18 @@ public class PolicyVerdict {
     }
 
     public static PolicyVerdict create(
-            Long planId, Long policyId, Long ruleId, PolicyVerdictResult verdict, String engineVersion) {
-        return new PolicyVerdict(planId, policyId, ruleId, verdict, engineVersion);
+            Long planId,
+            Long policyId,
+            Long ruleId,
+            Long propertyId,
+            PolicyVerdictResult verdict,
+            String engineVersion) {
+        return new PolicyVerdict(planId, policyId, ruleId, propertyId, verdict, engineVersion);
     }
 
-    public void reevaluate(PolicyVerdictResult verdict, String engineVersion) {
+    public void reevaluate(PolicyVerdictResult verdict, Long propertyId, String engineVersion) {
         this.verdict = verdict;
+        this.propertyId = propertyId;
         this.engineVersion = engineVersion;
     }
 
@@ -84,6 +104,10 @@ public class PolicyVerdict {
 
     public Long getRuleId() {
         return ruleId;
+    }
+
+    public Long getPropertyId() {
+        return propertyId;
     }
 
     public PolicyVerdictResult getVerdict() {

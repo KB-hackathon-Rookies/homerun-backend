@@ -29,6 +29,8 @@ class JeonsePolicyVerdictIntegrationTest {
 
     private static final List<String> JEONSE_POLICY_CODES =
             List.of("JEONSE-YOUTH-BEOTIMMOK", "JEONSE-GENERAL-BEOTIMMOK", "JEONSE-SEOUL-INTEREST-SUPPORT");
+    private static final List<String> RETURN_GUARANTEE_CODES =
+            List.of("RETURN-GUARANTEE-HUG", "RETURN-GUARANTEE-HF", "RETURN-GUARANTEE-SGI");
 
     private final JeonsePolicyVerdictService service;
     private final PolicyRuleRepository policyRuleRepository;
@@ -37,6 +39,7 @@ class JeonsePolicyVerdictIntegrationTest {
     private Long memberId;
     private Long planId;
     private Long youthPolicyId;
+    private Long propertyId;
 
     JeonsePolicyVerdictIntegrationTest(
             @Autowired JeonsePolicyVerdictService service,
@@ -70,7 +73,15 @@ class JeonsePolicyVerdictIntegrationTest {
                         .getSingleResult())
                 .longValue();
 
+        // 공시가 5억 × 1.26 = 6억 3천 = 보증금과 정확히 같음 → 126% 룰 충족(<=).
+        propertyId = ((Number) em.createNativeQuery(
+                                "INSERT INTO property (plan_id, deposit, official_price) VALUES (:pid, 630000000, 500000000) RETURNING id")
+                        .setParameter("pid", planId)
+                        .getSingleResult())
+                .longValue();
+
         JEONSE_POLICY_CODES.forEach(this::activateSimpleReviewedRule);
+        RETURN_GUARANTEE_CODES.forEach(this::activatePriceRatioRule);
     }
 
     @Test
@@ -132,6 +143,41 @@ class JeonsePolicyVerdictIntegrationTest {
                         .getSingleResult())
                 .longValue();
         assertThat(verdictCount).isEqualTo(3L);
+    }
+
+    @Test
+    void should_persistPropertyIdAndPass_when_evaluatingReturnGuaranteeAgainstRealPostgres() {
+        service.evaluateReturnGuarantees(memberId, planId, propertyId);
+        em.flush();
+        em.clear();
+
+        @SuppressWarnings("unchecked")
+        List<Object[]> rows =
+                em.createNativeQuery("""
+                        SELECT p.code, v.verdict, v.property_id
+                        FROM policy_verdict v JOIN policy p ON p.id = v.policy_id
+                        WHERE v.plan_id = :pid AND p.code LIKE 'RETURN-GUARANTEE-%'
+                        ORDER BY p.code
+                        """).setParameter("pid", planId).getResultList();
+
+        assertThat(rows).hasSize(3);
+        assertThat(rows).allSatisfy(row -> {
+            assertThat(row[1]).isEqualTo("PASS");
+            assertThat(((Number) row[2]).longValue()).isEqualTo(propertyId);
+        });
+    }
+
+    private void activatePriceRatioRule(String policyCode) {
+        em.createNativeQuery("""
+                        INSERT INTO policy_rule (policy_id, version, rule_json, status, effective_from, reviewed_by)
+                        SELECT id, 2,
+                            '{"operator":"AND","conditions":[
+                                {"code":"PRICE_RATIO_126","field":"official_price",
+                                 "op":"deposit_lte_price_times_fact","fact_code":"FCT-054"}
+                            ]}'::jsonb,
+                            'ACTIVE', '2026-09-04', 'integration-test'
+                        FROM policy WHERE code = :code
+                        """).setParameter("code", policyCode).executeUpdate();
     }
 
     private void activateSimpleReviewedRule(String policyCode) {
