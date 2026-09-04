@@ -1,12 +1,15 @@
 package com.homerun.domain.policy.controller;
 
 import com.homerun.domain.policy.dto.response.JeonsePolicyVerdictListResponse;
+import com.homerun.domain.policy.dto.response.PreferentialRateChangeResponse;
 import com.homerun.domain.policy.service.JeonsePolicyVerdictService;
+import com.homerun.domain.policy.service.PreferentialRateChangeService;
 import com.homerun.global.response.ApiResponse;
 import com.homerun.global.security.principal.MemberPrincipal;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -19,9 +22,12 @@ import org.springframework.web.bind.annotation.RestController;
 public class JeonsePolicyVerdictController {
 
     private final JeonsePolicyVerdictService service;
+    private final PreferentialRateChangeService preferentialRateChangeService;
 
-    public JeonsePolicyVerdictController(JeonsePolicyVerdictService service) {
+    public JeonsePolicyVerdictController(
+            JeonsePolicyVerdictService service, PreferentialRateChangeService preferentialRateChangeService) {
         this.service = service;
+        this.preferentialRateChangeService = preferentialRateChangeService;
     }
 
     @PostMapping("/evaluate")
@@ -52,5 +58,15 @@ public class JeonsePolicyVerdictController {
     public ApiResponse<JeonsePolicyVerdictListResponse> evaluateGuaranteeFeeSupport(
             @AuthenticationPrincipal MemberPrincipal principal, @PathVariable Long planId) {
         return ApiResponse.success(service.evaluateGuaranteeFeeSupport(principal.memberId(), planId));
+    }
+
+    @GetMapping("/preferential-rate-changes")
+    @Operation(
+            summary = "우대금리 승격 감지",
+            description = "직전 입력 대비 새로 우대금리 대상이 됐는지 확인한다(POL-01-06). 가구원수가 필요한 단독세대주"
+                    + " 조건 등은 아직 못 본다 — 중소기업·창업기업 취업 조건만 다룬다.")
+    public ApiResponse<PreferentialRateChangeResponse> preferentialRateChanges(
+            @AuthenticationPrincipal MemberPrincipal principal, @PathVariable Long planId) {
+        return ApiResponse.success(preferentialRateChangeService.detect(principal.memberId(), planId));
     }
 }
