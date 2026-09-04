@@ -50,23 +50,75 @@ class HousingBenefitEvaluatorTest {
     }
 
     @Test
-    @DisplayName("다인 가구는 소득 기준이 없어 불가가 아니라 추가확인이다")
-    void should_need_check_for_multi_person_household() {
+    @DisplayName("3인 가구도 소득 기준이 있어 판정된다(#42)")
+    void should_judge_multi_person_household_income() {
+        // FCT-185(3인 소득인정액) 2,572,337원을 초과 → 대상 아님으로 확정 판정된다(추가확인 아님).
         HousingBenefitResult result =
                 evaluator.evaluate(new HousingBenefitRequest(3, 9_000_000, 400_000, 26, false, true, true));
 
-        assertThat(result.verdict()).isEqualTo(Verdict.NEEDS_CHECK);
+        assertThat(result.verdict()).isEqualTo(Verdict.INELIGIBLE);
         assertThat(result.rentCeiling()).isEqualTo(492_000L);
     }
 
     @Test
-    @DisplayName("기준임대료가 없는 가구원 수는 추가확인으로 넘긴다")
+    @DisplayName("8인 이상은 소득 기준이 없어 추가확인이다(#42)")
+    void should_need_check_for_income_when_householdSizeIsEightOrMore() {
+        // 기준임대료(FCT-191)는 있지만 소득 기준은 7인까지만 확보돼 있다.
+        HousingBenefitResult result =
+                evaluator.evaluate(new HousingBenefitRequest(8, 1_000_000, 400_000, 26, false, true, true));
+
+        assertThat(result.verdict()).isEqualTo(Verdict.NEEDS_CHECK);
+        assertThat(result.rentCeiling()).isEqualTo(768_900L);
+    }
+
+    @Test
+    @DisplayName("기준임대료가 없는 가구원 수(10인 이상)는 추가확인으로 넘긴다")
     void should_need_check_when_ceiling_unknown() {
         HousingBenefitResult result =
-                evaluator.evaluate(new HousingBenefitRequest(7, 1_000_000, 400_000, 26, false, true, true));
+                evaluator.evaluate(new HousingBenefitRequest(10, 1_000_000, 400_000, 26, false, true, true));
 
         assertThat(result.verdict()).isEqualTo(Verdict.NEEDS_CHECK);
         assertThat(result.rentCeiling()).isZero();
+    }
+
+    @Test
+    @DisplayName("7인가구 소득인정액이 기준 이하면 대상이다(#42)")
+    void should_be_eligible_for_sevenPersonHousehold() {
+        // FCT-189(7인 소득인정액) 4,517,542원.
+        HousingBenefitResult result =
+                evaluator.evaluate(new HousingBenefitRequest(7, 4_500_000, 400_000, 26, false, true, true));
+
+        assertThat(result.verdict()).isEqualTo(Verdict.ELIGIBLE);
+        assertThat(result.rentCeiling()).isEqualTo(699_000L); // 6인과 동일
+    }
+
+    @Test
+    @DisplayName("8인·9인 기준임대료는 같은 값이다(#42)")
+    void should_shareSameRentCeiling_forEightAndNinePersonHouseholds() {
+        long eight = evaluator
+                .evaluate(new HousingBenefitRequest(8, 1_000_000, 1_000_000, 26, false, true, true))
+                .rentCeiling();
+        long nine = evaluator
+                .evaluate(new HousingBenefitRequest(9, 1_000_000, 1_000_000, 26, false, true, true))
+                .rentCeiling();
+
+        assertThat(eight).isEqualTo(nine).isEqualTo(768_900L);
+    }
+
+    @Test
+    @DisplayName("7인가구 판정은 REVIEW 등급 기준값을 써서 provisional이 true다(#42)")
+    void should_markProvisional_when_usingSevenPersonIncomeThreshold() {
+        HousingBenefitResult result =
+                evaluator.evaluate(new HousingBenefitRequest(7, 1_000_000, 400_000, 26, false, true, true));
+
+        assertThat(result.provisional()).isTrue();
+        assertThat(result.reasons()).anySatisfy(reason -> assertThat(reason).contains("바뀔 수 있다"));
+    }
+
+    @Test
+    @DisplayName("1인가구 판정은 전부 CONFIRMED 등급이라 provisional이 false다")
+    void should_notMarkProvisional_forSinglePersonHousehold() {
+        assertThat(evaluator.evaluate(single(1_000_000, 400_000)).provisional()).isFalse();
     }
 
     @Test
