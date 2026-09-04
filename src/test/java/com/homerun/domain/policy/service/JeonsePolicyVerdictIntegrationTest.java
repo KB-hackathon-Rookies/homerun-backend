@@ -334,6 +334,82 @@ class JeonsePolicyVerdictIntegrationTest {
                         """).setParameter("code", policyCode).executeUpdate();
     }
 
+    @Test
+    void should_passGuaranteeFeeSupport_when_singleYouthIncomeWithinCapAgainstRealPostgres() {
+        activateGuaranteeFeeSupportRule();
+        em.createNativeQuery("""
+                        UPDATE plan_input SET marital_status = 'SINGLE', birth_date = '1996-09-04', monthly_income = 4000000
+                        WHERE plan_id = :pid
+                        """).setParameter("pid", planId).executeUpdate();
+
+        JeonsePolicyVerdictListResponse result = service.evaluateGuaranteeFeeSupport(memberId, planId);
+
+        PolicyVerdictResponse feeSupport = result.results().stream()
+                .filter(r -> r.policyCode().equals("RETURN-GUARANTEE-FEE-SUPPORT"))
+                .findFirst()
+                .orElseThrow();
+
+        assertThat(feeSupport.verdict()).isEqualTo(PolicyVerdictResult.PASS);
+    }
+
+    @Test
+    void should_returnNeedInfoForGuaranteeFeeSupport_when_marriedAgainstRealPostgres() {
+        // 신혼부부 여부(혼인 7년 이내)를 plan_input 이 모른다 — 소득이 아무리 낮아도 단정 못 한다.
+        activateGuaranteeFeeSupportRule();
+        em.createNativeQuery("""
+                        UPDATE plan_input SET marital_status = 'MARRIED', birth_date = '1996-09-04', monthly_income = 1000000
+                        WHERE plan_id = :pid
+                        """).setParameter("pid", planId).executeUpdate();
+
+        JeonsePolicyVerdictListResponse result = service.evaluateGuaranteeFeeSupport(memberId, planId);
+
+        PolicyVerdictResponse feeSupport = result.results().stream()
+                .filter(r -> r.policyCode().equals("RETURN-GUARANTEE-FEE-SUPPORT"))
+                .findFirst()
+                .orElseThrow();
+
+        assertThat(feeSupport.verdict()).isEqualTo(PolicyVerdictResult.NEED_INFO);
+    }
+
+    private void activateGuaranteeFeeSupportRule() {
+        // RETURN-GUARANTEE-FEE-SUPPORT는 새 정책이라 V26이 심은 DRAFT version 1 뿐이다 — 2로 안 겹친다.
+        em.createNativeQuery("""
+                        INSERT INTO policy_rule (policy_id, version, rule_json, status, effective_from, reviewed_by)
+                        SELECT id, 2,
+                            '{"operator":"AND","conditions":[
+                                {"code":"INCOME_CAP_FEE_SUPPORT","field":"monthly_income",
+                                 "fact_code":"FCT-176","alt_fact_code":"FCT-177","op":"annual_lte_by_age_group"}
+                            ]}'::jsonb,
+                            'ACTIVE', '2026-09-04', 'integration-test'
+                        FROM policy WHERE code = 'RETURN-GUARANTEE-FEE-SUPPORT'
+                        """).executeUpdate();
+    }
+
+    @Test
+    void should_fixSeoulInterestSupportIncomeCap_when_version2DraftIsReadFromRealPostgres() {
+        // #104: V22가 심은 version 1은 미지원 op(annual_lte_by_group)+잘못된 fact(FCT-033)를
+        // 참조하던 버그다. V26이 심은 version 2 DRAFT가 FCT-036+annual_lte로 고쳐졌는지 직접 읽어 확인한다.
+        Long seoulPolicyId = ((Number)
+                        em.createNativeQuery("SELECT id FROM policy WHERE code = 'JEONSE-SEOUL-INTEREST-SUPPORT'")
+                                .getSingleResult())
+                .longValue();
+        Long draftRuleId = ((Number) em.createNativeQuery(
+                                "SELECT id FROM policy_rule WHERE policy_id = :pid AND status = 'DRAFT' AND version = 2")
+                        .setParameter("pid", seoulPolicyId)
+                        .getSingleResult())
+                .longValue();
+
+        PolicyRule draft = policyRuleRepository.findById(draftRuleId).orElseThrow();
+
+        RuleCondition incomeCap = draft.getRuleJson().conditions().stream()
+                .filter(condition -> condition.code().equals("INCOME_CAP"))
+                .findFirst()
+                .orElseThrow();
+
+        assertThat(incomeCap.op()).isEqualTo("annual_lte");
+        assertThat(incomeCap.factCode()).isEqualTo("FCT-036");
+    }
+
     private void activateSimpleReviewedRule(String policyCode) {
         // version 2는 V24(#100)가 청년/일반버팀목에 실제로 쓰고 있어서 겹친다. 5로 비켜간다.
         em.createNativeQuery("""
