@@ -1,7 +1,9 @@
 package com.homerun.domain.member.controller;
 
 import com.homerun.domain.auth.config.RefreshTokenCookieFactory;
+import com.homerun.domain.member.dto.request.UpdateDiagnosisProfileRequest;
 import com.homerun.domain.member.dto.request.UpdateMemberProfileRequest;
+import com.homerun.domain.member.dto.response.DiagnosisProfileResponse;
 import com.homerun.domain.member.dto.response.MemberProfileResponse;
 import com.homerun.domain.member.service.MemberService;
 import com.homerun.global.response.ApiResponse;
@@ -15,6 +17,7 @@ import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PatchMapping;
+import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
@@ -55,5 +58,22 @@ public class MemberController {
                         HttpHeaders.SET_COOKIE,
                         refreshTokenCookieFactory.expire().toString())
                 .build();
+    }
+
+    @GetMapping("/diagnosis-profile")
+    @Operation(summary = "진단용 회원정보 조회", description = "생년월일과 사용자가 확인한 병역기간을 조회합니다. 미확인 값은 null입니다.")
+    public ApiResponse<DiagnosisProfileResponse> getDiagnosisProfile(
+            @AuthenticationPrincipal MemberPrincipal principal) {
+        return ApiResponse.success(memberService.getDiagnosisProfile(principal.memberId()));
+    }
+
+    @PutMapping("/diagnosis-profile")
+    @Operation(
+            summary = "진단용 회원정보 저장",
+            description = "전체 스냅샷을 저장합니다. 생략/null은 초기화입니다. 기존 계획 입력은 변경하지 않으며 기관 검증이나 대출 승인을 뜻하지 않습니다.")
+    public ApiResponse<DiagnosisProfileResponse> updateDiagnosisProfile(
+            @AuthenticationPrincipal MemberPrincipal principal,
+            @Valid @RequestBody UpdateDiagnosisProfileRequest request) {
+        return ApiResponse.success(memberService.updateDiagnosisProfile(principal.memberId(), request));
     }
 }

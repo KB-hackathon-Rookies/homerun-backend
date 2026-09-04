@@ -1,7 +1,9 @@
 package com.homerun.domain.member.service;
 
 import com.homerun.domain.auth.service.RefreshTokenService;
+import com.homerun.domain.member.dto.request.UpdateDiagnosisProfileRequest;
 import com.homerun.domain.member.dto.request.UpdateMemberProfileRequest;
+import com.homerun.domain.member.dto.response.DiagnosisProfileResponse;
 import com.homerun.domain.member.dto.response.MemberProfileResponse;
 import com.homerun.domain.member.entity.Member;
 import com.homerun.domain.member.repository.MemberRepository;
@@ -38,6 +40,18 @@ public class MemberService {
         Member member = findActiveMember(memberId);
         refreshTokenService.revokeAll(memberId);
         member.withdraw();
+    }
+
+    @Transactional(readOnly = true)
+    public DiagnosisProfileResponse getDiagnosisProfile(Long memberId) {
+        return DiagnosisProfileResponse.from(findActiveMember(memberId));
+    }
+
+    @Transactional
+    public DiagnosisProfileResponse updateDiagnosisProfile(Long memberId, UpdateDiagnosisProfileRequest request) {
+        Member member = findActiveMember(memberId);
+        member.updateDiagnosisProfile(request.birthDate(), request.militaryMonths());
+        return DiagnosisProfileResponse.from(member);
     }
 
     private Member findActiveMember(Long memberId) {
