@@ -18,4 +18,11 @@ public record RuleCondition(
         String op,
         Object value,
         @JsonProperty("fact_code") String factCode,
-        @JsonProperty("adjust_field") String adjustField) {}
+        @JsonProperty("adjust_field") String adjustField,
+        @JsonProperty("alt_fact_code") String altFactCode) {
+
+    /** alt_fact_code 없는 대부분의 조건(기존 rule_json 전부)을 위한 편의 생성자. */
+    public RuleCondition(String code, String field, String op, Object value, String factCode, String adjustField) {
+        this(code, field, op, value, factCode, adjustField, null);
+    }
+}

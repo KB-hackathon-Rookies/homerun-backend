@@ -53,6 +53,8 @@ public class JeonsePolicyVerdictService {
     private static final List<String> RETURN_GUARANTEE_POLICY_CODES =
             List.of("RETURN-GUARANTEE-HUG", "RETURN-GUARANTEE-HF", "RETURN-GUARANTEE-SGI");
 
+    private static final List<String> GUARANTEE_FEE_SUPPORT_POLICY_CODES = List.of("RETURN-GUARANTEE-FEE-SUPPORT");
+
     /** FAIL 조건 코드 → 대안으로 보여줄 정책 코드. 지금 구현된 4개 정책 범위 안에서만 채운다
      * (#93) — 맵에 없는 조건은 alternative 없이 사유만 남는다. */
     private static final Map<String, String> ALTERNATIVE_POLICY_BY_CONDITION = Map.of(
@@ -131,6 +133,22 @@ public class JeonsePolicyVerdictService {
 
         List<PolicyVerdictResponse> results = RETURN_GUARANTEE_POLICY_CODES.stream()
                 .map(code -> evaluateOne(planId, code, null, property))
+                .toList();
+
+        return new JeonsePolicyVerdictListResponse(planId, results, Instant.now(clock));
+    }
+
+    /** 반환보증료 지원사업(GTE-01-04, #104) 판정. 소득 기준이라 매물이 아니라 plan_input 만
+     * 본다. 기혼(신혼부부 포함)은 혼인 기간 데이터가 없어 항상 NEED_INFO 다. */
+    @Transactional
+    public JeonsePolicyVerdictListResponse evaluateGuaranteeFeeSupport(Long memberId, Long planId) {
+        verifyJeonsePlan(memberId, planId);
+        PlanInput input = planInputRepository
+                .findByPlanId(planId)
+                .orElseThrow(() -> new BusinessException(ErrorCode.PLAN_INPUT_NOT_FOUND));
+
+        List<PolicyVerdictResponse> results = GUARANTEE_FEE_SUPPORT_POLICY_CODES.stream()
+                .map(code -> evaluateOne(planId, code, input, null))
                 .toList();
 
         return new JeonsePolicyVerdictListResponse(planId, results, Instant.now(clock));
