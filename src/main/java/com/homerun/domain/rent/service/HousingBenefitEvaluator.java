@@ -1,5 +1,6 @@
 package com.homerun.domain.rent.service;
 
+import com.homerun.domain.fact.model.Fact;
 import com.homerun.domain.fact.service.FactRegistry;
 import com.homerun.domain.rent.dto.request.HousingBenefitRequest;
 import com.homerun.domain.rent.dto.response.HousingBenefitResult;
@@ -15,21 +16,34 @@ import org.springframework.stereotype.Service;
  * <p>지급액은 기준임대료를 상한으로 실제 임차료까지만 나온다. 소득인정액에 따른 자기부담분
  * 차감식은 공식 근거를 확보하지 못해 넣지 않았다. 상한까지만 안내하고 정확한 금액은
  * 신청기관에서 확인하도록 한다.
+ *
+ * <p>#42: 7인 이상 가구까지 다룬다. 10인 이상(2인 증가마다 추가 10% 가산)은 여전히
+ * NEEDS_CHECK — 이번 범위 밖이다.
  */
 @Service
 public class HousingBenefitEvaluator {
 
-    /** 1인가구 소득인정액 기준. 다인 가구 기준은 아직 팩트 레지스트리에 없다. */
-    private static final String SINGLE_INCOME_THRESHOLD = "FCT-039";
+    /** 가구원 수별 소득인정액 선정 기준. 8인 이상은 아직 팩트 레지스트리에 없다(#42). */
+    private static final Map<Integer, String> INCOME_THRESHOLD = Map.ofEntries(
+            Map.entry(1, "FCT-039"),
+            Map.entry(2, "FCT-184"),
+            Map.entry(3, "FCT-185"),
+            Map.entry(4, "FCT-186"),
+            Map.entry(5, "FCT-187"),
+            Map.entry(6, "FCT-188"),
+            Map.entry(7, "FCT-189"));
 
-    /** 서울 기준임대료. 가구원 수별로 코드가 다르다. */
-    private static final Map<Integer, String> SEOUL_RENT_CEILING = Map.of(
-            1, "FCT-040",
-            2, "FCT-151",
-            3, "FCT-152",
-            4, "FCT-153",
-            5, "FCT-154",
-            6, "FCT-155");
+    /** 서울 기준임대료. 가구원 수별로 코드가 다르다. 10인 이상은 아직 없다(#42). */
+    private static final Map<Integer, String> SEOUL_RENT_CEILING = Map.ofEntries(
+            Map.entry(1, "FCT-040"),
+            Map.entry(2, "FCT-151"),
+            Map.entry(3, "FCT-152"),
+            Map.entry(4, "FCT-153"),
+            Map.entry(5, "FCT-154"),
+            Map.entry(6, "FCT-155"),
+            Map.entry(7, "FCT-190"),
+            Map.entry(8, "FCT-191"),
+            Map.entry(9, "FCT-191"));
 
     private static final int YOUTH_MIN_AGE = 19;
     private static final int YOUTH_MAX_AGE_EXCLUSIVE = 30;
@@ -46,11 +60,13 @@ public class HousingBenefitEvaluator {
         String ceilingCode = SEOUL_RENT_CEILING.get(request.householdSize());
         if (ceilingCode == null) {
             reasons.add("가구원 %d인의 서울 기준임대료가 아직 확보되지 않았다".formatted(request.householdSize()));
-            return new HousingBenefitResult(Verdict.NEEDS_CHECK, false, 0, 0, reasons);
+            return new HousingBenefitResult(Verdict.NEEDS_CHECK, false, 0, 0, false, reasons);
         }
 
-        long ceiling = facts.won(ceilingCode);
-        Verdict verdict = judgeIncome(request, reasons);
+        Fact ceilingFact = facts.require(ceilingCode);
+        long ceiling = ceilingFact.requireWon();
+        IncomeJudgement income = judgeIncome(request, reasons);
+        Verdict verdict = income.verdict();
 
         // 대상이 아닌데 금액을 보여주면 받을 수 있는 것으로 읽힌다.
         long benefitCeiling = verdict == Verdict.INELIGIBLE ? 0 : Math.min(ceiling, request.monthlyRent());
@@ -64,26 +80,36 @@ public class HousingBenefitEvaluator {
             reasons.add("실제 지급액은 소득인정액에 따라 자기부담분이 빠진다. 정확한 금액은 신청기관에서 확인한다");
         }
 
-        return new HousingBenefitResult(verdict, youth, ceiling, benefitCeiling, reasons);
+        boolean provisional = ceilingFact.provisional() || income.provisional();
+        if (provisional) {
+            reasons.add("일부 기준값은 아직 고시 원문으로 확정되지 않아 바뀔 수 있다");
+        }
+
+        return new HousingBenefitResult(verdict, youth, ceiling, benefitCeiling, provisional, reasons);
     }
+
+    /** 판정 결과와, 그 판정에 쓴 기준값이 REVIEW 등급이라 바뀔 수 있는지를 함께 담는다. */
+    private record IncomeJudgement(Verdict verdict, boolean provisional) {}
 
     /**
      * 소득인정액이 선정 기준 이하인지 본다.
      *
-     * <p>1인가구 기준만 확보돼 있다. 다인 가구는 불가로 단정하지 않고 추가확인으로 넘긴다.
+     * <p>7인까지 기준이 확보돼 있다(#42). 8인 이상은 불가로 단정하지 않고 추가확인으로 넘긴다.
      */
-    private Verdict judgeIncome(HousingBenefitRequest request, List<String> reasons) {
-        if (request.householdSize() > 1) {
+    private IncomeJudgement judgeIncome(HousingBenefitRequest request, List<String> reasons) {
+        String thresholdCode = INCOME_THRESHOLD.get(request.householdSize());
+        if (thresholdCode == null) {
             reasons.add("%d인 가구의 소득인정액 선정 기준이 아직 없어 확인이 필요하다".formatted(request.householdSize()));
-            return Verdict.NEEDS_CHECK;
+            return new IncomeJudgement(Verdict.NEEDS_CHECK, false);
         }
-        long threshold = facts.won(SINGLE_INCOME_THRESHOLD);
+        Fact thresholdFact = facts.require(thresholdCode);
+        long threshold = thresholdFact.requireWon();
         if (request.recognizedIncome() <= threshold) {
-            reasons.add("소득인정액이 1인가구 선정 기준 %,d원 이하다".formatted(threshold));
-            return Verdict.ELIGIBLE;
+            reasons.add("소득인정액이 %d인가구 선정 기준 %,d원 이하다".formatted(request.householdSize(), threshold));
+            return new IncomeJudgement(Verdict.ELIGIBLE, thresholdFact.provisional());
         }
-        reasons.add("소득인정액이 1인가구 선정 기준 %,d원을 넘는다".formatted(threshold));
-        return Verdict.INELIGIBLE;
+        reasons.add("소득인정액이 %d인가구 선정 기준 %,d원을 넘는다".formatted(request.householdSize(), threshold));
+        return new IncomeJudgement(Verdict.INELIGIBLE, thresholdFact.provisional());
     }
 
     /**
