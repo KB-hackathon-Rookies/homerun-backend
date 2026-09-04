@@ -13,6 +13,7 @@ import com.homerun.domain.plan.entity.PlanInput;
 import com.homerun.domain.policy.model.ConditionResult;
 import com.homerun.domain.policy.model.RuleCondition;
 import com.homerun.domain.policy.model.RuleDocument;
+import com.homerun.domain.property.entity.Property;
 import java.math.BigDecimal;
 import java.time.Clock;
 import java.time.Instant;
@@ -133,6 +134,70 @@ class PolicyRuleEngineTest {
         // 캡이 없다면 true 가 나와야 정상인데(2027-09-04 까지 유효), 캡을 걸면 2026-09-04 에서
         // 끊겨 오늘(clock)에 이미 불충족이다.
         assertThat(results.get(0).isMet()).isFalse();
+    }
+
+    @Test
+    void should_beMet_when_depositIsExactlyAtPriceRatioThreshold() {
+        when(facts.require("FCT-054")).thenReturn(fact("FCT-054", "1.26"));
+        // 공시가 5억 × 1.26 = 6억 3천 = 보증금과 정확히 같음 → <= 조건이라 충족.
+        RuleDocument document = priceRatioDocument();
+        PlanInput input = input(null, null, null, null, null);
+        Property property = property(630_000_000L, 500_000_000L);
+
+        List<ConditionResult> results = engine.evaluate(document, input, property);
+
+        assertThat(results.get(0).isMet()).isTrue();
+    }
+
+    @Test
+    void should_beNotMet_when_depositExceedsPriceRatioThresholdByOneWon() {
+        when(facts.require("FCT-054")).thenReturn(fact("FCT-054", "1.26"));
+        RuleDocument document = priceRatioDocument();
+        PlanInput input = input(null, null, null, null, null);
+        Property property = property(630_000_001L, 500_000_000L);
+
+        List<ConditionResult> results = engine.evaluate(document, input, property);
+
+        assertThat(results.get(0).isMet()).isFalse();
+    }
+
+    @Test
+    void should_returnNeedInfo_when_propertyIsAbsentForPropertyBasedCondition() {
+        RuleDocument document = priceRatioDocument();
+        PlanInput input = input(null, null, null, null, null);
+
+        // 2-arg evaluate 는 property 를 아예 안 넘긴다 — plan_input 전용 정책이 property
+        // 조건을 잘못 참조해도 NEED_INFO 로 안전하게 떨어져야 한다.
+        List<ConditionResult> results = engine.evaluate(document, input);
+
+        assertThat(results.get(0).isMet()).isNull();
+    }
+
+    private RuleDocument priceRatioDocument() {
+        return new RuleDocument(
+                "AND",
+                List.of(new RuleCondition(
+                        "PRICE_RATIO_126", "official_price", "deposit_lte_price_times_fact", null, "FCT-054", null)));
+    }
+
+    private Property property(long deposit, long officialPrice) {
+        return Property.candidate(
+                PLAN_ID,
+                null,
+                null,
+                null,
+                null,
+                null,
+                deposit,
+                null,
+                officialPrice,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null);
     }
 
     private RuleDocument ageDocument() {
