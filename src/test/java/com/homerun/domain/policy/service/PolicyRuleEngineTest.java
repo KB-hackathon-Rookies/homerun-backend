@@ -10,6 +10,7 @@ import com.homerun.domain.fact.service.FactRegistry;
 import com.homerun.domain.fact.type.Confidence;
 import com.homerun.domain.plan.dto.request.PlanInputRequest;
 import com.homerun.domain.plan.entity.PlanInput;
+import com.homerun.domain.plan.type.EmploymentType;
 import com.homerun.domain.plan.type.MaritalStatus;
 import com.homerun.domain.policy.model.AmountSpec;
 import com.homerun.domain.policy.model.ConditionResult;
@@ -389,6 +390,152 @@ class PolicyRuleEngineTest {
                         null,
                         null,
                         birthDate,
+                        null,
+                        monthlyIncome,
+                        null,
+                        null,
+                        null,
+                        null,
+                        null,
+                        true,
+                        Set.of()));
+    }
+
+    @Test
+    void should_beEligible_when_exactlyOnMinAgeBirthday() {
+        when(facts.require("FCT-179")).thenReturn(fact("FCT-179", "19"));
+        when(facts.require("FCT-180")).thenReturn(fact("FCT-180", "34"));
+        // 2007-09-04 생일 → 오늘(clock)이 정확히 만 19세 생일 당일 → 하한 충족(포함).
+        RuleDocument document = ageRangeDocument();
+        PlanInput input = input(null, null, null, LocalDate.of(2007, 9, 4), 0);
+
+        List<ConditionResult> results = engine.evaluate(document, input);
+
+        assertThat(results.get(0).isMet()).isTrue();
+    }
+
+    @Test
+    void should_beIneligible_when_oneDayBeforeMinAgeBirthday() {
+        when(facts.require("FCT-179")).thenReturn(fact("FCT-179", "19"));
+        when(facts.require("FCT-180")).thenReturn(fact("FCT-180", "34"));
+        // 2007-09-05 생일 → 만 19세 생일 하루 전(clock 기준) → 아직 하한 미달.
+        RuleDocument document = ageRangeDocument();
+        PlanInput input = input(null, null, null, LocalDate.of(2007, 9, 5), 0);
+
+        List<ConditionResult> results = engine.evaluate(document, input);
+
+        assertThat(results.get(0).isMet()).isFalse();
+    }
+
+    @Test
+    void should_beIneligible_when_exactlyOnMaxAgeCutoffDate() {
+        when(facts.require("FCT-179")).thenReturn(fact("FCT-179", "19"));
+        when(facts.require("FCT-180")).thenReturn(fact("FCT-180", "34"));
+        // 1991-09-04 생일 → 오늘이 정확히 만 35세 생일 당일 → 상한(34세) 초과.
+        RuleDocument document = ageRangeDocument();
+        PlanInput input = input(null, null, null, LocalDate.of(1991, 9, 4), 0);
+
+        List<ConditionResult> results = engine.evaluate(document, input);
+
+        assertThat(results.get(0).isMet()).isFalse();
+    }
+
+    @Test
+    void should_extendMaxAge_when_militaryMonthsAdjust() {
+        when(facts.require("FCT-179")).thenReturn(fact("FCT-179", "19"));
+        when(facts.require("FCT-180")).thenReturn(fact("FCT-180", "34"));
+        // 1991-09-04 생일(캡 없으면 오늘 불충족) + 병역 12개월 → 상한이 1년 늘어 2027-09-04까지
+        // 유효 → 오늘(clock) 기준 충족으로 바뀐다.
+        RuleDocument document = ageRangeDocument();
+        PlanInput input = input(null, null, null, LocalDate.of(1991, 9, 4), 12);
+
+        List<ConditionResult> results = engine.evaluate(document, input);
+
+        assertThat(results.get(0).isMet()).isTrue();
+    }
+
+    private RuleDocument ageRangeDocument() {
+        return new RuleDocument(
+                "AND",
+                List.of(new RuleCondition(
+                        "AGE_RANGE",
+                        "birth_date",
+                        "age_range_adjusted",
+                        null,
+                        "FCT-179",
+                        "military_months",
+                        "FCT-180")));
+    }
+
+    @Test
+    void should_useSalariedFactCode_when_fullTimeEmployee() {
+        when(facts.require("FCT-181")).thenReturn(fact("FCT-181", "75000000"));
+        RuleDocument document = employmentIncomeDocument();
+        PlanInput input = employmentInput(EmploymentType.FULL_TIME, 5_000_000L);
+
+        List<ConditionResult> results = engine.evaluate(document, input);
+
+        assertThat(results.get(0).isMet()).isTrue(); // 연 6000만 <= 7500만
+        assertThat(results.get(0).factCode()).isEqualTo("FCT-181");
+    }
+
+    @Test
+    void should_useCompositeIncomeFactCode_when_freelancer() {
+        when(facts.require("FCT-182")).thenReturn(fact("FCT-182", "63000000"));
+        RuleDocument document = employmentIncomeDocument();
+        // 연 6600만 > 종합소득 상한 6300만 → FAIL. 급여소득자 상한(7500만)과 헷갈렸다면
+        // FCT-181 을 찾다가 스텁이 없어 NEED_INFO 로 잘못 떨어졌을 것이다.
+        PlanInput input = employmentInput(EmploymentType.FREELANCER, 5_500_000L);
+
+        List<ConditionResult> results = engine.evaluate(document, input);
+
+        assertThat(results.get(0).isMet()).isFalse();
+        assertThat(results.get(0).factCode()).isEqualTo("FCT-182");
+    }
+
+    @Test
+    void should_returnNeedInfo_when_unemployed() {
+        RuleDocument document = employmentIncomeDocument();
+        PlanInput input = employmentInput(EmploymentType.UNEMPLOYED, 0L);
+
+        List<ConditionResult> results = engine.evaluate(document, input);
+
+        assertThat(results.get(0).isMet()).isNull();
+    }
+
+    private RuleDocument employmentIncomeDocument() {
+        return new RuleDocument(
+                "AND",
+                List.of(new RuleCondition(
+                        "INCOME_CAP_BY_EMPLOYMENT",
+                        "monthly_income",
+                        "annual_lte_by_employment_type",
+                        null,
+                        "FCT-181",
+                        null,
+                        "FCT-182")));
+    }
+
+    private PlanInput employmentInput(EmploymentType employmentType, Long monthlyIncome) {
+        return PlanInput.create(
+                PLAN_ID,
+                new PlanInputRequest(
+                        null,
+                        null,
+                        null,
+                        null,
+                        null,
+                        null,
+                        null,
+                        null,
+                        null,
+                        null,
+                        null,
+                        employmentType,
+                        null,
+                        null,
+                        null,
+                        null,
                         null,
                         monthlyIncome,
                         null,
