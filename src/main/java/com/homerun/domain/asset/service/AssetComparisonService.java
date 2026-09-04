@@ -23,11 +23,11 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 /**
- * 노후자산(IRP·주택청약)을 깨서 보증금을 만드는 선택을 금액으로 비교한다(AST-01).
+ * 노후자산(IRP·주택청약·청년적금)을 깨서 보증금을 만드는 선택을 금액으로 비교한다(AST-01).
  *
- * <p>IRP는 세율이 팩트로 확정돼 있어(FCT-078) 세금·실수령액까지 계산한다. 주택청약은 추징액을
- * 계산하려면 과거 납입액·가입연수가 있어야 하는데 어디서도 그 값을 안 걷고 있어서, 세금 관련
- * 컬럼은 비우고 사실 문장(FCT-080~082)만 안내한다 — 없는 값을 0으로 채우면 "손해가 없다"는
+ * <p>IRP는 세율이 팩트로 확정돼 있어(FCT-078) 세금·실수령액까지 계산한다. 주택청약·청년적금은
+ * 손실액을 계산하려면 과거 납입액·가입연수가 있어야 하는데 어디서도 그 값을 안 걷고 있어서, 세금 관련
+ * 컬럼은 비우고 사실 문장(FCT-080~082, FCT-083~084)만 안내한다 — 없는 값을 0으로 채우면 "손해가 없다"는
  * 잘못된 안내가 된다.
  *
  * <p>대출 이자 비교의 기준 금리는 청년버팀목(FCT-172/173)을 쓴다. 레지스트리에 '일반 전세대출
@@ -60,9 +60,12 @@ public class AssetComparisonService {
     }
 
     private AssetComparisonResult compareOne(Long planId, AssetComparisonRequest.Entry entry) {
-        AssetComparisonResult result = entry.assetType() == AssetType.IRP
-                ? compareIrp(entry.withdrawAmount())
-                : compareHousingSubscription(entry.withdrawAmount());
+        AssetComparisonResult result =
+                switch (entry.assetType()) {
+                    case IRP -> compareIrp(entry.withdrawAmount());
+                    case HOUSING_SUBSCRIPTION -> compareHousingSubscription(entry.withdrawAmount());
+                    case YOUTH_SAVINGS -> compareYouthSavings(entry.withdrawAmount());
+                };
 
         assetOptionRepository.save(AssetOption.create(
                 planId,
@@ -108,6 +111,31 @@ public class AssetComparisonService {
 
         return new AssetComparisonResult(
                 AssetType.HOUSING_SUBSCRIPTION,
+                withdrawAmount,
+                null,
+                null,
+                null,
+                comparedLoanInterest(withdrawAmount, "FCT-172"),
+                comparedLoanInterest(withdrawAmount, "FCT-173"),
+                false,
+                notes);
+    }
+
+    /**
+     * AST-01-06. 청년미래적금 일반 중도해지 시 정부기여금·비과세를 잃는다(FCT-083). 손실액은
+     * 그동안 몇 개월 얼마씩 냈는지에 달려 있는데 그 이력을 이 서비스가 안 걷어서, 주택청약과
+     * 같은 이유로 금액을 계산하지 않고 사실 문장만 안내한다.
+     */
+    private AssetComparisonResult compareYouthSavings(Long withdrawAmount) {
+        List<String> notes = new ArrayList<>();
+        resolveFact("FCT-083").map(Fact::text).ifPresent(text -> notes.add("일반 중도해지: " + text + "."));
+        resolveFact("FCT-084")
+                .map(Fact::text)
+                .ifPresent(text -> notes.add("특별중도해지 유지 조건: " + text + " — 전세보증금 마련은 여기 해당하지 않습니다."));
+        notes.add("정부기여금 손실액은 그동안의 납입 개월수·금액에 따라 달라 여기서 계산하지 않습니다. 은행 안내를 확인하세요.");
+
+        return new AssetComparisonResult(
+                AssetType.YOUTH_SAVINGS,
                 withdrawAmount,
                 null,
                 null,
