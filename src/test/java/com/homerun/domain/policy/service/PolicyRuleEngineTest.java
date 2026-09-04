@@ -41,7 +41,8 @@ class PolicyRuleEngineTest {
     private static final Clock CLOCK = Clock.fixed(Instant.parse("2026-09-04T00:00:00Z"), ZoneOffset.UTC);
 
     private final FactRegistry facts = mock(FactRegistry.class);
-    private final PolicyRuleEngine engine = new PolicyRuleEngine(facts, CLOCK);
+    private final PolicyRuleEngine engine =
+            new PolicyRuleEngine(facts, CLOCK, mock(com.homerun.domain.region.service.PolicyRegionResolver.class));
 
     @Test
     void should_returnAllMet_when_everyConditionSatisfied() {

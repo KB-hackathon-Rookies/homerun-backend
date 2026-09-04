@@ -62,6 +62,8 @@ class JeonseLoanCardsTest {
                 code,
                 code,
                 verdict,
+                1,
+                List.of(),
                 List.of(),
                 List.of(),
                 verdict == PolicyVerdictResult.FAIL
