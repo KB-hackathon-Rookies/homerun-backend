@@ -8,6 +8,7 @@ import com.homerun.domain.plan.entity.PlanInput;
 import com.homerun.domain.policy.model.ConditionResult;
 import com.homerun.domain.policy.model.RuleCondition;
 import com.homerun.domain.policy.model.RuleDocument;
+import com.homerun.domain.property.entity.Property;
 import java.math.BigDecimal;
 import java.time.Clock;
 import java.time.LocalDate;
@@ -21,7 +22,9 @@ import org.springframework.stereotype.Service;
  * {@code policy_rule.rule_json} 조건식을 읽어 {@code plan_input} 과 대조하는 인터프리터.
  *
  * <p>모르는 {@code op} 나 못 구한 팩트는 전부 NEED_INFO 로 떨어뜨린다 — 여기서 기본값을 채워
- * 넘기면 그게 곧 틀린 안내다(NFR-01-06). v1 은 {@code plan_input} 기반 조건만 다룬다.
+ * 넘기면 그게 곧 틀린 안내다(NFR-01-06). {@code plan_input} 기반 조건이 기본이고, 매물별
+ * 조건(반환보증 공시가격 룰 등)은 {@link #evaluate(RuleDocument, PlanInput, Property)} 로
+ * property 를 함께 넘겨야 풀린다(#89).
  */
 @Service
 public class PolicyRuleEngine {
@@ -41,15 +44,21 @@ public class PolicyRuleEngine {
         this.clock = clock;
     }
 
+    /** plan_input 기반 조건만 쓰는 정책(청년/일반 버팀목, 서울시 이자지원)용. */
     public List<ConditionResult> evaluate(RuleDocument document, PlanInput input) {
+        return evaluate(document, input, null);
+    }
+
+    /** property 기반 조건(반환보증 공시가격 룰 등)까지 쓸 때는 property 를 함께 넘긴다. */
+    public List<ConditionResult> evaluate(RuleDocument document, PlanInput input, Property property) {
         List<ConditionResult> results = new ArrayList<>();
         for (RuleCondition condition : document.conditions()) {
-            results.add(evaluateOne(condition, input));
+            results.add(evaluateOne(condition, input, property));
         }
         return results;
     }
 
-    private ConditionResult evaluateOne(RuleCondition condition, PlanInput input) {
+    private ConditionResult evaluateOne(RuleCondition condition, PlanInput input, Property property) {
         return switch (condition.op()) {
             case "eq" -> equalityCheck(condition, input, true);
             case "ne" -> equalityCheck(condition, input, false);
@@ -57,6 +66,7 @@ public class PolicyRuleEngine {
             case "gte" -> numericCheck(condition, input, true);
             case "annual_lte" -> annualIncomeCheck(condition, input);
             case "age_within_years_adjusted" -> ageWithinYearsAdjusted(condition, input);
+            case "deposit_lte_price_times_fact" -> depositWithinPriceRatio(condition, property);
             default -> needInfo(condition, "이 조건은 자동판정 대상이 아닙니다. 원문을 직접 확인해야 합니다.");
         };
     }
@@ -105,7 +115,7 @@ public class PolicyRuleEngine {
      * 상한을 만 40세 생일 전까지로 못박아서, 복무기간이 길어도 그 이상은 인정하지 않는다.
      */
     private ConditionResult ageWithinYearsAdjusted(RuleCondition condition, PlanInput input) {
-        LocalDate birthDate = input.getBirthDate();
+        LocalDate birthDate = input == null ? null : input.getBirthDate();
         if (birthDate == null) {
             return needInfo(condition, null);
         }
@@ -126,8 +136,27 @@ public class PolicyRuleEngine {
         return met(condition, pass, fact.get());
     }
 
+    /**
+     * FCT-054 (공시가 126% 룰: 전세보증금 ≤ 공시가격 × 1.26). plan_input 이 아니라 매물의
+     * {@code deposit}/{@code official_price} 를 쓴다 — 계약 전 특정 매물을 검증하는 조건이라
+     * {@code field} 값과 무관하게 이 op 자체가 무엇을 비교할지 고정돼 있다.
+     */
+    private ConditionResult depositWithinPriceRatio(RuleCondition condition, Property property) {
+        if (property == null || property.getDeposit() == null || property.getOfficialPrice() == null) {
+            return needInfo(condition, null);
+        }
+        Optional<Fact> fact = resolveFact(condition.factCode());
+        if (fact.isEmpty()) {
+            return needInfo(condition, null);
+        }
+        BigDecimal threshold = BigDecimal.valueOf(property.getOfficialPrice())
+                .multiply(fact.get().requireNumber());
+        boolean pass = BigDecimal.valueOf(property.getDeposit()).compareTo(threshold) <= 0;
+        return met(condition, pass, fact.get());
+    }
+
     private Object resolveField(String field, PlanInput input) {
-        if (field == null) {
+        if (field == null || input == null) {
             return null;
         }
         return switch (field) {
@@ -146,7 +175,7 @@ public class PolicyRuleEngine {
             return Optional.empty();
         }
         try {
-            return Optional.of(facts.require(factCode));
+            return Optional.ofNullable(facts.require(factCode));
         } catch (FactNotFoundException | UnusableFactException e) {
             return Optional.empty();
         }

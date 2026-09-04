@@ -147,6 +147,10 @@ public class Property {
         return deposit;
     }
 
+    public Long getOfficialPrice() {
+        return officialPrice;
+    }
+
     public boolean isSelected() {
         return selected;
     }
