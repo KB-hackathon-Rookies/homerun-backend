@@ -69,7 +69,9 @@ public enum ErrorCode {
     UNKNOWN_FIELD_HAS_VALUE(HttpStatus.BAD_REQUEST, "PLAN_010", "모름 처리한 필드에는 값을 함께 저장할 수 없습니다."),
     PLAN_STAGE_LOCKED(HttpStatus.CONFLICT, "PLAN_011", "아직 진입할 수 없는 계획 단계입니다."),
     PLAN_REGION_NOT_FOUND(HttpStatus.BAD_REQUEST, "PLAN_012", "존재하지 않는 지역입니다."),
-    JEONSE_PLAN_REQUIRED(HttpStatus.BAD_REQUEST, "PLAN_013", "전세 또는 반전세 계획에서만 대출 진단을 이용할 수 있습니다."),
+    PLAN_REQUIRED_INPUT_MISSING(HttpStatus.BAD_REQUEST, "PLAN_013", "단계 완료에 필요한 입력을 확인해 주세요."),
+
+    JEONSE_PLAN_REQUIRED(HttpStatus.BAD_REQUEST, "LOAN_001", "전세 또는 반전세 계획에서만 대출 진단을 이용할 수 있습니다."),
 
     HOUSEHOLD_MEMBER_NOT_FOUND(HttpStatus.NOT_FOUND, "FAM_001", "가구원을 찾을 수 없습니다."),
     CONSENT_NOT_FOUND(HttpStatus.NOT_FOUND, "FAM_002", "동의 건을 찾을 수 없습니다."),

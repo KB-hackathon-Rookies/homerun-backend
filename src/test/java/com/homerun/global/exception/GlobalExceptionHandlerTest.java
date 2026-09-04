@@ -5,8 +5,10 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
+import com.homerun.global.response.FieldErrorDetail;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotBlank;
+import java.util.List;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.http.MediaType;
@@ -50,6 +52,16 @@ class GlobalExceptionHandlerTest {
     }
 
     @Test
+    void should_returnFieldErrors_when_stepCompletionInputIsMissing() throws Exception {
+        mockMvc.perform(get("/test/field-validation"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value("PLAN_013"))
+                .andExpect(jsonPath("$.message").value("단계 완료에 필요한 입력을 확인해 주세요."))
+                .andExpect(jsonPath("$.fieldErrors[0].field").value("monthlyRent"))
+                .andExpect(jsonPath("$.fieldErrors[0].message").value("값을 입력하거나 모름으로 표시해 주세요."));
+    }
+
+    @Test
     void should_returnBadRequest_when_jsonIsMalformed() throws Exception {
         mockMvc.perform(post("/test/validation")
                         .contentType(MediaType.APPLICATION_JSON)
@@ -76,6 +88,13 @@ class GlobalExceptionHandlerTest {
         @GetMapping("/business")
         void business() {
             throw new BusinessException(ErrorCode.RULE_VERSION_MISMATCH);
+        }
+
+        @GetMapping("/field-validation")
+        void fieldValidation() {
+            throw new FieldValidationException(
+                    ErrorCode.PLAN_REQUIRED_INPUT_MISSING,
+                    List.of(new FieldErrorDetail("monthlyRent", "값을 입력하거나 모름으로 표시해 주세요.")));
         }
 
         @GetMapping("/unknown")

@@ -2,6 +2,7 @@ package com.homerun.domain.plan.service;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.when;
 
 import com.homerun.domain.dashboard.repository.DeadlineRepository;
@@ -20,8 +21,11 @@ import com.homerun.domain.plan.type.PlanGate;
 import com.homerun.domain.plan.type.PlanStage;
 import com.homerun.domain.plan.type.PlanStatus;
 import com.homerun.domain.plan.type.PlanStepStatus;
+import com.homerun.domain.plan.validation.PlanInputCompletionValidator;
 import com.homerun.global.exception.BusinessException;
 import com.homerun.global.exception.ErrorCode;
+import com.homerun.global.exception.FieldValidationException;
+import com.homerun.global.response.FieldErrorDetail;
 import java.time.LocalDate;
 import java.util.List;
 import java.util.Optional;
@@ -49,6 +53,9 @@ class PlanServiceTest {
     @Mock
     private DeadlineRepository deadlineRepository;
 
+    @Mock
+    private PlanInputCompletionValidator inputCompletionValidator;
+
     private PlanService planService;
     private Plan plan;
     private List<PlanStep> steps;
@@ -60,7 +67,8 @@ class PlanServiceTest {
                 planStepRepository,
                 stepTaskRepository,
                 deadlineRepository,
-                new PlanStageTransitionPolicy());
+                new PlanStageTransitionPolicy(),
+                inputCompletionValidator);
         plan = Plan.create(MEMBER_ID, LeaseType.JEONSE, LocalDate.of(2027, 2, 1));
         steps = PlanStep.defaultSteps(PLAN_ID);
     }
@@ -99,6 +107,27 @@ class PlanServiceTest {
                 .isInstanceOfSatisfying(
                         BusinessException.class,
                         exception -> assertThat(exception.errorCode()).isEqualTo(ErrorCode.RULE_VERSION_MISMATCH));
+    }
+
+    @Test
+    void should_keepDiagnosisOpen_when_requiredInputIsMissing() {
+        givenPlanOwnedByMember();
+        completeGate("BENCH_ONBOARDING");
+        doThrow(new FieldValidationException(
+                        ErrorCode.PLAN_REQUIRED_INPUT_MISSING,
+                        List.of(new FieldErrorDetail("monthlyRent", "값을 입력하거나 모름으로 표시해 주세요."))))
+                .when(inputCompletionValidator)
+                .validate(PLAN_ID, PlanGate.FIRST_DIAGNOSIS);
+
+        assertThatThrownBy(() -> completeGate("FIRST_DIAGNOSIS"))
+                .isInstanceOfSatisfying(
+                        FieldValidationException.class,
+                        exception -> assertThat(exception.fieldErrors())
+                                .extracting(FieldErrorDetail::field)
+                                .containsExactly("monthlyRent"));
+
+        assertThat(plan.getStage()).isEqualTo(PlanStage.FIRST);
+        assertThat(steps.get(1).getStatus()).isEqualTo(PlanStepStatus.READY);
     }
 
     @Test
