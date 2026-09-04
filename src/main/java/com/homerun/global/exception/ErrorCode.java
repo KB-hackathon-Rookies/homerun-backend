@@ -74,8 +74,6 @@ public enum ErrorCode {
     INVALID_TASK_STATUS_TRANSITION(HttpStatus.CONFLICT, "PLAN_015", "변경할 수 없는 할 일 상태입니다."),
     PLAN_TASK_SKIP_NOT_ALLOWED(HttpStatus.CONFLICT, "PLAN_016", "건너뛸 수 없는 할 일입니다."),
 
-    JEONSE_PLAN_REQUIRED(HttpStatus.BAD_REQUEST, "LOAN_001", "전세 또는 반전세 계획에서만 대출 진단을 이용할 수 있습니다."),
-
     POLICY_JEONSE_PLAN_REQUIRED(HttpStatus.BAD_REQUEST, "POLICY_001", "전세 또는 반전세 계획에서만 정책 판정을 이용할 수 있습니다."),
 
     HOUSEHOLD_MEMBER_NOT_FOUND(HttpStatus.NOT_FOUND, "FAM_001", "가구원을 찾을 수 없습니다."),
