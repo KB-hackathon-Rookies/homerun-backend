@@ -70,6 +70,9 @@ public enum ErrorCode {
     PLAN_STAGE_LOCKED(HttpStatus.CONFLICT, "PLAN_011", "아직 진입할 수 없는 계획 단계입니다."),
     PLAN_REGION_NOT_FOUND(HttpStatus.BAD_REQUEST, "PLAN_012", "존재하지 않는 지역입니다."),
     PLAN_REQUIRED_INPUT_MISSING(HttpStatus.BAD_REQUEST, "PLAN_013", "단계 완료에 필요한 입력을 확인해 주세요."),
+    PLAN_TASK_NOT_FOUND(HttpStatus.NOT_FOUND, "PLAN_014", "계획 할 일을 찾을 수 없습니다."),
+    INVALID_TASK_STATUS_TRANSITION(HttpStatus.CONFLICT, "PLAN_015", "변경할 수 없는 할 일 상태입니다."),
+    PLAN_TASK_SKIP_NOT_ALLOWED(HttpStatus.CONFLICT, "PLAN_016", "건너뛸 수 없는 할 일입니다."),
 
     JEONSE_PLAN_REQUIRED(HttpStatus.BAD_REQUEST, "LOAN_001", "전세 또는 반전세 계획에서만 대출 진단을 이용할 수 있습니다."),
 

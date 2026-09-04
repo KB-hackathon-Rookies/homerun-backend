@@ -10,6 +10,7 @@ import com.homerun.domain.dashboard.type.DeadlineType;
 import com.homerun.domain.plan.entity.Plan;
 import com.homerun.domain.plan.entity.PlanStep;
 import com.homerun.domain.plan.entity.StepTask;
+import com.homerun.domain.plan.policy.StepTaskSkipPolicy;
 import com.homerun.domain.plan.repository.PlanRepository;
 import com.homerun.domain.plan.repository.PlanStepRepository;
 import com.homerun.domain.plan.repository.StepTaskRepository;
@@ -55,18 +56,21 @@ public class DashboardService {
     private final StepTaskRepository stepTaskRepository;
     private final DeadlineRepository deadlineRepository;
     private final Clock clock;
+    private final StepTaskSkipPolicy skipPolicy;
 
     public DashboardService(
             PlanRepository planRepository,
             PlanStepRepository planStepRepository,
             StepTaskRepository stepTaskRepository,
             DeadlineRepository deadlineRepository,
-            Clock clock) {
+            Clock clock,
+            StepTaskSkipPolicy skipPolicy) {
         this.planRepository = planRepository;
         this.planStepRepository = planStepRepository;
         this.stepTaskRepository = stepTaskRepository;
         this.deadlineRepository = deadlineRepository;
         this.clock = clock;
+        this.skipPolicy = skipPolicy;
     }
 
     @Transactional(readOnly = true)
@@ -78,8 +82,13 @@ public class DashboardService {
         Map<Long, PlanStep> stepsById = steps.stream().collect(Collectors.toMap(PlanStep::getId, Function.identity()));
         List<StepTask> tasks = stepTaskRepository.findAllByPlanId(planId);
 
-        int completedTasks = (int) tasks.stream().filter(StepTask::isSettled).count();
-        int totalTasks = tasks.size();
+        List<StepTask> required = tasks.stream()
+                .filter(task -> skipPolicy.isRequired(task.getTaskCode()))
+                .toList();
+        int completedTasks = (int) required.stream()
+                .filter(task -> task.getStatus() == StepTaskStatus.DONE)
+                .count();
+        int totalTasks = required.size();
         int progressPercent = totalTasks == 0 ? 0 : completedTasks * 100 / totalTasks;
 
         Map<Long, Deadline> nearestDeadlines = nearestDeadlines(planId);

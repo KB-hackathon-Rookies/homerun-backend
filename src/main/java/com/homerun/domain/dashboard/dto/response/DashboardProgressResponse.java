@@ -8,6 +8,6 @@ import io.swagger.v3.oas.annotations.media.Schema;
  */
 @Schema(description = "계획 진행률 요약")
 public record DashboardProgressResponse(
-        @Schema(description = "완료했거나 건너뛴 할 일 수") int completedTasks,
-        @Schema(description = "전체 할 일 수") int totalTasks,
+        @Schema(description = "DONE 상태인 필수 작업 수") int completedTasks,
+        @Schema(description = "필수 작업 수 (선택 작업 제외)") int totalTasks,
         @Schema(description = "진행률", example = "40") int progressPercent) {}
