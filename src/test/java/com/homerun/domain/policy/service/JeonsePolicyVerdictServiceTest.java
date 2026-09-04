@@ -31,6 +31,7 @@ import com.homerun.domain.policy.repository.RejectionReasonRepository;
 import com.homerun.domain.policy.repository.VerdictBasisRepository;
 import com.homerun.domain.policy.type.PolicyRuleStatus;
 import com.homerun.domain.policy.type.PolicyVerdictResult;
+import com.homerun.domain.policy.type.RejectionReasonCategory;
 import com.homerun.domain.property.entity.Property;
 import com.homerun.domain.property.repository.PropertyRepository;
 import com.homerun.global.exception.BusinessException;
@@ -221,6 +222,66 @@ class JeonsePolicyVerdictServiceTest {
         RejectionReasonResponse reason =
                 response.results().get(1).rejectionReasons().get(0);
         assertThat(reason.alternativePolicyCode()).isNull();
+    }
+
+    @Test
+    void should_categorizeAsUser_when_failedConditionIsIncomeCap() {
+        // POL-03-10: 소득·자산·연령·세대주 등 사람에 관한 조건은 USER.
+        List<ConditionResult> pass = List.of(new ConditionResult("A", "라벨", "텍스트", true, null, null));
+        List<ConditionResult> failIncomeCap =
+                List.of(new ConditionResult("INCOME_CAP", "소득 기준", "연 5000만 이하", false, "FCT-003", null));
+        when(engine.evaluate(any(), any(), any())).thenReturn(failIncomeCap, pass, pass);
+
+        JeonsePolicyVerdictListResponse response = service.evaluate(MEMBER_ID, PLAN_ID);
+
+        RejectionReasonResponse reason =
+                response.results().get(0).rejectionReasons().get(0);
+        assertThat(reason.category()).isEqualTo(RejectionReasonCategory.USER);
+    }
+
+    @Test
+    void should_categorizeAsHouse_when_failedConditionIsViolationBuilding() {
+        // 매물 자체의 안전성·유형에 관한 조건은 HOUSE.
+        List<ConditionResult> pass = List.of(new ConditionResult("A", "라벨", "텍스트", true, null, null));
+        List<ConditionResult> failHouseCondition =
+                List.of(new ConditionResult("NOT_VIOLATION_BUILDING", "위반건축물 아님", "위반건축물 아님", false, null, null));
+        when(engine.evaluate(any(), any(), any())).thenReturn(failHouseCondition, pass, pass);
+
+        JeonsePolicyVerdictListResponse response = service.evaluate(MEMBER_ID, PLAN_ID);
+
+        RejectionReasonResponse reason =
+                response.results().get(0).rejectionReasons().get(0);
+        assertThat(reason.category()).isEqualTo(RejectionReasonCategory.HOUSE);
+    }
+
+    @Test
+    void should_categorizeAsLimit_when_failedConditionIsDepositCap() {
+        // 상품이 처리 가능한 금액 자체의 상한은 LIMIT — 사람도 집도 아니라 대안이 다르다.
+        List<ConditionResult> pass = List.of(new ConditionResult("A", "라벨", "텍스트", true, null, null));
+        List<ConditionResult> failDepositCap =
+                List.of(new ConditionResult("DEPOSIT_CAP", "임차보증금 상한", "3억원 이하", false, "FCT-175", null));
+        when(engine.evaluate(any(), any(), any())).thenReturn(failDepositCap, pass, pass);
+
+        JeonsePolicyVerdictListResponse response = service.evaluate(MEMBER_ID, PLAN_ID);
+
+        RejectionReasonResponse reason =
+                response.results().get(0).rejectionReasons().get(0);
+        assertThat(reason.category()).isEqualTo(RejectionReasonCategory.LIMIT);
+    }
+
+    @Test
+    void should_haveNoCategory_when_conditionCodeIsUnknown() {
+        // 지어낸 분류를 붙이지 않는다 — 매핑에 없는 코드는 category 가 null 이어야 한다.
+        List<ConditionResult> pass = List.of(new ConditionResult("A", "라벨", "텍스트", true, null, null));
+        List<ConditionResult> failUnknown =
+                List.of(new ConditionResult("SOME_FUTURE_CONDITION", "라벨", "텍스트", false, null, null));
+        when(engine.evaluate(any(), any(), any())).thenReturn(failUnknown, pass, pass);
+
+        JeonsePolicyVerdictListResponse response = service.evaluate(MEMBER_ID, PLAN_ID);
+
+        RejectionReasonResponse reason =
+                response.results().get(0).rejectionReasons().get(0);
+        assertThat(reason.category()).isNull();
     }
 
     @Test
