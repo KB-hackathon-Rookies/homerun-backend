@@ -10,6 +10,7 @@ import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 @RestController
@@ -24,10 +25,15 @@ public class JeonsePolicyVerdictController {
     }
 
     @PostMapping("/evaluate")
-    @Operation(summary = "전세대출 정책 판정", description = "plan_input 기반 조건만 판정한다(청년/일반 버팀목, 서울시 이자지원).")
+    @Operation(
+            summary = "전세대출 정책 판정",
+            description = "청년/일반 버팀목, 서울시 이자지원을 판정한다. propertyId 없이는 사람 조건만 본 예상 판정이고,"
+                    + " propertyId 를 주면 집 조건(위반건축물·다가구)까지 같이 봐서 최종 승인 여부에 가까워진다.")
     public ApiResponse<JeonsePolicyVerdictListResponse> evaluate(
-            @AuthenticationPrincipal MemberPrincipal principal, @PathVariable Long planId) {
-        return ApiResponse.success(service.evaluate(principal.memberId(), planId));
+            @AuthenticationPrincipal MemberPrincipal principal,
+            @PathVariable Long planId,
+            @RequestParam(required = false) Long propertyId) {
+        return ApiResponse.success(service.evaluate(principal.memberId(), planId, propertyId));
     }
 
     @PostMapping("/properties/{propertyId}/return-guarantees/evaluate")

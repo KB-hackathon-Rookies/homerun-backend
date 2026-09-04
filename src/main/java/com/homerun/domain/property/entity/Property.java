@@ -151,6 +151,14 @@ public class Property {
         return officialPrice;
     }
 
+    public Boolean getViolationBuilding() {
+        return violationBuilding;
+    }
+
+    public Boolean getMultiHousehold() {
+        return multiHousehold;
+    }
+
     public boolean isSelected() {
         return selected;
     }

@@ -37,7 +37,9 @@ public class PolicyRuleEngine {
     private static final Map<String, String> STATIC_LABELS = Map.of(
             "HOUSEHOLD_HOMELESS", "세대원 전원 무주택",
             "HOUSEHOLDER_STATUS", "세대주 또는 예비 세대주",
-            "NO_DUPLICATE_LOAN", "기존 전세자금대출 없음");
+            "NO_DUPLICATE_LOAN", "기존 전세자금대출 없음",
+            "NOT_VIOLATION_BUILDING", "위반건축물이 아님",
+            "NOT_MULTI_HOUSEHOLD", "다가구 주택이 아님");
 
     private final FactRegistry facts;
     private final Clock clock;
@@ -139,8 +141,8 @@ public class PolicyRuleEngine {
 
     private ConditionResult evaluateOne(RuleCondition condition, PlanInput input, Property property) {
         return switch (condition.op()) {
-            case "eq" -> equalityCheck(condition, input, true);
-            case "ne" -> equalityCheck(condition, input, false);
+            case "eq" -> equalityCheck(condition, input, property, true);
+            case "ne" -> equalityCheck(condition, input, property, false);
             case "lte" -> numericCheck(condition, input, false);
             case "gte" -> numericCheck(condition, input, true);
             case "annual_lte" -> annualIncomeCheck(condition, input);
@@ -150,8 +152,11 @@ public class PolicyRuleEngine {
         };
     }
 
-    private ConditionResult equalityCheck(RuleCondition condition, PlanInput input, boolean expectEqual) {
-        Object fieldValue = resolveField(condition.field(), input);
+    /** field 가 plan_input 소속인지 property 소속인지는 이름으로만 구분한다 — 이름이 겹치지
+     * 않아서(#100) 조건식에 entity 를 따로 안 적어도 된다. */
+    private ConditionResult equalityCheck(
+            RuleCondition condition, PlanInput input, Property property, boolean expectEqual) {
+        Object fieldValue = resolveField(condition.field(), input, property);
         if (fieldValue == null) {
             return needInfo(condition, null);
         }
@@ -235,16 +240,23 @@ public class PolicyRuleEngine {
     }
 
     private Object resolveField(String field, PlanInput input) {
-        if (field == null || input == null) {
+        return resolveField(field, input, null);
+    }
+
+    /** 매물 조건(위반건축물·다가구 등, #100)과 plan_input 조건을 이름 하나로 같이 찾는다. */
+    private Object resolveField(String field, PlanInput input, Property property) {
+        if (field == null) {
             return null;
         }
         return switch (field) {
-            case "household_homeless" -> input.getHouseholdHomeless();
-            case "householder_status" -> input.getHouseholderStatus();
-            case "has_existing_jeonse_loan" -> input.getExistingJeonseLoan();
-            case "monthly_income" -> input.getMonthlyIncome();
-            case "net_assets" -> input.getNetAssets();
-            case "hope_deposit" -> input.getHopeDeposit();
+            case "household_homeless" -> input == null ? null : input.getHouseholdHomeless();
+            case "householder_status" -> input == null ? null : input.getHouseholderStatus();
+            case "has_existing_jeonse_loan" -> input == null ? null : input.getExistingJeonseLoan();
+            case "monthly_income" -> input == null ? null : input.getMonthlyIncome();
+            case "net_assets" -> input == null ? null : input.getNetAssets();
+            case "hope_deposit" -> input == null ? null : input.getHopeDeposit();
+            case "is_violation_building" -> property == null ? null : property.getViolationBuilding();
+            case "is_multi_household" -> property == null ? null : property.getMultiHousehold();
             default -> null;
         };
     }
