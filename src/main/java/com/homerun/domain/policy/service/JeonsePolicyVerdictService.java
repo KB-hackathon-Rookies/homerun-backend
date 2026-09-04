@@ -7,6 +7,7 @@ import com.homerun.domain.plan.repository.PlanRepository;
 import com.homerun.domain.plan.type.LeaseType;
 import com.homerun.domain.policy.dto.response.ConditionBasisResponse;
 import com.homerun.domain.policy.dto.response.JeonsePolicyVerdictListResponse;
+import com.homerun.domain.policy.dto.response.LoanEstimateResponse;
 import com.homerun.domain.policy.dto.response.PolicyVerdictResponse;
 import com.homerun.domain.policy.dto.response.RejectionReasonResponse;
 import com.homerun.domain.policy.entity.Policy;
@@ -15,6 +16,7 @@ import com.homerun.domain.policy.entity.PolicyVerdict;
 import com.homerun.domain.policy.entity.RejectionReason;
 import com.homerun.domain.policy.entity.VerdictBasis;
 import com.homerun.domain.policy.model.ConditionResult;
+import com.homerun.domain.policy.model.ExpectedEstimate;
 import com.homerun.domain.policy.repository.PolicyRepository;
 import com.homerun.domain.policy.repository.PolicyRuleRepository;
 import com.homerun.domain.policy.repository.PolicyVerdictRepository;
@@ -37,11 +39,8 @@ import org.springframework.transaction.annotation.Transactional;
 /**
  * 전세대출 정책 자격 판정. {@link #evaluate}는 plan_input 기반(청년/일반 버팀목, 서울시 청년
  * 임차보증금 이자지원), {@link #evaluateReturnGuarantees}는 매물 기반(HUG/HF/SGI 반환보증,
- * #89)이다.
- *
- * <p>{@code #80} 의 {@link com.homerun.domain.loan.service.JeonseLoanDiagnosisService} 는
- * 그대로 둔다. 여기는 {@code policy_rule} 기반 새 판정 경로이고, 둘을 언제 합칠지는 별도 결정
- * 사항이다.
+ * #89)이다. 예상 대출액·금리 계산까지 여기서 한다(#95 — 원래 하드코딩 서비스였던
+ * {@code JeonseLoanDiagnosisService}(#80)를 흡수하며 옮겼다. 그 클래스는 삭제됐다).
  */
 @Service
 public class JeonsePolicyVerdictService {
@@ -156,8 +155,11 @@ public class JeonsePolicyVerdictService {
         PolicyVerdictResult verdict = aggregate(conditionResults);
         Long ruleId = activeRule.map(PolicyRule::getId).orElse(null);
         Long propertyId = property == null ? null : property.getId();
+        ExpectedEstimate estimate = activeRule.isEmpty()
+                ? ExpectedEstimate.empty()
+                : engine.estimate(activeRule.get().getRuleJson(), conditionResults, input, verdict);
 
-        PolicyVerdict saved = save(planId, policy.getId(), ruleId, propertyId, verdict, conditionResults);
+        PolicyVerdict saved = save(planId, policy.getId(), ruleId, propertyId, verdict, estimate, conditionResults);
         List<RejectionReasonResponse> rejectionReasons =
                 saveRejectionReasons(saved.getId(), policy.getCode(), verdict, conditionResults);
 
@@ -166,7 +168,8 @@ public class JeonsePolicyVerdictService {
                 policy.getName(),
                 saved.getVerdict(),
                 toBasisResponses(conditionResults),
-                rejectionReasons);
+                rejectionReasons,
+                LoanEstimateResponse.from(estimate));
     }
 
     private PolicyVerdict save(
@@ -175,15 +178,25 @@ public class JeonsePolicyVerdictService {
             Long ruleId,
             Long propertyId,
             PolicyVerdictResult verdict,
+            ExpectedEstimate estimate,
             List<ConditionResult> conditions) {
         PolicyVerdict verdictEntity = policyVerdictRepository
                 .findByPlanIdAndPolicyIdAndRuleId(planId, policyId, ruleId)
                 .map(existing -> {
-                    existing.reevaluate(verdict, propertyId, ENGINE_VERSION);
+                    existing.reevaluate(
+                            verdict, propertyId, estimate.estimatedLoanAmount(), estimate.rateMin(), ENGINE_VERSION);
                     verdictBasisRepository.deleteByVerdictId(existing.getId());
                     return existing;
                 })
-                .orElseGet(() -> PolicyVerdict.create(planId, policyId, ruleId, propertyId, verdict, ENGINE_VERSION));
+                .orElseGet(() -> PolicyVerdict.create(
+                        planId,
+                        policyId,
+                        ruleId,
+                        propertyId,
+                        verdict,
+                        estimate.estimatedLoanAmount(),
+                        estimate.rateMin(),
+                        ENGINE_VERSION));
         PolicyVerdict saved = policyVerdictRepository.save(verdictEntity);
 
         conditions.forEach(condition -> verdictBasisRepository.save(VerdictBasis.create(
