@@ -4,4 +4,8 @@ import com.homerun.domain.policy.type.PolicyVerdictResult;
 import java.util.List;
 
 public record PolicyVerdictResponse(
-        String policyCode, String policyName, PolicyVerdictResult verdict, List<ConditionBasisResponse> basis) {}
+        String policyCode,
+        String policyName,
+        PolicyVerdictResult verdict,
+        List<ConditionBasisResponse> basis,
+        List<RejectionReasonResponse> rejectionReasons) {}
