@@ -7,6 +7,7 @@ import com.homerun.domain.fact.service.FactRegistry;
 import com.homerun.domain.plan.entity.PlanInput;
 import com.homerun.domain.plan.type.EmploymentType;
 import com.homerun.domain.plan.type.MaritalStatus;
+import com.homerun.domain.policy.model.AgeEligibilityGap;
 import com.homerun.domain.policy.model.ConditionResult;
 import com.homerun.domain.policy.model.ExpectedEstimate;
 import com.homerun.domain.policy.model.RuleCondition;
@@ -358,6 +359,31 @@ public class PolicyRuleEngine {
         boolean pass = !tooYoung && today.isBefore(maxDate);
         // 너무 어리면 하한 fact를, 그 외(충족·상한 초과)엔 상한 fact를 근거로 남긴다.
         return met(condition, pass, tooYoung ? minFact.get() : maxFact.get());
+    }
+
+    /**
+     * 나이 하한을 아직 못 채운 조건이면 채우는 예정일을 반환한다(ALT-01-04 재도전 큐 전용).
+     * 판정 자체엔 관여하지 않는다 — 생년월일처럼 확정된 값에서 계산 가능한 미래 날짜만 다룬다.
+     * 소득·자산처럼 언제 바뀔지 알 수 없는 조건은 여기서 다루지 않는다(근거 없는 예측 금지).
+     */
+    public Optional<AgeEligibilityGap> upcomingAgeEligibility(RuleCondition condition, PlanInput input) {
+        if (!"age_range_adjusted".equals(condition.op())) {
+            return Optional.empty();
+        }
+        LocalDate birthDate = input == null ? null : input.getBirthDate();
+        if (birthDate == null) {
+            return Optional.empty();
+        }
+        Optional<Fact> minFact = resolveFact(condition.factCode());
+        if (minFact.isEmpty()) {
+            return Optional.empty();
+        }
+        Fact fact = minFact.get();
+        LocalDate minDate = birthDate.plusYears(fact.requireNumber().intValueExact());
+        if (!LocalDate.now(clock).isBefore(minDate)) {
+            return Optional.empty();
+        }
+        return Optional.of(new AgeEligibilityGap(minDate, fact.item(), fact.sourceUrl()));
     }
 
     /**
