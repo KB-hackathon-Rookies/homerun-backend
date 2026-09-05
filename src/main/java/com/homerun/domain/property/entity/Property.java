@@ -1,11 +1,15 @@
 package com.homerun.domain.property.entity;
 
+import com.homerun.domain.property.type.DataSource;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
+import jakarta.persistence.EnumType;
+import jakarta.persistence.Enumerated;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
 import jakarta.persistence.Table;
+import java.math.BigDecimal;
 import java.time.Instant;
 import java.time.LocalDate;
 
@@ -79,6 +83,29 @@ public class Property {
     @Column(name = "senior_debt_registered_at")
     private LocalDate seniorDebtRegisteredAt;
 
+    @Column(name = "jibun", length = 50)
+    private String jibun;
+
+    /** 동·호수. 집합건물은 여기까지 정확해야 등기부가 맞다(FR-P2-02). */
+    @Column(name = "detail_address", length = 100)
+    private String detailAddress;
+
+    /** 전용면적(㎡). BR-09 의 85㎡ 판정 입력. null 이면 아직 확보하지 못한 것이다. */
+    @Column(name = "exclusive_area", precision = 8, scale = 2)
+    private BigDecimal exclusiveArea;
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "area_source", length = 10)
+    private DataSource areaSource;
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "house_type_source", length = 10)
+    private DataSource houseTypeSource;
+
+    /** 실거래 목록에서 이 집과 일치하는 거래를 찾았는가. */
+    @Column(name = "price_matched")
+    private Boolean priceMatched;
+
     @Column(name = "is_selected", nullable = false)
     private boolean selected;
 
@@ -122,6 +149,50 @@ public class Property {
         property.landlordTaxUnpaid = landlordTaxUnpaid;
         property.analyzedAt = analyzedAt;
         return property;
+    }
+
+    /**
+     * 주소 상세와 조회로 확보한 값을 채운다. 면적을 실거래에서 못 가져왔으면 {@code exclusiveArea}
+     * 가 null 이고 {@code areaSource} 도 null 이다 — 값이 없다는 것과 직접 입력했다는 것을 섞지
+     * 않는다.
+     */
+    public void recordSourcedFacts(
+            String jibun,
+            String detailAddress,
+            BigDecimal exclusiveArea,
+            DataSource areaSource,
+            DataSource houseTypeSource,
+            Boolean priceMatched) {
+        this.jibun = jibun;
+        this.detailAddress = detailAddress;
+        this.exclusiveArea = exclusiveArea;
+        this.areaSource = exclusiveArea == null ? null : areaSource;
+        this.houseTypeSource = houseTypeSource;
+        this.priceMatched = priceMatched;
+    }
+
+    public String getJibun() {
+        return jibun;
+    }
+
+    public String getDetailAddress() {
+        return detailAddress;
+    }
+
+    public BigDecimal getExclusiveArea() {
+        return exclusiveArea;
+    }
+
+    public DataSource getAreaSource() {
+        return areaSource;
+    }
+
+    public DataSource getHouseTypeSource() {
+        return houseTypeSource;
+    }
+
+    public Boolean getPriceMatched() {
+        return priceMatched;
     }
 
     public void recordRegistryRisks(

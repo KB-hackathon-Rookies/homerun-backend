@@ -1,8 +1,10 @@
 package com.homerun.domain.property.dto.response;
 
 import com.homerun.domain.property.entity.Property;
+import com.homerun.domain.property.type.DataSource;
 import com.homerun.domain.property.type.TrafficLight;
 import io.swagger.v3.oas.annotations.media.Schema;
+import java.math.BigDecimal;
 import java.time.Instant;
 
 @Schema(description = "전세 계획의 매물 후보")
@@ -13,6 +15,13 @@ public record PropertyCandidateResponse(
         String buildingName,
         String houseType,
         Long deposit,
+
+        @Schema(description = "전용면적(㎡). 확보하지 못했으면 null — 0이 아니다")
+        BigDecimal exclusiveArea,
+
+        @Schema(description = "전용면적을 어디서 얻었는가. AUTO=실거래 매칭, MANUAL=직접 입력")
+        DataSource areaSource,
+
         boolean selected,
 
         @Schema(description = "2루 매물 카드 상태(FR-P1-02). RED면 대출 상품을 노출하지 않는다")
@@ -31,6 +40,8 @@ public record PropertyCandidateResponse(
                 property.getBuildingName(),
                 property.getHouseType(),
                 property.getDeposit(),
+                property.getExclusiveArea(),
+                property.getAreaSource(),
                 property.isSelected(),
                 trafficLight,
                 trafficLight == null ? null : trafficLight.label(),

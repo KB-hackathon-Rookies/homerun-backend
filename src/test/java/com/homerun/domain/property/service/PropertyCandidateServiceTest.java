@@ -1,8 +1,10 @@
 package com.homerun.domain.property.service;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -18,6 +20,9 @@ import com.homerun.domain.property.dto.response.PropertyVerification;
 import com.homerun.domain.property.entity.Property;
 import com.homerun.domain.property.repository.PropertyRepository;
 import com.homerun.domain.property.type.CheckResult;
+import com.homerun.domain.property.type.DataSource;
+import com.homerun.global.exception.BusinessException;
+import com.homerun.global.exception.ErrorCode;
 import com.homerun.global.external.building.BuildingLedgerResponse;
 import com.homerun.global.external.building.BuildingRegisterResponse;
 import com.homerun.global.external.realestate.HousingType;
@@ -29,6 +34,7 @@ import java.util.Map;
 import java.util.Optional;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.mockito.ArgumentCaptor;
 import org.springframework.test.util.ReflectionTestUtils;
 
 class PropertyCandidateServiceTest {
@@ -74,7 +80,9 @@ class PropertyCandidateServiceTest {
     }
 
     @Test
-    void should_allowSavingCandidate_withoutPlanLimit() {
+    void should_saveCandidate_when_planIsUnderTheFivePropertyCap() {
+        // #179 이전에는 상한이 없었다. 이제 5건 미만이면 저장되고 5건이면 막힌다(FR-P1-03).
+        when(properties.countByPlanId(PLAN_ID)).thenReturn(4L);
         when(houses.analyze(any())).thenReturn(houseAnalysis());
         when(properties.save(any(Property.class))).thenAnswer(invocation -> {
             Property property = invocation.getArgument(0);
@@ -87,6 +95,80 @@ class PropertyCandidateServiceTest {
         assertThat(service.analyzeAndSave(MEMBER_ID, PLAN_ID, request()).propertyId())
                 .isEqualTo(78L);
         verify(houses).analyze(any());
+    }
+
+    @Test
+    void should_rejectSixthCandidate_becauseComparisonCapsAtFive() {
+        when(properties.countByPlanId(PLAN_ID)).thenReturn(5L);
+
+        assertThatThrownBy(() -> service.analyzeAndSave(MEMBER_ID, PLAN_ID, request()))
+                .isInstanceOfSatisfying(
+                        BusinessException.class,
+                        exception -> assertThat(exception.errorCode()).isEqualTo(ErrorCode.PROPERTY_LIMIT_EXCEEDED));
+        // 상한에 걸리면 외부 조회를 아예 하지 않는다 — 막을 거면 돈·시간을 쓰기 전에 막는다.
+        verify(houses, never()).analyze(any());
+    }
+
+    @Test
+    void should_takeAreaFromMatchedTransaction_when_realEstateMatchExists() {
+        when(houses.analyze(any())).thenReturn(houseAnalysisWithMatch("42.35"));
+        stubSave(79L);
+        when(verifications.verifyAndRecord(any(), any()))
+                .thenReturn(new PropertyVerification(CheckResult.PASS, List.of(), List.of()));
+
+        service.analyzeAndSave(MEMBER_ID, PLAN_ID, request());
+
+        Property saved = savedProperty();
+        assertThat(saved.getExclusiveArea()).isEqualByComparingTo("42.35");
+        assertThat(saved.getAreaSource()).isEqualTo(DataSource.AUTO);
+        assertThat(saved.getPriceMatched()).isTrue();
+    }
+
+    @Test
+    void should_fallBackToTypedArea_when_noTransactionMatched() {
+        // 매칭이 없으면 사용자가 적은 값을 쓴다(FR-P1-10).
+        when(houses.analyze(any())).thenReturn(houseAnalysis());
+        stubSave(80L);
+        when(verifications.verifyAndRecord(any(), any()))
+                .thenReturn(new PropertyVerification(CheckResult.PASS, List.of(), List.of()));
+
+        service.analyzeAndSave(MEMBER_ID, PLAN_ID, requestWithArea(new java.math.BigDecimal("59.75")));
+
+        Property saved = savedProperty();
+        assertThat(saved.getExclusiveArea()).isEqualByComparingTo("59.75");
+        assertThat(saved.getAreaSource()).isEqualTo(DataSource.MANUAL);
+        assertThat(saved.getPriceMatched()).isFalse();
+    }
+
+    @Test
+    void should_leaveAreaNull_when_neitherMatchedNorTyped() {
+        // 0 으로 채우면 85㎡ 이하로 통과해 버린다. 모르는 것은 모르는 채로 둔다.
+        when(houses.analyze(any())).thenReturn(houseAnalysis());
+        stubSave(81L);
+        when(verifications.verifyAndRecord(any(), any()))
+                .thenReturn(new PropertyVerification(CheckResult.PASS, List.of(), List.of()));
+
+        service.analyzeAndSave(MEMBER_ID, PLAN_ID, request());
+
+        Property saved = savedProperty();
+        assertThat(saved.getExclusiveArea()).isNull();
+        assertThat(saved.getAreaSource()).isNull();
+    }
+
+    /** save() 가 받은 엔티티를 그대로 돌려주도록 스텁한다 — 서비스가 무엇을 채웠는지 보려는 것이다. */
+    private void stubSave(long id) {
+        when(properties.save(any(Property.class))).thenAnswer(invocation -> {
+            Property property = invocation.getArgument(0);
+            ReflectionTestUtils.setField(property, "id", id);
+            return property;
+        });
+    }
+
+    /** 실제로 저장된 매물을 꺼낸다. */
+    private Property savedProperty() {
+        ArgumentCaptor<Property> captor = ArgumentCaptor.forClass(Property.class);
+        verify(properties).save(captor.capture());
+        return captor.getValue();
     }
 
     @Test
@@ -111,6 +193,24 @@ class PropertyCandidateServiceTest {
     private HouseAnalysisRequest houseRequest() {
         return new HouseAnalysisRequest(
                 "1168010100", false, "123", "4", "서울특별시 강남구 테헤란로 123", "서울특별시 강남구 역삼동 123-4", "홈런아파트", null, "202608");
+    }
+
+    private PropertyCandidateAnalysisRequest requestWithArea(java.math.BigDecimal area) {
+        return new PropertyCandidateAnalysisRequest(
+                houseRequest(), 200_000_000L, null, null, 0L, true, false, false, null, null, null, null, "401호", area);
+    }
+
+    /** 실거래 매칭이 하나 있는 응답. excluUseAr 는 국토부 실거래가 응답의 전용면적 키다. */
+    private HouseAnalysisResponse houseAnalysisWithMatch(String area) {
+        var titles = new BuildingRegisterResponse(
+                "00", "OK", 1, List.of(Map.of("mainPurpsCdNm", "공동주택(아파트)", "violBldYn", "N")));
+        var prices = new BuildingRegisterResponse("00", "OK", 0, List.of());
+        return new HouseAnalysisResponse(
+                houseRequest(),
+                HousingType.APARTMENT,
+                new BuildingLedgerResponse(titles, prices),
+                new RentTransactions(true, 1, 1, null, List.of(Map.of("excluUseAr", area, "jibun", "123-4"))),
+                List.of());
     }
 
     private HouseAnalysisResponse houseAnalysis() {
