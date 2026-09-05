@@ -87,6 +87,14 @@ public class PlanInput {
     @Column(name = "household_homeless")
     private Boolean householdHomeless;
 
+    /** 부모와 주민등록상 시·군이 다른가(FCT-043). 주소가 아니라 다른지 여부만 담는다. */
+    @Column(name = "lives_apart_from_parents")
+    private Boolean livesApartFromParents;
+
+    /** 부모 가구가 이미 주거급여를 받고 있는가(FCT-044). 청년 단독 신청은 불가하다. */
+    @Column(name = "parent_on_housing_benefit")
+    private Boolean parentOnHousingBenefit;
+
     @Column(name = "birth_date")
     private LocalDate birthDate;
 
@@ -225,6 +233,8 @@ public class PlanInput {
                 && Objects.equals(employmentMonths, request.employmentMonths())
                 && Objects.equals(companySize, request.companySize())
                 && Objects.equals(householdHomeless, request.householdHomeless())
+                && Objects.equals(livesApartFromParents, request.livesApartFromParents())
+                && Objects.equals(parentOnHousingBenefit, request.parentOnHousingBenefit())
                 && Objects.equals(birthDate, request.birthDate())
                 && Objects.equals(militaryMonths, request.militaryMonths())
                 && Objects.equals(monthlyIncome, request.monthlyIncome())
@@ -259,6 +269,8 @@ public class PlanInput {
         employmentMonths = request.employmentMonths();
         companySize = request.companySize();
         householdHomeless = request.householdHomeless();
+        livesApartFromParents = request.livesApartFromParents();
+        parentOnHousingBenefit = request.parentOnHousingBenefit();
         birthDate = request.birthDate();
         militaryMonths = request.militaryMonths();
         monthlyIncome = request.monthlyIncome();
@@ -350,6 +362,14 @@ public class PlanInput {
 
     public Boolean getHouseholdHomeless() {
         return householdHomeless;
+    }
+
+    public Boolean getLivesApartFromParents() {
+        return livesApartFromParents;
+    }
+
+    public Boolean getParentOnHousingBenefit() {
+        return parentOnHousingBenefit;
     }
 
     public LocalDate getBirthDate() {

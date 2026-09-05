@@ -72,6 +72,8 @@ public class PlanInputHistory {
         values.put("employmentMonths", input.getEmploymentMonths());
         values.put("companySize", input.getCompanySize());
         values.put("householdHomeless", input.getHouseholdHomeless());
+        values.put("livesApartFromParents", input.getLivesApartFromParents());
+        values.put("parentOnHousingBenefit", input.getParentOnHousingBenefit());
         values.put("birthDate", input.getBirthDate());
         values.put("militaryMonths", input.getMilitaryMonths());
         values.put("monthlyIncome", input.getMonthlyIncome());

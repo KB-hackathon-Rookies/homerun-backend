@@ -167,8 +167,8 @@ class MigrationTest {
     void should_seed_config_effective_when_migrated() {
         Integer count = jdbc.queryForObject("SELECT count(*) FROM config_effective", Integer.class);
 
-        // V33 이 은행별 금리 8건(FCT-201~208)을 FCT-101 의 note 에서 갈라 세웠다.
-        assertThat(count).isEqualTo(208);
+        // V33 이 은행별 금리 8건(FCT-201~208), V36 이 분리지급 연령 2건(FCT-209·210)을 더했다.
+        assertThat(count).isEqualTo(210);
     }
 
     @Test
