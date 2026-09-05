@@ -248,6 +248,12 @@ class MigrationTest {
         assertThat(status).isNotEqualTo("DISCONTINUED");
     }
 
+    @Test
+    @DisplayName("V45가 1루 완료 결과 스냅샷 컬럼을 추가한다")
+    void should_addFirstBaseResultSnapshot_whenV45IsApplied() {
+        assertThat(columnNames("first_base_submission")).contains("result_snapshot");
+    }
+
     private String ruleStatus(String policyCode, int version) {
         return jdbc.queryForObject(
                 "SELECT status FROM policy_rule WHERE version = ?"

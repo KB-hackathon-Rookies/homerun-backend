@@ -3,6 +3,7 @@ package com.homerun.domain.diagnosis.controller;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.Mockito.when;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
@@ -44,6 +45,9 @@ import org.springframework.http.MediaType;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
+import org.springframework.test.web.servlet.MvcResult;
+import tools.jackson.databind.JsonNode;
+import tools.jackson.databind.ObjectMapper;
 
 @Import(TestcontainersConfiguration.class)
 @AutoConfigureMockMvc
@@ -84,6 +88,9 @@ class FirstBaseCompletionIntegrationTest {
     @Autowired
     JdbcTemplate jdbc;
 
+    @Autowired
+    ObjectMapper objectMapper;
+
     @MockitoBean
     TermsService terms;
 
@@ -114,19 +121,28 @@ class FirstBaseCompletionIntegrationTest {
 
     @Test
     void completes_firstBase_and_replays_sameRevision_withoutDuplicates() throws Exception {
-        mvc.perform(post(endpoint())
+        MvcResult completed = mvc.perform(post(endpoint())
                         .header("Authorization", bearer)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(requestBody(1)))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.status").value("COMPLETED"))
                 .andExpect(jsonPath("$.data.replayed").value(false))
-                .andExpect(jsonPath("$.data.diagnosis.verdict").value("POSSIBLE"))
+                .andExpect(jsonPath("$.data.diagnosis.verdict").value("CAUTION"))
+                .andExpect(jsonPath("$.data.diagnosis.policyComparison.expectedLoanAmount")
+                        .value(0))
+                .andExpect(jsonPath("$.data.policies.results.length()").value(3))
+                .andExpect(jsonPath("$.data.loanScenarios").isNotEmpty())
                 .andExpect(jsonPath("$.data.progress.currentStage").value("SECOND"))
                 .andExpect(jsonPath("$.data.progress.lastVisitedStage").value("FIRST"))
                 .andExpect(jsonPath("$.data.progress.lastLocationCode").value("DIAGNOSIS_RESULT"))
                 .andExpect(jsonPath("$.data.progress.steps[1].status").value("DONE"))
-                .andExpect(jsonPath("$.data.progress.steps[2].status").value("READY"));
+                .andExpect(jsonPath("$.data.progress.steps[2].status").value("READY"))
+                .andReturn();
+
+        JsonNode completedData = objectMapper
+                .readTree(completed.getResponse().getContentAsString())
+                .path("data");
 
         Long diagnosisId = jdbc.queryForObject("SELECT id FROM diagnosis WHERE plan_id=?", Long.class, planId);
 
@@ -137,11 +153,48 @@ class FirstBaseCompletionIntegrationTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.status").value("COMPLETED"))
                 .andExpect(jsonPath("$.data.replayed").value(true))
-                .andExpect(jsonPath("$.data.diagnosis.diagnosisId").value(diagnosisId));
+                .andExpect(jsonPath("$.data.diagnosis.diagnosisId").value(diagnosisId))
+                .andExpect(jsonPath("$.data.completedAt")
+                        .value(completedData.path("completedAt").asString()));
+
+        MvcResult restored = mvc.perform(get(resultEndpoint()).header("Authorization", bearer))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.inputRevision").value(1))
+                .andExpect(jsonPath("$.data.diagnosis.diagnosisId").value(diagnosisId))
+                .andExpect(jsonPath("$.data.progress.currentStage").value("SECOND"))
+                .andReturn();
+        JsonNode restoredData = objectMapper
+                .readTree(restored.getResponse().getContentAsString())
+                .path("data");
+        assertThat(restoredData.path("policies")).isEqualTo(completedData.path("policies"));
+        assertThat(restoredData.path("loanScenarios")).isEqualTo(completedData.path("loanScenarios"));
 
         assertThat(count("diagnosis")).isEqualTo(1);
         assertThat(count("cost_estimate")).isEqualTo(1);
         assertThat(count("first_base_submission")).isEqualTo(1);
+    }
+
+    @Test
+    void rejects_result_access_from_anotherMember() throws Exception {
+        mvc.perform(post(endpoint())
+                        .header("Authorization", bearer)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(requestBody(1)))
+                .andExpect(status().isOk());
+
+        Member other = members.save(Member.create(AuthProvider.KAKAO, "other-" + System.nanoTime(), null, "other"));
+        String otherBearer = "Bearer " + tokens.createAccessToken(other);
+
+        mvc.perform(get(resultEndpoint()).header("Authorization", otherBearer))
+                .andExpect(status().isForbidden())
+                .andExpect(jsonPath("$.code").value("PLAN_003"));
+    }
+
+    @Test
+    void returns_notFound_when_firstBaseWasNotCompleted() throws Exception {
+        mvc.perform(get(resultEndpoint()).header("Authorization", bearer))
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.code").value("DIA_005"));
     }
 
     @Test
@@ -257,6 +310,10 @@ class FirstBaseCompletionIntegrationTest {
         return "/api/v1/plans/" + planId + "/first-base/complete";
     }
 
+    private String resultEndpoint() {
+        return "/api/v1/plans/" + planId + "/first-base/result";
+    }
+
     private String requestBody(int revision) {
         return """
                 {
@@ -269,9 +326,7 @@ class FirstBaseCompletionIntegrationTest {
                     "stampTax": 75000,
                     "emergencyReserve": 3000000,
                     "monthlyLivingExpense": 900000,
-                    "monthlyDebtPayment": 200000,
-                    "expectedLoanAmount": 80000000,
-                    "expectedMonthlyInterest": 200000
+                    "monthlyDebtPayment": 200000
                   }
                 }
                 """.formatted(revision);
