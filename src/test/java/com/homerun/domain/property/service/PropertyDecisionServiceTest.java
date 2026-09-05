@@ -41,11 +41,13 @@ class PropertyDecisionServiceTest {
     private final PropertyRepository properties = mock(PropertyRepository.class);
     private final BankConsultationRepository consultations = mock(BankConsultationRepository.class);
     private final PropertyDecisionRepository decisions = mock(PropertyDecisionRepository.class);
+    private final PropertyTrafficLightResolver trafficLights = mock(PropertyTrafficLightResolver.class);
     private final PropertyDecisionService service = new PropertyDecisionService(
             plans,
             properties,
             consultations,
             decisions,
+            trafficLights,
             Clock.fixed(Instant.parse("2026-09-05T00:00:00Z"), ZoneOffset.UTC));
 
     @BeforeEach

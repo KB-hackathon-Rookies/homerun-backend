@@ -31,6 +31,7 @@ public class PropertyDecisionService {
     private final PropertyRepository properties;
     private final BankConsultationRepository consultations;
     private final PropertyDecisionRepository decisions;
+    private final PropertyTrafficLightResolver trafficLights;
     private final Clock clock;
 
     public PropertyDecisionService(
@@ -38,11 +39,13 @@ public class PropertyDecisionService {
             PropertyRepository properties,
             BankConsultationRepository consultations,
             PropertyDecisionRepository decisions,
+            PropertyTrafficLightResolver trafficLights,
             Clock clock) {
         this.plans = plans;
         this.properties = properties;
         this.consultations = consultations;
         this.decisions = decisions;
+        this.trafficLights = trafficLights;
         this.clock = clock;
     }
 
@@ -54,7 +57,8 @@ public class PropertyDecisionService {
         }
         List<PropertyCandidateResponse> compared = request.propertyIds().stream()
                 .map(propertyId -> ownedProperty(planId, propertyId))
-                .map(PropertyCandidateResponse::from)
+                .map(property ->
+                        PropertyCandidateResponse.from(property, trafficLights.forProperty(planId, property.getId())))
                 .toList();
         return new PropertyComparisonResponse(compared);
     }
@@ -110,7 +114,10 @@ public class PropertyDecisionService {
     private PropertyDecisionResponse response(
             PropertyDecision decision, Property property, BankConsultation consultation) {
         return PropertyDecisionResponse.from(
-                decision, PropertyCandidateResponse.from(property), BankConsultationResponse.from(consultation));
+                decision,
+                PropertyCandidateResponse.from(
+                        property, trafficLights.forProperty(decision.getPlanId(), property.getId())),
+                BankConsultationResponse.from(consultation));
     }
 
     private Plan ownedPlan(Long memberId, Long planId) {

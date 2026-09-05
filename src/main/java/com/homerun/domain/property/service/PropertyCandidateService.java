@@ -29,6 +29,7 @@ public class PropertyCandidateService {
     private final PropertyRepository properties;
     private final HouseAnalysisService houseAnalysisService;
     private final PropertyVerificationService verificationService;
+    private final PropertyTrafficLightResolver trafficLights;
     private final Clock clock;
 
     public PropertyCandidateService(
@@ -36,11 +37,13 @@ public class PropertyCandidateService {
             PropertyRepository properties,
             HouseAnalysisService houseAnalysisService,
             PropertyVerificationService verificationService,
+            PropertyTrafficLightResolver trafficLights,
             Clock clock) {
         this.plans = plans;
         this.properties = properties;
         this.houseAnalysisService = houseAnalysisService;
         this.verificationService = verificationService;
+        this.trafficLights = trafficLights;
         this.clock = clock;
     }
 
@@ -97,7 +100,8 @@ public class PropertyCandidateService {
     public List<PropertyCandidateResponse> getCandidates(Long memberId, Long planId) {
         ownedPlan(memberId, planId);
         return properties.findAllByPlanIdOrderByIdAsc(planId).stream()
-                .map(PropertyCandidateResponse::from)
+                .map(property ->
+                        PropertyCandidateResponse.from(property, trafficLights.forProperty(planId, property.getId())))
                 .toList();
     }
 
@@ -112,7 +116,7 @@ public class PropertyCandidateService {
                 .findByIdAndPlanId(propertyId, planId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.PROPERTY_NOT_IN_PLAN));
         selected.select();
-        return PropertyCandidateResponse.from(selected);
+        return PropertyCandidateResponse.from(selected, trafficLights.forProperty(planId, propertyId));
     }
 
     private Plan ownedPlan(Long memberId, Long planId) {
