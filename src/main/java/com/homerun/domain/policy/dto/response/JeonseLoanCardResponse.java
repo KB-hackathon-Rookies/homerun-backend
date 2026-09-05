@@ -2,6 +2,7 @@ package com.homerun.domain.policy.dto.response;
 
 import com.homerun.domain.policy.type.PolicyVerdictResult;
 import io.swagger.v3.oas.annotations.media.Schema;
+import java.util.Comparator;
 
 /** 상담 안내는 정책 판정이나 대출 승인이 아니다. */
 public record JeonseLoanCardResponse(
@@ -25,6 +26,45 @@ public record JeonseLoanCardResponse(
     public enum CardType {
         POLICY,
         CONSULTATION
+    }
+
+    /**
+     * 후보 정책 정렬 기준(POL-02-01). 혜택과 비용을 한 점수로 합치지 않는다 — 그러려면 문서에
+     * 없는 가중치를 지어내야 한다. 대신 설명 가능한 사전식 순서를 쓴다.
+     *
+     * <ol>
+     *   <li>PASS → NEED_INFO. 추가 확인이 필요한 건 아직 실행할 수 없다
+     *   <li>자기자금 부족액 오름차순. 부족액이 적을수록 실제로 실행 가능하다(예상 혜택)
+     *   <li>월 이자 오름차순(총비용)
+     *   <li>예상 대출액 내림차순. 같은 비용이면 더 많이 빌려주는 쪽
+     * </ol>
+     *
+     * <p>모르는 값(null)은 뒤로 보낸다. 유리한 기본값을 채우면 그게 곧 틀린 추천이 된다(NFR-01-06).
+     *
+     * <p>정책 코드로 마지막 tie-break 를 걸지 않는다 — 전부 동률이면 입력 순서가 그대로 남아야
+     * 큐레이션된 기본 순서(청년→일반→서울시)가 알파벳순으로 흔들리지 않는다. 입력 순서가 고정된
+     * 목록이고 정렬이 안정적이라 결정론(NFR-01-01)은 이것으로 이미 보장된다.
+     */
+    public static final Comparator<JeonseLoanCardResponse> BY_BENEFIT_AND_COST = Comparator.comparingInt(
+                    JeonseLoanCardResponse::verdictPriority)
+            .thenComparing(JeonseLoanCardResponse::ownFundsShortfall, Comparator.nullsLast(Comparator.naturalOrder()))
+            .thenComparing(JeonseLoanCardResponse::monthlyInterestMin, Comparator.nullsLast(Comparator.naturalOrder()))
+            .thenComparing(
+                    JeonseLoanCardResponse::estimatedLoanAmount, Comparator.nullsLast(Comparator.reverseOrder()));
+
+    private int verdictPriority() {
+        if (verdict == PolicyVerdictResult.PASS) {
+            return 0;
+        }
+        return verdict == PolicyVerdictResult.NEED_INFO ? 1 : 2;
+    }
+
+    private Long monthlyInterestMin() {
+        return estimate == null ? null : estimate.monthlyInterestMin();
+    }
+
+    private Long estimatedLoanAmount() {
+        return estimate == null ? null : estimate.estimatedLoanAmount();
     }
 
     public static JeonseLoanCardResponse policy(PolicyVerdictResponse result, Long availableCash) {
