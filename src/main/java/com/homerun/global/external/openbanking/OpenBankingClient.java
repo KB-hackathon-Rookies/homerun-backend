@@ -220,7 +220,7 @@ public class OpenBankingClient {
                     defaultIfBlank(text(loan, "bank_code_std"), responseBankCode),
                     defaultIfBlank(text(loan, "bank_name"), responseBankName),
                     text(loan, "account_num"),
-                    text(loan, "account_seq"),
+                    defaultIfBlank(text(loan, "account_num_seq"), text(loan, "account_seq")),
                     text(loan, "account_num_masked"),
                     text(loan, "prod_name"),
                     text(loan, "account_type"),

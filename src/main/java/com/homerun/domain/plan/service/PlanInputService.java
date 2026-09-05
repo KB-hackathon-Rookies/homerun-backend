@@ -10,6 +10,8 @@ import com.homerun.domain.plan.repository.PlanInputHistoryRepository;
 import com.homerun.domain.plan.repository.PlanInputRepository;
 import com.homerun.domain.plan.repository.PlanRepository;
 import com.homerun.domain.plan.repository.PlanStepRepository;
+import com.homerun.domain.plan.type.FinancialValueSource;
+import com.homerun.domain.plan.type.OpenBankingIncomeSyncStatus;
 import com.homerun.domain.plan.type.PlanGate;
 import com.homerun.domain.plan.type.PlanInputUnknownField;
 import com.homerun.domain.region.repository.RegionRepository;
@@ -68,6 +70,43 @@ public class PlanInputService {
                 .orElseThrow(() -> new BusinessException(ErrorCode.PLAN_INPUT_NOT_FOUND));
         return PlanInputResponse.from(input);
     }
+
+    @Transactional(readOnly = true)
+    public void verifyOwner(Long memberId, Long planId) {
+        findOwnedPlan(memberId, planId);
+    }
+
+    @Transactional
+    public OpenBankingIncomeSyncResult syncOpenBankingIncome(Long memberId, Long planId, Long income) {
+        findOwnedPlan(memberId, planId);
+        PlanInput input = inputRepository.findByPlanId(planId).orElse(null);
+        if (income == null)
+            return new OpenBankingIncomeSyncResult(
+                    OpenBankingIncomeSyncStatus.NOT_APPLICABLE, input == null ? null : PlanInputResponse.from(input));
+        if (input == null) {
+            input = inputRepository.save(PlanInput.createWithOpenBankingIncome(planId, income));
+            markAffectedStepsForRecalculation(planId);
+            return new OpenBankingIncomeSyncResult(OpenBankingIncomeSyncStatus.APPLIED, PlanInputResponse.from(input));
+        }
+        if (input.getIncomeSource() == FinancialValueSource.MANUAL) {
+            return new OpenBankingIncomeSyncResult(
+                    OpenBankingIncomeSyncStatus.MANUAL_VALUE_PRESERVED, PlanInputResponse.from(input));
+        }
+        if (Boolean.TRUE.equals(input.getFinancialDataConfirmed())) {
+            return new OpenBankingIncomeSyncResult(
+                    OpenBankingIncomeSyncStatus.CONFIRMED_VALUE_PRESERVED, PlanInputResponse.from(input));
+        }
+        PlanInputHistory previous = PlanInputHistory.capture(input);
+        if (!input.syncOpenBankingIncome(income)) {
+            return new OpenBankingIncomeSyncResult(
+                    OpenBankingIncomeSyncStatus.UNCHANGED, PlanInputResponse.from(input));
+        }
+        historyRepository.save(previous);
+        markAffectedStepsForRecalculation(planId);
+        return new OpenBankingIncomeSyncResult(OpenBankingIncomeSyncStatus.APPLIED, PlanInputResponse.from(input));
+    }
+
+    public record OpenBankingIncomeSyncResult(OpenBankingIncomeSyncStatus status, PlanInputResponse input) {}
 
     private Plan findOwnedPlan(Long memberId, Long planId) {
         Plan plan = planRepository.findById(planId).orElseThrow(() -> new BusinessException(ErrorCode.PLAN_NOT_FOUND));

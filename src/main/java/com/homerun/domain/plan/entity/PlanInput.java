@@ -20,6 +20,7 @@ import jakarta.persistence.Version;
 import java.math.BigDecimal;
 import java.time.Instant;
 import java.time.LocalDate;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
 import org.hibernate.annotations.JdbcTypeCode;
@@ -144,6 +145,39 @@ public class PlanInput {
 
     public static PlanInput create(Long planId, PlanInputRequest request) {
         return new PlanInput(planId, request);
+    }
+
+    public static PlanInput createWithOpenBankingIncome(Long planId, Long monthlyIncome) {
+        PlanInput input = new PlanInput();
+        input.planId = planId;
+        input.monthlyIncome = monthlyIncome;
+        input.incomeSource = FinancialValueSource.OPEN_BANKING;
+        input.financialDataConfirmed = false;
+        input.unknownFields = new ArrayList<>();
+        input.revision = 1;
+        input.createdAt = Instant.now();
+        input.updatedAt = input.createdAt;
+        return input;
+    }
+
+    public boolean syncOpenBankingIncome(Long value) {
+        if (Objects.equals(monthlyIncome, value)
+                && incomeSource == FinancialValueSource.OPEN_BANKING
+                && !Boolean.TRUE.equals(financialDataConfirmed)
+                && !unknownFields.contains(PlanInputUnknownField.MONTHLY_INCOME)) {
+            return false;
+        }
+        monthlyIncome = value;
+        incomeSource = FinancialValueSource.OPEN_BANKING;
+        financialDataConfirmed = false;
+        unknownFields = unknownFields.stream()
+                .filter(field -> field != PlanInputUnknownField.MONTHLY_INCOME
+                        && field != PlanInputUnknownField.INCOME_SOURCE
+                        && field != PlanInputUnknownField.FINANCIAL_DATA_CONFIRMED)
+                .toList();
+        revision++;
+        updatedAt = Instant.now();
+        return true;
     }
 
     public boolean matches(PlanInputRequest request) {
