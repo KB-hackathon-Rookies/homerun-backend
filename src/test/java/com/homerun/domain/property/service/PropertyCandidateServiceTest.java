@@ -1,10 +1,8 @@
 package com.homerun.domain.property.service;
 
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -20,8 +18,6 @@ import com.homerun.domain.property.dto.response.PropertyVerification;
 import com.homerun.domain.property.entity.Property;
 import com.homerun.domain.property.repository.PropertyRepository;
 import com.homerun.domain.property.type.CheckResult;
-import com.homerun.global.exception.BusinessException;
-import com.homerun.global.exception.ErrorCode;
 import com.homerun.global.external.building.BuildingLedgerResponse;
 import com.homerun.global.external.building.BuildingRegisterResponse;
 import com.homerun.global.external.realestate.HousingType;
@@ -57,19 +53,7 @@ class PropertyCandidateServiceTest {
     }
 
     @Test
-    void should_stopBeforeExternalCall_when_threeCandidatesAlreadyExist() {
-        when(properties.countByPlanId(PLAN_ID)).thenReturn(3L);
-
-        assertThatThrownBy(() -> service.analyzeAndSave(MEMBER_ID, PLAN_ID, request()))
-                .isInstanceOfSatisfying(
-                        BusinessException.class,
-                        exception -> assertThat(exception.errorCode()).isEqualTo(ErrorCode.PROPERTY_CANDIDATE_LIMIT));
-        verify(houses, never()).analyze(any());
-    }
-
-    @Test
     void should_saveAndVerifyCandidate_with_automaticBuildingFacts() {
-        when(properties.countByPlanId(PLAN_ID)).thenReturn(0L);
         when(houses.analyze(any())).thenReturn(houseAnalysis());
         when(properties.save(any(Property.class))).thenAnswer(invocation -> {
             Property property = invocation.getArgument(0);
@@ -85,6 +69,22 @@ class PropertyCandidateServiceTest {
         assertThat(result.automaticFacts().violationBuilding()).isFalse();
         assertThat(result.automaticFacts().multiHousehold()).isFalse();
         verify(verifications).verifyAndRecord(any(), any());
+    }
+
+    @Test
+    void should_allowSavingCandidate_withoutPlanLimit() {
+        when(houses.analyze(any())).thenReturn(houseAnalysis());
+        when(properties.save(any(Property.class))).thenAnswer(invocation -> {
+            Property property = invocation.getArgument(0);
+            ReflectionTestUtils.setField(property, "id", 78L);
+            return property;
+        });
+        when(verifications.verifyAndRecord(any(), any()))
+                .thenReturn(new PropertyVerification(CheckResult.UNKNOWN, List.of(), List.of()));
+
+        assertThat(service.analyzeAndSave(MEMBER_ID, PLAN_ID, request()).propertyId())
+                .isEqualTo(78L);
+        verify(houses).analyze(any());
     }
 
     @Test
