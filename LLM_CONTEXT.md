@@ -126,7 +126,7 @@
 |---|---|
 | 도메인 패키지 | 20개 (`alternative` `application` `asset` `auth` `consent` `contract` `dashboard` `diagnosis` `document` `fact` `house` `member` `openbanking` `plan` `policy` `property` `region` `rent` `terms` `verification`) |
 | 컨트롤러 | 35개 |
-| 마이그레이션 | `V1` ~ `V41` |
+| 마이그레이션 | `V1` ~ `V45` |
 | 테스트 | 91개 클래스 |
 | 팩트 레지스트리 | 210건 (`V2` 가 141건, 이후 마이그레이션이 69건) |
 
@@ -141,6 +141,7 @@
 /api/v1/plans/{planId}/input               계획 입력 이력·오픈뱅킹 동기화·프로필 프리필
 /api/v1/plans/{planId}/diagnosis           1루 진단 계산·시뮬레이션 (DIA-02)
 /api/v1/plans/{planId}/first-base/complete STEP 검증·진단 저장·1루 완료 통합 제출
+/api/v1/plans/{planId}/first-base/result   완료 당시 정책·진단 시나리오 스냅샷 복원
 /api/v1/plans/{planId}/policies/jeonse     전세 정책·반환보증·보증료 지원 판정
 /api/v1/plans/{planId}/alternatives        재도전 큐·미충족 원인·대안 재계산 (ALT-01)
 /api/v1/plans/{planId}/assets              IRP·청약·적금 비교 (AST-01)

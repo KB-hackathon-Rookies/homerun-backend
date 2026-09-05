@@ -84,6 +84,7 @@ public enum ErrorCode {
     DIAGNOSIS_NOT_FOUND(HttpStatus.NOT_FOUND, "DIA_002", "저장된 진단 결과가 없습니다."),
     DIAGNOSIS_CALCULATION_OVERFLOW(HttpStatus.BAD_REQUEST, "DIA_003", "진단 계산 금액이 허용 범위를 벗어났습니다."),
     DIAGNOSIS_JEONSE_PLAN_REQUIRED(HttpStatus.BAD_REQUEST, "DIA_004", "전세 또는 반전세 계획에서만 1루 진단을 이용할 수 있습니다."),
+    FIRST_BASE_RESULT_NOT_FOUND(HttpStatus.NOT_FOUND, "DIA_005", "완료된 1루 진단 결과가 없습니다."),
 
     POLICY_JEONSE_PLAN_REQUIRED(HttpStatus.BAD_REQUEST, "POLICY_001", "전세 또는 반전세 계획에서만 정책 판정을 이용할 수 있습니다."),
 

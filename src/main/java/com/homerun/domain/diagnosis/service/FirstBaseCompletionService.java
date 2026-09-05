@@ -3,6 +3,9 @@ package com.homerun.domain.diagnosis.service;
 import com.homerun.domain.diagnosis.dto.request.FirstBaseCompleteRequest;
 import com.homerun.domain.diagnosis.dto.response.DiagnosisResponse;
 import com.homerun.domain.diagnosis.dto.response.FirstBaseCompleteResponse;
+import com.homerun.domain.diagnosis.dto.response.FirstBaseLoanScenarioResponse;
+import com.homerun.domain.diagnosis.dto.response.FirstBaseResultResponse;
+import com.homerun.domain.diagnosis.dto.response.FirstBaseResultSnapshot;
 import com.homerun.domain.diagnosis.entity.FirstBaseSubmission;
 import com.homerun.domain.diagnosis.repository.FirstBaseSubmissionRepository;
 import com.homerun.domain.diagnosis.type.FirstBaseCompletionStatus;
@@ -21,6 +24,9 @@ import com.homerun.domain.plan.type.PlanInputStepStatus;
 import com.homerun.domain.plan.type.PlanInputUnknownField;
 import com.homerun.domain.plan.type.PlanStage;
 import com.homerun.domain.plan.validation.PlanInputCompletionValidator;
+import com.homerun.domain.policy.dto.response.JeonseLoanCardResponse;
+import com.homerun.domain.policy.dto.response.JeonsePolicyVerdictListResponse;
+import com.homerun.domain.policy.service.JeonsePolicyVerdictService;
 import com.homerun.global.exception.BusinessException;
 import com.homerun.global.exception.ErrorCode;
 import com.homerun.global.exception.FieldValidationException;
@@ -29,9 +35,11 @@ import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.EnumSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import tools.jackson.databind.ObjectMapper;
 
 @Service
 public class FirstBaseCompletionService {
@@ -52,7 +60,9 @@ public class FirstBaseCompletionService {
     private final FirstBaseSubmissionRepository submissions;
     private final PlanInputCompletionValidator inputValidator;
     private final DiagnosisService diagnosisService;
+    private final JeonsePolicyVerdictService policyVerdictService;
     private final PlanService planService;
+    private final ObjectMapper objectMapper;
 
     public FirstBaseCompletionService(
             PlanRepository plans,
@@ -61,14 +71,18 @@ public class FirstBaseCompletionService {
             FirstBaseSubmissionRepository submissions,
             PlanInputCompletionValidator inputValidator,
             DiagnosisService diagnosisService,
-            PlanService planService) {
+            JeonsePolicyVerdictService policyVerdictService,
+            PlanService planService,
+            ObjectMapper objectMapper) {
         this.plans = plans;
         this.inputs = inputs;
         this.inputSteps = inputSteps;
         this.submissions = submissions;
         this.inputValidator = inputValidator;
         this.diagnosisService = diagnosisService;
+        this.policyVerdictService = policyVerdictService;
         this.planService = planService;
+        this.objectMapper = objectMapper;
     }
 
     @Transactional
@@ -87,11 +101,8 @@ public class FirstBaseCompletionService {
                 .findByPlanIdAndInputRevision(planId, input.getRevision())
                 .orElse(null);
         if (previous != null) {
-            return completedResponse(
-                    input.getRevision(),
-                    true,
-                    diagnosisService.get(memberId, planId, previous.getDiagnosisId()),
-                    planService.getProgress(memberId, planId));
+            FirstBaseResultSnapshot snapshot = snapshot(memberId, planId, previous);
+            return completedResponse(true, snapshot, planService.getProgress(memberId, planId));
         }
 
         requireReviewCompleted(planId);
@@ -104,17 +115,72 @@ public class FirstBaseCompletionService {
                     false,
                     input.getRevision(),
                     null,
+                    null,
+                    List.of(),
                     confirmationFields,
-                    planService.getProgress(memberId, planId));
+                    planService.getProgress(memberId, planId),
+                    null);
         }
 
-        DiagnosisResponse diagnosis = diagnosisService.calculate(memberId, planId, request.calculation());
+        DiagnosisResponse diagnosis = diagnosisService.calculate(
+                memberId, planId, request.calculation().toCalculation(0, 0));
+        JeonsePolicyVerdictListResponse policies = policyVerdictService.evaluate(memberId, planId);
+        List<FirstBaseLoanScenarioResponse> loanScenarios = policies.cards().stream()
+                .filter(card -> card.type() == JeonseLoanCardResponse.CardType.POLICY)
+                .filter(card -> card.estimate() != null
+                        && card.estimate().estimatedLoanAmount() != null
+                        && card.estimate().monthlyInterestMin() != null
+                        && card.estimate().monthlyInterestMax() != null)
+                .map(card -> scenario(memberId, planId, request, card))
+                .toList();
         PlanProgressResponse progress = planService.completeStep(
                 memberId, planId, PlanGate.FIRST_DIAGNOSIS.code(), new CompletePlanStepRequest(request.ruleVersion()));
         plan.enterStage(PlanStage.FIRST, "DIAGNOSIS_RESULT");
-        submissions.save(new FirstBaseSubmission(planId, input.getRevision(), diagnosis.diagnosisId()));
+        FirstBaseResultSnapshot snapshot = new FirstBaseResultSnapshot(
+                input.getRevision(), diagnosis, policies, loanScenarios, diagnosis.calculatedAt());
+        submissions.save(
+                new FirstBaseSubmission(planId, input.getRevision(), diagnosis.diagnosisId(), snapshotMap(snapshot)));
 
-        return completedResponse(input.getRevision(), false, diagnosis, progressAfterLocation(plan, progress));
+        return completedResponse(false, snapshot, progressAfterLocation(plan, progress));
+    }
+
+    @Transactional(readOnly = true)
+    public FirstBaseResultResponse result(Long memberId, Long planId) {
+        PlanProgressResponse progress = planService.getProgress(memberId, planId);
+        FirstBaseSubmission submission = submissions
+                .findFirstByPlanIdOrderByCreatedAtDescIdDesc(planId)
+                .orElseThrow(() -> new BusinessException(ErrorCode.FIRST_BASE_RESULT_NOT_FOUND));
+        return FirstBaseResultResponse.from(snapshot(memberId, planId, submission), progress);
+    }
+
+    private FirstBaseLoanScenarioResponse scenario(
+            Long memberId, Long planId, FirstBaseCompleteRequest request, JeonseLoanCardResponse card) {
+        long loan = card.estimate().estimatedLoanAmount();
+        DiagnosisResponse minimumRate = diagnosisService.simulate(
+                memberId,
+                planId,
+                request.calculation().toCalculation(loan, card.estimate().monthlyInterestMin()));
+        DiagnosisResponse maximumRate = diagnosisService.simulate(
+                memberId,
+                planId,
+                request.calculation().toCalculation(loan, card.estimate().monthlyInterestMax()));
+        return new FirstBaseLoanScenarioResponse(card, minimumRate, maximumRate);
+    }
+
+    private FirstBaseResultSnapshot snapshot(Long memberId, Long planId, FirstBaseSubmission submission) {
+        if (submission.getResultSnapshot() != null) {
+            return objectMapper.convertValue(submission.getResultSnapshot(), FirstBaseResultSnapshot.class);
+        }
+        DiagnosisResponse diagnosis = diagnosisService.get(memberId, planId, submission.getDiagnosisId());
+        JeonsePolicyVerdictListResponse emptyPolicies =
+                new JeonsePolicyVerdictListResponse(planId, List.of(), submission.getCreatedAt(), List.of());
+        return new FirstBaseResultSnapshot(
+                submission.getInputRevision(), diagnosis, emptyPolicies, List.of(), submission.getCreatedAt());
+    }
+
+    @SuppressWarnings("unchecked")
+    private Map<String, Object> snapshotMap(FirstBaseResultSnapshot snapshot) {
+        return objectMapper.convertValue(snapshot, Map.class);
     }
 
     private void requireReviewCompleted(Long planId) {
@@ -191,9 +257,17 @@ public class FirstBaseCompletionService {
     }
 
     private FirstBaseCompleteResponse completedResponse(
-            int inputRevision, boolean replayed, DiagnosisResponse diagnosis, PlanProgressResponse progress) {
+            boolean replayed, FirstBaseResultSnapshot snapshot, PlanProgressResponse progress) {
         return new FirstBaseCompleteResponse(
-                FirstBaseCompletionStatus.COMPLETED, replayed, inputRevision, diagnosis, List.of(), progress);
+                FirstBaseCompletionStatus.COMPLETED,
+                replayed,
+                snapshot.inputRevision(),
+                snapshot.diagnosis(),
+                snapshot.policies(),
+                snapshot.loanScenarios(),
+                List.of(),
+                progress,
+                snapshot.completedAt());
     }
 
     private PlanProgressResponse progressAfterLocation(Plan plan, PlanProgressResponse progress) {

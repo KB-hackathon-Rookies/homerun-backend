@@ -14,4 +14,4 @@ public record FirstBaseCompleteRequest(
         @NotBlank @Schema(description = "계획 규칙 버전", example = "1.0")
         String ruleVersion,
 
-        @Valid @NotNull DiagnosisCalculationRequest calculation) {}
+        @Valid @NotNull FirstBaseCostRequest calculation) {}
