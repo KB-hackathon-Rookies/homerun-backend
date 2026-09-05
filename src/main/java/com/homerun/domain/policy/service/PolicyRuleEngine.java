@@ -6,6 +6,7 @@ import com.homerun.domain.fact.model.Fact;
 import com.homerun.domain.fact.service.FactRegistry;
 import com.homerun.domain.plan.entity.PlanInput;
 import com.homerun.domain.plan.type.EmploymentType;
+import com.homerun.domain.plan.type.FinancialValueSource;
 import com.homerun.domain.plan.type.MaritalStatus;
 import com.homerun.domain.policy.model.ConditionResult;
 import com.homerun.domain.policy.model.ExpectedEstimate;
@@ -210,6 +211,9 @@ public class PolicyRuleEngine {
     /** field 가 BIGINT(금액 등)든 NUMERIC(면적 등)이든 상관없이 fact 와 비교한다 — 둘 다
      * plan_input 에 섞여 있어서(#102) 하나로 받는다. */
     private ConditionResult numericCheck(RuleCondition condition, PlanInput input, boolean gte) {
+        if (financialValueNeedsConfirmation(condition.field(), input)) {
+            return needInfo(condition, "외부 금융정보를 사용자가 확인해야 합니다.");
+        }
         BigDecimal amount = toComparable(resolveField(condition.field(), input));
         if (amount == null) {
             return needInfo(condition, null);
@@ -252,6 +256,9 @@ public class PolicyRuleEngine {
     }
 
     private ConditionResult annualIncomeCheck(RuleCondition condition, PlanInput input) {
+        if (financialValueNeedsConfirmation("monthly_income", input)) {
+            return needInfo(condition, "오픈뱅킹 실수령 추정값을 확인해 주세요.");
+        }
         Object fieldValue = resolveField(condition.field(), input);
         if (fieldValue == null || !(fieldValue instanceof Long monthly)) {
             return needInfo(condition, null);
@@ -274,6 +281,9 @@ public class PolicyRuleEngine {
     private ConditionResult annualLteByAgeGroup(RuleCondition condition, PlanInput input) {
         if (input == null) {
             return needInfo(condition, null);
+        }
+        if (financialValueNeedsConfirmation("monthly_income", input)) {
+            return needInfo(condition, "오픈뱅킹 실수령 추정값을 확인해 주세요.");
         }
         MaritalStatus maritalStatus = input.getMaritalStatus();
         if (maritalStatus == null) {
@@ -369,6 +379,9 @@ public class PolicyRuleEngine {
         if (input == null) {
             return needInfo(condition, null);
         }
+        if (financialValueNeedsConfirmation("monthly_income", input)) {
+            return needInfo(condition, "오픈뱅킹 실수령 추정값을 확인해 주세요.");
+        }
         EmploymentType employmentType = input.getEmploymentType();
         if (employmentType == null || employmentType == EmploymentType.UNEMPLOYED) {
             return needInfo(condition, "고용형태를 확인해야 소득 기준을 알 수 있습니다.");
@@ -441,6 +454,12 @@ public class PolicyRuleEngine {
             case "is_multi_household" -> property == null ? null : property.getMultiHousehold();
             default -> null;
         };
+    }
+
+    private boolean financialValueNeedsConfirmation(String field, PlanInput input) {
+        if (input == null || Boolean.TRUE.equals(input.getFinancialDataConfirmed())) return false;
+        return ("monthly_income".equals(field) && input.getIncomeSource() == FinancialValueSource.OPEN_BANKING)
+                || ("net_assets".equals(field) && input.getAssetSource() == FinancialValueSource.OPEN_BANKING);
     }
 
     private Optional<Fact> resolveFact(String factCode) {

@@ -11,6 +11,7 @@ import com.homerun.domain.fact.type.Confidence;
 import com.homerun.domain.plan.dto.request.PlanInputRequest;
 import com.homerun.domain.plan.entity.PlanInput;
 import com.homerun.domain.plan.type.EmploymentType;
+import com.homerun.domain.plan.type.FinancialValueSource;
 import com.homerun.domain.plan.type.MaritalStatus;
 import com.homerun.domain.policy.model.AmountSpec;
 import com.homerun.domain.policy.model.ConditionResult;
@@ -30,6 +31,7 @@ import java.util.Set;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.CsvSource;
+import org.springframework.test.util.ReflectionTestUtils;
 
 /**
  * 룰엔진 조건 평가만 검증한다. plan_input ↔ rule_json 매핑이 핵심이라 경계값을 붙인다
@@ -57,6 +59,23 @@ class PolicyRuleEngineTest {
         List<ConditionResult> results = engine.evaluate(document, input);
 
         assertThat(results).extracting(ConditionResult::isMet).containsExactly(true, true);
+    }
+
+    @Test
+    void should_requireConfirmation_beforeUsingOpenBankingIncomeForEligibility() {
+        when(facts.require("FCT-003")).thenReturn(fact("FCT-003", "50000000"));
+        RuleDocument document = new RuleDocument(
+                "AND", List.of(new RuleCondition("INCOME_CAP", "monthly_income", "annual_lte", null, "FCT-003", null)));
+        PlanInput input = input(null, null, 3_000_000L, null, null);
+        ReflectionTestUtils.setField(input, "incomeSource", FinancialValueSource.OPEN_BANKING);
+        ReflectionTestUtils.setField(input, "financialDataConfirmed", false);
+
+        ConditionResult unconfirmed = engine.evaluate(document, input).get(0);
+        ReflectionTestUtils.setField(input, "financialDataConfirmed", true);
+        ConditionResult confirmed = engine.evaluate(document, input).get(0);
+
+        assertThat(unconfirmed.isMet()).isNull();
+        assertThat(confirmed.isMet()).isTrue();
     }
 
     @Test

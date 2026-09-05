@@ -73,6 +73,7 @@ public enum ErrorCode {
     PLAN_TASK_NOT_FOUND(HttpStatus.NOT_FOUND, "PLAN_014", "계획 할 일을 찾을 수 없습니다."),
     INVALID_TASK_STATUS_TRANSITION(HttpStatus.CONFLICT, "PLAN_015", "변경할 수 없는 할 일 상태입니다."),
     PLAN_TASK_SKIP_NOT_ALLOWED(HttpStatus.CONFLICT, "PLAN_016", "건너뛸 수 없는 할 일입니다."),
+    INVALID_FINANCIAL_INCOME_CONFIRMATION(HttpStatus.CONFLICT, "PLAN_017", "확인할 수 있는 금융 소득 정보가 없습니다."),
 
     POLICY_JEONSE_PLAN_REQUIRED(HttpStatus.BAD_REQUEST, "POLICY_001", "전세 또는 반전세 계획에서만 정책 판정을 이용할 수 있습니다."),
 

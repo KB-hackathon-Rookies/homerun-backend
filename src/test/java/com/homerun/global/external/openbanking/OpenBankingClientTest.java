@@ -182,7 +182,7 @@ class OpenBankingClientTest {
                           "next_page_yn":"N",
                           "loan_list":[{
                             "account_num":"1234567890",
-                            "account_seq":"001",
+                            "account_num_seq":"001",
                             "account_num_masked":"123-***-890",
                             "prod_name":"직장인신용대출",
                             "account_type":"3100",
@@ -219,6 +219,7 @@ class OpenBankingClientTest {
 
         assertThat(loan.bankName()).isEqualTo("국민은행");
         assertThat(loan.accountType()).isEqualTo("3100");
+        assertThat(loan.accountSequence()).isEqualTo("001");
         assertThat(basicPage.nextRepaymentDate()).isEqualTo(LocalDate.of(2026, 9, 25));
         assertThat(basicPage.transactions()).singleElement().satisfies(transaction -> {
             assertThat(transaction.type()).isEqualTo("02");

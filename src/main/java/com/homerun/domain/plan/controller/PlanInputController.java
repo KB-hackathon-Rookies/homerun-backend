@@ -1,5 +1,6 @@
 package com.homerun.domain.plan.controller;
 
+import com.homerun.domain.plan.dto.request.FinancialIncomeConfirmationRequest;
 import com.homerun.domain.plan.dto.request.PlanInputRequest;
 import com.homerun.domain.plan.dto.response.PlanInputResponse;
 import com.homerun.domain.plan.service.PlanInputService;
@@ -46,5 +47,17 @@ public class PlanInputController {
     public ApiResponse<PlanInputResponse> get(
             @AuthenticationPrincipal MemberPrincipal principal, @PathVariable Long planId) {
         return ApiResponse.success(inputService.get(principal.memberId(), planId));
+    }
+
+    @PutMapping("/financial-income")
+    @Operation(
+            summary = "금융 소득 확인 또는 수동 교체",
+            description =
+                    "CONFIRM_OPEN_BANKING은 서버에 동기화된 금액을 그대로 확인하며 monthlyIncome을 보내지 않습니다. USE_MANUAL은 monthlyIncome이 필수이고 출처를 MANUAL로 바꿉니다. 다른 입력은 변경하지 않습니다.")
+    public ApiResponse<PlanInputResponse> confirmFinancialIncome(
+            @AuthenticationPrincipal MemberPrincipal principal,
+            @PathVariable Long planId,
+            @Valid @RequestBody FinancialIncomeConfirmationRequest request) {
+        return ApiResponse.success(inputService.confirmFinancialIncome(principal.memberId(), planId, request));
     }
 }
