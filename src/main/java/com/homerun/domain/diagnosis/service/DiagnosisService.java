@@ -6,6 +6,7 @@ import com.homerun.domain.diagnosis.dto.response.DiagnosisPolicyComparisonRespon
 import com.homerun.domain.diagnosis.dto.response.DiagnosisResponse;
 import com.homerun.domain.diagnosis.entity.CostEstimate;
 import com.homerun.domain.diagnosis.entity.Diagnosis;
+import com.homerun.domain.diagnosis.model.DiagnosisOverrides;
 import com.homerun.domain.diagnosis.repository.CostEstimateRepository;
 import com.homerun.domain.diagnosis.repository.DiagnosisRepository;
 import com.homerun.domain.diagnosis.type.DiagnosisVerdict;
@@ -60,7 +61,7 @@ public class DiagnosisService {
 
     @Transactional
     public DiagnosisResponse calculate(Long memberId, Long planId, DiagnosisCalculationRequest request) {
-        Calculation calculation = compute(memberId, planId, request);
+        Calculation calculation = compute(memberId, planId, request, DiagnosisOverrides.none());
         CostEstimate cost = costs.save(calculation.cost());
         Diagnosis diagnosis = diagnoses.save(calculation.toDiagnosis(cost.getId()));
         return response(diagnosis, cost);
@@ -68,7 +69,19 @@ public class DiagnosisService {
 
     @Transactional(readOnly = true)
     public DiagnosisResponse simulate(Long memberId, Long planId, DiagnosisCalculationRequest request) {
-        Calculation calculation = compute(memberId, planId, request);
+        return simulate(memberId, planId, request, DiagnosisOverrides.none());
+    }
+
+    /**
+     * 계획을 고치지 않고 축(희망 보증금·독립 희망일)만 바꿔 계산한다(ALT-01-02).
+     *
+     * <p>저장하지 않는 것은 {@link #simulate(Long, Long, DiagnosisCalculationRequest)} 과 같다.
+     * override 가 비어 있으면 계산 결과도 그것과 완전히 같다.
+     */
+    @Transactional(readOnly = true)
+    public DiagnosisResponse simulate(
+            Long memberId, Long planId, DiagnosisCalculationRequest request, DiagnosisOverrides overrides) {
+        Calculation calculation = compute(memberId, planId, request, overrides);
         return response(calculation.toDiagnosis(null), calculation.cost());
     }
 
@@ -83,7 +96,8 @@ public class DiagnosisService {
         return response(diagnosis, cost);
     }
 
-    private Calculation compute(Long memberId, Long planId, DiagnosisCalculationRequest request) {
+    private Calculation compute(
+            Long memberId, Long planId, DiagnosisCalculationRequest request, DiagnosisOverrides overrides) {
         Plan plan = ownedJeonsePlan(memberId, planId);
         PlanInput input =
                 inputs.findByPlanId(planId).orElseThrow(() -> new BusinessException(ErrorCode.PLAN_INPUT_NOT_FOUND));
@@ -92,7 +106,7 @@ public class DiagnosisService {
         LocalDate today = LocalDate.now(clock);
         Instant calculatedAt = Instant.now(clock);
         List<DiagnosisWarning> warnings = new ArrayList<>();
-        int monthsToMove = monthsToMove(today, plan.getTargetMoveDate(), warnings);
+        int monthsToMove = monthsToMove(today, overrides.targetMoveDateOr(plan.getTargetMoveDate()), warnings);
         long monthlyDebtPayment = monthlyDebtPayment(memberId, request.monthlyDebtPayment(), warnings);
         if (input.getIncomeSource() == FinancialValueSource.OPEN_BANKING
                 && !Boolean.TRUE.equals(input.getFinancialDataConfirmed())) {
@@ -100,7 +114,7 @@ public class DiagnosisService {
         }
 
         try {
-            long deposit = input.getHopeDeposit();
+            long deposit = overrides.hopeDepositOr(input.getHopeDeposit());
             long nonDepositCost = add(
                     request.movingCost(),
                     request.brokerageFee(),
