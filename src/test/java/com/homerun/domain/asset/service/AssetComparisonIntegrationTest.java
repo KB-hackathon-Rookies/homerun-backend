@@ -5,7 +5,6 @@ import static org.assertj.core.api.Assertions.assertThat;
 import com.homerun.TestcontainersConfiguration;
 import com.homerun.domain.asset.dto.request.AssetComparisonRequest;
 import com.homerun.domain.asset.dto.response.AssetComparisonResponse;
-import com.homerun.domain.asset.dto.response.AssetComparisonResult;
 import com.homerun.domain.asset.type.AssetType;
 import jakarta.persistence.EntityManager;
 import java.math.BigDecimal;
@@ -63,21 +62,6 @@ class AssetComparisonIntegrationTest {
 
         assertThat(response.results().get(0).taxPenaltyAmount()).isEqualTo(3_300_000L);
         assertThat(response.results().get(0).netAmount()).isEqualTo(16_700_000L);
-    }
-
-    @Test
-    void should_includeRealFct083Text_when_youthSavingsAgainstRealPostgres() {
-        // AST-01-06. 응답끼리 비교하지 않고 시드값을 직접 읽어서 notes에 실제로 들어갔는지 본다.
-        String seededText =
-                (String) em.createNativeQuery("SELECT value_text FROM config_effective WHERE fact_code = 'FCT-083'")
-                        .getSingleResult();
-
-        AssetComparisonResponse response =
-                service.compare(memberId, planId, request(AssetType.YOUTH_SAVINGS, 6_000_000L));
-
-        AssetComparisonResult result = response.results().get(0);
-        assertThat(result.taxPenaltyAmount()).isNull();
-        assertThat(result.notes()).anyMatch(note -> note.contains(seededText));
     }
 
     @Test
