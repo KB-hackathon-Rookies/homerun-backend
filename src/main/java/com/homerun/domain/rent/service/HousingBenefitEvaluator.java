@@ -65,15 +65,20 @@ public class HousingBenefitEvaluator {
 
         Fact ceilingFact = facts.require(ceilingCode);
         long ceiling = ceilingFact.requireWon();
-        IncomeJudgement income = judgeIncome(request, reasons);
+        boolean youth = judgeYouthSeparatePayment(request, reasons);
+
+        // 분리지급의 소득 판정은 부모 가구 기준이다(FCT-044). 신청 가구 소득으로 단정하면
+        // 자격이 있는 청년에게 "대상 아님"이라고 확정 안내하게 된다 — 본인 소득이 1인 가구
+        // 기준을 넘어도 부모 가구 기준으로는 통과할 수 있기 때문이다.
+        // 원가구 소득을 걷는 경로가 아직 없으므로 추가확인으로 둔다(POL-01-03 Phase 2).
+        IncomeJudgement income = youth ? originHouseholdIncomeUnknown(reasons) : judgeIncome(request, reasons);
         Verdict verdict = income.verdict();
 
         // 대상이 아닌데 금액을 보여주면 받을 수 있는 것으로 읽힌다.
         long benefitCeiling = verdict == Verdict.INELIGIBLE ? 0 : Math.min(ceiling, request.monthlyRent());
-        boolean youth = judgeYouthSeparatePayment(request, reasons);
 
-        if (youth && verdict == Verdict.ELIGIBLE) {
-            reasons.add("청년 주거급여 분리지급 대상이다");
+        if (youth) {
+            reasons.add("청년 주거급여 분리지급 요건을 채웠다");
         }
         if (verdict != Verdict.INELIGIBLE) {
             reasons.add("기준임대료 %,d원과 실제 임차료 %,d원 중 작은 쪽이 상한이다".formatted(ceiling, request.monthlyRent()));
@@ -90,6 +95,19 @@ public class HousingBenefitEvaluator {
 
     /** 판정 결과와, 그 판정에 쓴 기준값이 REVIEW 등급이라 바뀔 수 있는지를 함께 담는다. */
     private record IncomeJudgement(Verdict verdict, boolean provisional) {}
+
+    /**
+     * 분리지급의 소득 판정은 부모 가구 기준이라(FCT-044) 지금 걷는 값으로는 할 수 없다.
+     *
+     * <p>신청 가구 소득으로 대신 판정하지 않는다 — 기준이 다른 값으로 내린 가능·불가는 그 자체로
+     * 틀린 안내다. 규칙 엔진 쪽 {@code ORIGIN_HOUSEHOLD_INCOME} 조건도 같은 이유로 추가확인이다
+     * (V36) — 같은 정책을 두 경로에서 다르게 판정하면 반드시 갈라진다.
+     */
+    private IncomeJudgement originHouseholdIncomeUnknown(List<String> reasons) {
+        reasons.add("분리지급의 소득 판정은 부모 가구 기준이라 신청 가구 소득만으로는 확정할 수 없다");
+        reasons.add("부모 가구의 소득인정액은 주민센터나 복지로에서 확인한다");
+        return new IncomeJudgement(Verdict.NEEDS_CHECK, false);
+    }
 
     /**
      * 소득인정액이 선정 기준 이하인지 본다.
