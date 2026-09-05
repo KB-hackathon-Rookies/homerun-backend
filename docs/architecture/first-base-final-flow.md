@@ -23,12 +23,22 @@
 
 | 구분 | 필드 |
 | --- | --- |
-| 공통 필수 값 또는 명시적 모름 | `hopeDeposit`, `regionId`, `isHomeless`, `householderStatus`, `employmentType`, `monthlyIncome`, `netAssets` |
+| 공통 필수 값 또는 명시적 모름 | `hopeDeposit`, `regionId`, `isHomeless`, `householderStatus`, `employmentType`, `monthlyIncome`, `netAssets`, `availableCash` |
 | 급여근로자만 추가 | `companySize`, `employmentMonths` |
 | 해당 화면에서 필수가 아님 | `maritalStatus`, `monthlyRent`, `maintenanceFee`, `currentDeposit`, `maxMonthlyBurden`, `areaM2`, `houseType` |
 
 모름을 허용하는 기존 COM-05 계약은 유지한다. 명시적 모름은 추가 확인이며 PASS로 간주하지 않는다.
 기존 WOLSE/BANJEONSE의 완료 검증은 변경하지 않았다.
+
+### STEP 저장과 최종 제출
+
+`PUT /api/v1/plans/{planId}/input/steps/{stepCode}`는 다음 버튼을 누를 때 현재 STEP만 병합 저장한다.
+`GET /api/v1/plans/{planId}/input/resume`는 저장된 입력과 다음 미완료 STEP을 반환한다.
+
+최종 확인 후 `POST /api/v1/plans/{planId}/first-base/complete`를 호출한다. 이 API는 입력 revision을
+검증한 뒤 DIA-02 결과 저장, `FIRST_DIAGNOSIS` 완료, 2루 잠금 해제를 하나의 트랜잭션으로 처리한다.
+동일 revision 재요청은 최초 진단 결과를 반환하고 중복 저장하지 않는다. 필수 판단 항목을 `unknownFields`로
+저장한 경우에는 계산값을 지어내지 않고 `NEEDS_CONFIRMATION`과 확인할 필드 목록을 반환하며 1루를 완료하지 않는다.
 
 ### 결과 카드
 

@@ -22,6 +22,7 @@
 | `POST` | `/api/v1/plans/{planId}/diagnosis` | 계산 결과와 비용 스냅샷 저장 |
 | `POST` | `/api/v1/plans/{planId}/diagnosis/simulate` | 저장하지 않고 가정값 비교 |
 | `GET` | `/api/v1/plans/{planId}/diagnosis` | 최근 저장 결과 조회 |
+| `POST` | `/api/v1/plans/{planId}/first-base/complete` | 입력 검증·진단 저장·1루 완료를 원자적으로 처리 |
 
 정책 카드에서 받은 `estimatedLoanAmount`와 사용자가 비교하려는 월 이자값을 각각
 `expectedLoanAmount`, `expectedMonthlyInterest`로 전달한다. 계산은 대출 승인을 뜻하지 않는다.
@@ -32,6 +33,8 @@
 - 계좌 잔액을 순자산 또는 사용 가능 현금으로 자동 변환하지 않는다.
 - 요청에서 월 대출 상환액을 생략하면 최근 오픈뱅킹 금융 스냅샷 값을 사용할 수 있다.
 - 오픈뱅킹 상환액과 아직 확인하지 않은 오픈뱅킹 소득은 경고를 남기며 `POSSIBLE`로 확정하지 않는다.
+- 최종 제출에서는 희망 보증금·월소득·순자산·가용현금 등 필수 판단 항목이 명시적 모름이면
+  임의의 0원으로 계산하지 않고 `NEEDS_CONFIRMATION`을 반환한다.
 
 ## 판정
 
