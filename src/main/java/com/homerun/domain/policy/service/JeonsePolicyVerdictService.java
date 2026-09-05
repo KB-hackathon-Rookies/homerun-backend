@@ -267,7 +267,8 @@ public class JeonsePolicyVerdictService {
                 condition.requiredText(),
                 condition.isMet(),
                 condition.factCode(),
-                condition.sourceUrl())));
+                condition.sourceUrl(),
+                condition.householdBasis())));
 
         List<String> changedConditionCodes = conditions.stream()
                 .filter(condition -> previousMetByCode.containsKey(condition.code())

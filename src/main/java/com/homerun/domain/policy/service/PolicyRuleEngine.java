@@ -513,7 +513,15 @@ public class PolicyRuleEngine {
         String requiredText = fact != null ? fact.text() : null;
         String sourceUrl = fact != null ? fact.sourceUrl() : null;
         String factCode = fact != null ? fact.code() : condition.factCode();
-        return new ConditionResult(condition.code(), label, requiredText, isMet, factCode, sourceUrl, eligibleUntil);
+        return new ConditionResult(
+                condition.code(),
+                label,
+                requiredText,
+                isMet,
+                factCode,
+                sourceUrl,
+                eligibleUntil,
+                condition.effectiveBasis());
     }
 
     private ConditionResult needInfo(RuleCondition condition, String requiredTextOverride) {
@@ -524,6 +532,13 @@ public class PolicyRuleEngine {
                 ? requiredTextOverride
                 : fact.map(Fact::text).orElse(null);
         String sourceUrl = fact.map(Fact::sourceUrl).orElse(null);
-        return new ConditionResult(condition.code(), label, requiredText, null, condition.factCode(), sourceUrl);
+        return new ConditionResult(
+                condition.code(),
+                label,
+                requiredText,
+                null,
+                condition.factCode(),
+                sourceUrl,
+                condition.effectiveBasis());
     }
 }
