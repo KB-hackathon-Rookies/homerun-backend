@@ -70,23 +70,6 @@ public class JeonsePolicyVerdictService {
             "PRICE_RATIO_126", "RETURN-GUARANTEE-SGI",
             "REQUIRES_HF_JEONSE_LOAN", "RETURN-GUARANTEE-HUG");
 
-    /** FAIL 조건 코드 → 사용자/주택/한도 분류(POL-03-10, #108). 맵에 없는 조건(RULE_NOT_ACTIVE
-     * 등 코드가 아닌 것)은 분류하지 않는다 — 없는 카테고리를 지어내지 않는다. */
-    private static final Map<String, RejectionReasonCategory> REASON_CATEGORY_BY_CONDITION = Map.ofEntries(
-            Map.entry("HOUSEHOLD_HOMELESS", RejectionReasonCategory.USER),
-            Map.entry("HOUSEHOLDER_STATUS", RejectionReasonCategory.USER),
-            Map.entry("NO_DUPLICATE_LOAN", RejectionReasonCategory.USER),
-            Map.entry("AGE_UPPER_BOUND", RejectionReasonCategory.USER),
-            Map.entry("INCOME_CAP", RejectionReasonCategory.USER),
-            Map.entry("NET_ASSET_CAP", RejectionReasonCategory.USER),
-            Map.entry("REQUIRES_HF_JEONSE_LOAN", RejectionReasonCategory.USER),
-            Map.entry("INCOME_CAP_FEE_SUPPORT", RejectionReasonCategory.USER),
-            Map.entry("NOT_VIOLATION_BUILDING", RejectionReasonCategory.HOUSE),
-            Map.entry("NOT_MULTI_HOUSEHOLD", RejectionReasonCategory.HOUSE),
-            Map.entry("AREA_CAP", RejectionReasonCategory.HOUSE),
-            Map.entry("PRICE_RATIO_126", RejectionReasonCategory.HOUSE),
-            Map.entry("DEPOSIT_CAP", RejectionReasonCategory.LIMIT));
-
     private final PlanRepository planRepository;
     private final PlanInputRepository planInputRepository;
     private final PropertyRepository propertyRepository;
@@ -324,7 +307,7 @@ public class JeonsePolicyVerdictService {
         return new RejectionReasonResponse(
                 condition.code(),
                 condition.label(),
-                REASON_CATEGORY_BY_CONDITION.get(condition.code()),
+                RejectionReasonCategory.from(condition.code()),
                 alternative == null ? null : alternative.getCode(),
                 alternative == null ? null : alternative.getName());
     }
