@@ -36,9 +36,20 @@
 
 `monthlyIncomeSyncStatus`는 `APPLIED`, `UNCHANGED`, `MANUAL_VALUE_PRESERVED`, `CONFIRMED_VALUE_PRESERVED`, `NOT_APPLICABLE` 중 하나다. 연결 실패는 기존 오픈뱅킹 오류 응답을 사용하고, 일부 조회 실패는 summary coverage/warnings와 함께 `NOT_APPLICABLE`로 반환한다.
 
+## 확인 또는 수동 교체
+
+동기화 후 `PUT /api/v1/plans/{planId}/input/financial-income`을 호출한다.
+
+- 그대로 확인: `{"action":"CONFIRM_OPEN_BANKING"}`. 요청 금액을 받지 않고 서버에 저장된 동기화 금액만 확정한다.
+- 직접 수정: `{"action":"USE_MANUAL","monthlyIncome":3100000}`. 소득 출처를 `MANUAL`로 바꾸며, 다른 외부 자산까지 확인한 것으로 처리하지 않는다.
+
+소유한 계획의 저장된 입력만 변경할 수 있다. 확인/수정 전 revision을 이력에 남기고 이후 단계를 재계산 대상으로 만든다. 같은 확인 또는 같은 수동값의 반복 요청은 멱등하며 revision을 추가하지 않는다.
+
+기존 전체 입력 PUT에서 `OPEN_BANKING`을 보내는 경우에도 서버에 이미 동기화된 동일 금액만 허용한다. 클라이언트가 임의의 월소득을 외부 출처로 표시하거나, 기존과 다른 외부 자산값을 확인 상태로 제출하면 `PLAN_017`로 거부한다. 기존에 저장된 동일 외부값의 재저장은 호환성을 위해 유지한다.
+
 ## 정책 판정 안전장치
 
-오픈뱅킹 거래내역에서 얻는 값은 통장 실수령 추정액이며 은행이 심사하는 증빙 연소득과 동일하지 않다. 따라서 `incomeSource=OPEN_BANKING`이고 `financialDataConfirmed!=true`이면 소득 조건은 PASS/FAIL이 아니라 NEED_INFO다. 사용자가 값을 확인해 기존 전체 입력 PUT으로 `financialDataConfirmed=true`를 저장한 뒤에만 정책 수치 비교에 사용한다.
+오픈뱅킹 거래내역에서 얻는 값은 통장 실수령 추정액이며 은행이 심사하는 증빙 연소득과 동일하지 않다. 따라서 `incomeSource=OPEN_BANKING`이고 `financialDataConfirmed!=true`이면 소득 조건은 PASS/FAIL이 아니라 NEED_INFO다. 전용 확인 API 또는 검증된 기존 전체 입력 PUT으로 확인한 뒤에만 정책 수치 비교에 사용한다.
 
 계좌 등록 범위가 전체 자산을 보장하지 않고 부동산·증권·보증금·부채를 모두 알 수 없으므로 다음 자동 변환은 하지 않는다.
 
