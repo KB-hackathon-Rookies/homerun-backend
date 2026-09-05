@@ -206,7 +206,12 @@ public class PolicyRuleEngine {
         String actual = fieldValue instanceof Enum<?> enumValue ? enumValue.name() : String.valueOf(fieldValue);
         String expected = String.valueOf(condition.value());
         boolean equal = actual.equals(expected);
-        return met(condition, expectEqual == equal, null);
+        // fact_code 가 있으면 근거 문구와 출처를 붙인다(#160). 기존 eq 조건은 전부 fact_code 가
+        // 없어 예전처럼 STATIC_LABELS 로 떨어지므로 동작이 그대로다.
+        return met(
+                condition,
+                expectEqual == equal,
+                resolveFact(condition.factCode()).orElse(null));
     }
 
     /** field 가 BIGINT(금액 등)든 NUMERIC(면적 등)이든 상관없이 fact 와 비교한다 — 둘 다
@@ -470,6 +475,9 @@ public class PolicyRuleEngine {
         }
         return switch (field) {
             case "household_homeless" -> input == null ? null : input.getHouseholdHomeless();
+            case "marital_status" -> input == null ? null : input.getMaritalStatus();
+            case "lives_apart_from_parents" -> input == null ? null : input.getLivesApartFromParents();
+            case "parent_on_housing_benefit" -> input == null ? null : input.getParentOnHousingBenefit();
             case "householder_status" -> input == null ? null : input.getHouseholderStatus();
             case "has_existing_jeonse_loan" -> input == null ? null : input.getExistingJeonseLoan();
             case "monthly_income" -> input == null ? null : input.getMonthlyIncome();

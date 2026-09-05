@@ -7,6 +7,7 @@ import com.homerun.domain.plan.type.HouseType;
 import com.homerun.domain.plan.type.HouseholderStatus;
 import com.homerun.domain.plan.type.MaritalStatus;
 import com.homerun.domain.plan.type.PlanInputUnknownField;
+import io.swagger.v3.oas.annotations.media.Schema;
 import jakarta.validation.constraints.DecimalMin;
 import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.Positive;
@@ -43,7 +44,74 @@ public record PlanInputRequest(
         FinancialValueSource incomeSource,
         FinancialValueSource assetSource,
         Boolean financialDataConfirmed,
+
+        @Schema(description = "부모와 주민등록상 시·군이 다른가(FCT-043). 주소가 아니라 다른지 여부만 받는다")
+        Boolean livesApartFromParents,
+
+        @Schema(description = "부모 가구가 이미 주거급여를 받고 있는가(FCT-044). 청년 단독 신청은 불가하다")
+        Boolean parentOnHousingBenefit,
+
         Set<PlanInputUnknownField> unknownFields) {
+
+    /**
+     * 원가구 입력(#160) 이전 자리수를 위한 편의 생성자. 두 값은 모름(null)으로 둔다 — 안 물어본
+     * 것과 아니라고 답한 것은 다르다(COM-05-04).
+     */
+    public PlanInputRequest(
+            Long hopeDeposit,
+            Long currentDeposit,
+            Long monthlyRent,
+            Long maintenanceFee,
+            Long maxMonthlyBurden,
+            Long regionId,
+            BigDecimal areaM2,
+            HouseType houseType,
+            Boolean isHomeless,
+            HouseholderStatus householderStatus,
+            MaritalStatus maritalStatus,
+            EmploymentType employmentType,
+            Integer employmentMonths,
+            CompanySize companySize,
+            Boolean householdHomeless,
+            LocalDate birthDate,
+            Integer militaryMonths,
+            Long monthlyIncome,
+            Long netAssets,
+            Long availableCash,
+            Boolean existingJeonseLoan,
+            FinancialValueSource incomeSource,
+            FinancialValueSource assetSource,
+            Boolean financialDataConfirmed,
+            Set<PlanInputUnknownField> unknownFields) {
+        this(
+                hopeDeposit,
+                currentDeposit,
+                monthlyRent,
+                maintenanceFee,
+                maxMonthlyBurden,
+                regionId,
+                areaM2,
+                houseType,
+                isHomeless,
+                householderStatus,
+                maritalStatus,
+                employmentType,
+                employmentMonths,
+                companySize,
+                householdHomeless,
+                birthDate,
+                militaryMonths,
+                monthlyIncome,
+                netAssets,
+                availableCash,
+                existingJeonseLoan,
+                incomeSource,
+                assetSource,
+                financialDataConfirmed,
+                null,
+                null,
+                unknownFields);
+    }
 
     public Set<PlanInputUnknownField> normalizedUnknownFields() {
         return unknownFields == null ? Set.of() : Set.copyOf(unknownFields);

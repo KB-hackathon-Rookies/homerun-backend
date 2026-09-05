@@ -206,6 +206,8 @@ public class PlanInputService {
             case EMPLOYMENT_MONTHS -> request.employmentMonths();
             case COMPANY_SIZE -> request.companySize();
             case HOUSEHOLD_HOMELESS -> request.householdHomeless();
+            case LIVES_APART_FROM_PARENTS -> request.livesApartFromParents();
+            case PARENT_ON_HOUSING_BENEFIT -> request.parentOnHousingBenefit();
             case BIRTH_DATE -> request.birthDate();
             case MILITARY_MONTHS -> request.militaryMonths();
             case MONTHLY_INCOME -> request.monthlyIncome();
