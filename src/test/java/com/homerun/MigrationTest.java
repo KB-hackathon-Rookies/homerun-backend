@@ -157,6 +157,15 @@ class MigrationTest {
     }
 
     @Test
+    @DisplayName("V41이 revision 단위 1루 제출 기록을 추가한다")
+    void should_add_firstBaseSubmission_whenV41IsApplied() {
+        assertThat(tableNames()).contains("first_base_submission");
+        assertThat(columnNames("first_base_submission"))
+                .contains("plan_id", "input_revision", "diagnosis_id", "created_at");
+        assertThat(constraintDefinition("uq_first_base_submission_revision")).contains("plan_id", "input_revision");
+    }
+
+    @Test
     @DisplayName("V21이 매물 후보 분석과 최종 선택 컬럼을 추가한다")
     void should_add_propertyCandidateColumns_whenV21IsApplied() {
         assertThat(columnNames("property"))

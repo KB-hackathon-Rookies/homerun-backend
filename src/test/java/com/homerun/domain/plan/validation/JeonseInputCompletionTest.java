@@ -34,6 +34,7 @@ class JeonseInputCompletionTest {
         when(input.getHouseholderStatus()).thenReturn(HouseholderStatus.EXPECTED);
         when(input.getMonthlyIncome()).thenReturn(2_450_000L);
         when(input.getNetAssets()).thenReturn(32_000_000L);
+        when(input.getAvailableCash()).thenReturn(20_000_000L);
         when(input.getUnknownFields()).thenReturn(List.of());
         when(input.getEmploymentMonths()).thenReturn(null);
     }
@@ -91,7 +92,7 @@ class JeonseInputCompletionTest {
     }
 
     @Test
-    void should_reportSevenBaseFields_when_snapshotIsMissing() {
+    void should_reportEightBaseFields_when_snapshotIsMissing() {
         when(inputs.findByPlanId(10L)).thenReturn(Optional.empty());
         assertThatThrownBy(this::validate)
                 .isInstanceOfSatisfying(
@@ -105,7 +106,8 @@ class JeonseInputCompletionTest {
                                         "householderStatus",
                                         "employmentType",
                                         "monthlyIncome",
-                                        "netAssets"));
+                                        "netAssets",
+                                        "availableCash"));
     }
 
     @Test

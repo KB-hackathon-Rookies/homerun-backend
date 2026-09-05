@@ -12,6 +12,7 @@ import com.homerun.TestcontainersConfiguration;
 import com.homerun.domain.auth.type.AuthProvider;
 import com.homerun.domain.member.entity.Member;
 import com.homerun.domain.member.repository.MemberRepository;
+import com.homerun.domain.plan.type.DiagnosisInputStep;
 import com.homerun.domain.terms.service.TermsService;
 import com.homerun.global.security.jwt.JwtTokenProvider;
 import jakarta.persistence.EntityManager;
@@ -140,6 +141,21 @@ class PlanInputStepIntegrationTest {
     }
 
     @Test
+    @DisplayName("금융 STEP은 진단 계산에 필요한 가용 현금까지 저장한다")
+    void requires_availableCash_in_financial_step() throws Exception {
+        save("FINANCIAL", "{\"expectedRevision\":0,\"monthlyIncome\":2450000,\"netAssets\":36000000}")
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value("PLAN_020"));
+
+        save(
+                        "FINANCIAL",
+                        "{\"expectedRevision\":0,\"monthlyIncome\":2450000,\"netAssets\":36000000,"
+                                + "\"unknownFields\":[\"AVAILABLE_CASH\"]}")
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.nextStep").value("HOPE_DEPOSIT"));
+    }
+
+    @Test
     @DisplayName("답변 없는 STEP 저장은 입력과 위치를 모두 롤백한다")
     void rolls_back_input_and_location_when_step_is_incomplete() throws Exception {
         save("HOUSEHOLDER", "{\"expectedRevision\":0}")
@@ -208,9 +224,9 @@ class PlanInputStepIntegrationTest {
         em.createNativeQuery("""
                         INSERT INTO plan_input(
                             plan_id, hope_deposit, region_id, is_homeless, householder_status,
-                            marital_status, employment_type, monthly_income, net_assets)
+                            marital_status, employment_type, monthly_income, net_assets, available_cash)
                         VALUES (:pid, 180000000, :regionId, true, 'EXPECTED',
-                            'SINGLE', 'FREELANCER', 2450000, 36000000)
+                            'SINGLE', 'FREELANCER', 2450000, 36000000, 20000000)
                         """)
                 .setParameter("pid", planId)
                 .setParameter("regionId", regionId.longValue())
@@ -226,6 +242,35 @@ class PlanInputStepIntegrationTest {
                         .setParameter("pid", planId)
                         .getSingleResult())
                 .isEqualTo("DIAGNOSIS_RESULT");
+    }
+
+    @Test
+    @DisplayName("최종 확인 후 이전 입력을 바꾸면 REVIEW 완료를 무효화한다")
+    void invalidates_review_when_previous_input_changes() throws Exception {
+        Number regionId =
+                (Number) em.createNativeQuery("SELECT min(id) FROM region").getSingleResult();
+        em.createNativeQuery("""
+                        INSERT INTO plan_input(
+                            plan_id, hope_deposit, region_id, is_homeless, householder_status,
+                            employment_type, monthly_income, net_assets, available_cash)
+                        VALUES (:pid, 180000000, :regionId, true, 'EXPECTED',
+                            'FREELANCER', 2450000, 36000000, 20000000)
+                        """)
+                .setParameter("pid", planId)
+                .setParameter("regionId", regionId.longValue())
+                .executeUpdate();
+        em.persist(new com.homerun.domain.plan.entity.PlanInputStep(planId, DiagnosisInputStep.REVIEW));
+        em.flush();
+
+        save("HOPE_DEPOSIT", "{\"expectedRevision\":1,\"hopeDeposit\":190000000}")
+                .andExpect(status().isOk());
+
+        assertThat(((Number) em.createNativeQuery(
+                                        "SELECT count(*) FROM plan_input_step WHERE plan_id=:pid AND step_code='REVIEW'")
+                                .setParameter("pid", planId)
+                                .getSingleResult())
+                        .intValue())
+                .isZero();
     }
 
     private org.springframework.test.web.servlet.ResultActions save(String step, String body) throws Exception {
