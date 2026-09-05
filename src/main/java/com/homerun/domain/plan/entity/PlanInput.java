@@ -180,6 +180,35 @@ public class PlanInput {
         return true;
     }
 
+    public boolean confirmOpenBankingIncome() {
+        if (Boolean.TRUE.equals(financialDataConfirmed)) return false;
+        financialDataConfirmed = true;
+        revision++;
+        updatedAt = Instant.now();
+        return true;
+    }
+
+    public boolean useManualIncome(Long value) {
+        if (Objects.equals(monthlyIncome, value)
+                && incomeSource == FinancialValueSource.MANUAL
+                && !Boolean.TRUE.equals(financialDataConfirmed)
+                && !unknownFields.contains(PlanInputUnknownField.MONTHLY_INCOME)) {
+            return false;
+        }
+        monthlyIncome = value;
+        incomeSource = FinancialValueSource.MANUAL;
+        // 다른 외부 자산값까지 확인한 것으로 오해하지 않도록 전역 확인값은 해제한다.
+        financialDataConfirmed = false;
+        unknownFields = unknownFields.stream()
+                .filter(field -> field != PlanInputUnknownField.MONTHLY_INCOME
+                        && field != PlanInputUnknownField.INCOME_SOURCE
+                        && field != PlanInputUnknownField.FINANCIAL_DATA_CONFIRMED)
+                .toList();
+        revision++;
+        updatedAt = Instant.now();
+        return true;
+    }
+
     public boolean matches(PlanInputRequest request) {
         return Objects.equals(hopeDeposit, request.hopeDeposit())
                 && Objects.equals(currentDeposit, request.currentDeposit())

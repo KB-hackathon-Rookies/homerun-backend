@@ -1,5 +1,6 @@
 package com.homerun.domain.plan.service;
 
+import com.homerun.domain.plan.dto.request.FinancialIncomeConfirmationRequest;
 import com.homerun.domain.plan.dto.request.PlanInputRequest;
 import com.homerun.domain.plan.dto.response.PlanInputResponse;
 import com.homerun.domain.plan.entity.Plan;
@@ -10,6 +11,7 @@ import com.homerun.domain.plan.repository.PlanInputHistoryRepository;
 import com.homerun.domain.plan.repository.PlanInputRepository;
 import com.homerun.domain.plan.repository.PlanRepository;
 import com.homerun.domain.plan.repository.PlanStepRepository;
+import com.homerun.domain.plan.type.FinancialIncomeAction;
 import com.homerun.domain.plan.type.FinancialValueSource;
 import com.homerun.domain.plan.type.OpenBankingIncomeSyncStatus;
 import com.homerun.domain.plan.type.PlanGate;
@@ -18,6 +20,7 @@ import com.homerun.domain.region.repository.RegionRepository;
 import com.homerun.global.exception.BusinessException;
 import com.homerun.global.exception.ErrorCode;
 import java.util.List;
+import java.util.Objects;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -49,6 +52,7 @@ public class PlanInputService {
         findOwnedPlan(memberId, planId);
         validateRegion(request.regionId());
         PlanInput input = inputRepository.findByPlanId(planId).orElse(null);
+        validateFinancialSources(request, input);
         if (input == null) {
             return PlanInputResponse.from(inputRepository.save(PlanInput.create(planId, request)));
         }
@@ -106,6 +110,39 @@ public class PlanInputService {
         return new OpenBankingIncomeSyncResult(OpenBankingIncomeSyncStatus.APPLIED, PlanInputResponse.from(input));
     }
 
+    @Transactional
+    public PlanInputResponse confirmFinancialIncome(
+            Long memberId, Long planId, FinancialIncomeConfirmationRequest request) {
+        findOwnedPlan(memberId, planId);
+        PlanInput input = inputRepository
+                .findByPlanId(planId)
+                .orElseThrow(() -> new BusinessException(ErrorCode.INVALID_FINANCIAL_INCOME_CONFIRMATION));
+        if (request.action() == null) {
+            throw new BusinessException(ErrorCode.INVALID_FINANCIAL_INCOME_CONFIRMATION);
+        }
+        boolean changed;
+        PlanInputHistory previous = PlanInputHistory.capture(input);
+        if (request.action() == FinancialIncomeAction.CONFIRM_OPEN_BANKING) {
+            if (request.monthlyIncome() != null
+                    || input.getMonthlyIncome() == null
+                    || input.getIncomeSource() != FinancialValueSource.OPEN_BANKING
+                    || (input.getAssetSource() == FinancialValueSource.OPEN_BANKING
+                            && !Boolean.TRUE.equals(input.getFinancialDataConfirmed()))) {
+                throw new BusinessException(ErrorCode.INVALID_FINANCIAL_INCOME_CONFIRMATION);
+            }
+            changed = input.confirmOpenBankingIncome();
+        } else {
+            if (request.monthlyIncome() == null) {
+                throw new BusinessException(ErrorCode.INVALID_FINANCIAL_INCOME_CONFIRMATION);
+            }
+            changed = input.useManualIncome(request.monthlyIncome());
+        }
+        if (!changed) return PlanInputResponse.from(input);
+        historyRepository.save(previous);
+        markAffectedStepsForRecalculation(planId);
+        return PlanInputResponse.from(input);
+    }
+
     public record OpenBankingIncomeSyncResult(OpenBankingIncomeSyncStatus status, PlanInputResponse input) {}
 
     private Plan findOwnedPlan(Long memberId, Long planId) {
@@ -124,6 +161,21 @@ public class PlanInputService {
     private void validateRegion(Long regionId) {
         if (regionId != null && !regionRepository.existsById(regionId)) {
             throw new BusinessException(ErrorCode.PLAN_REGION_NOT_FOUND);
+        }
+    }
+
+    private void validateFinancialSources(PlanInputRequest request, PlanInput input) {
+        if (request.incomeSource() == FinancialValueSource.OPEN_BANKING
+                && (input == null
+                        || input.getIncomeSource() != FinancialValueSource.OPEN_BANKING
+                        || !Objects.equals(input.getMonthlyIncome(), request.monthlyIncome()))) {
+            throw new BusinessException(ErrorCode.INVALID_FINANCIAL_INCOME_CONFIRMATION);
+        }
+        if (request.assetSource() == FinancialValueSource.OPEN_BANKING
+                && (input == null
+                        || input.getAssetSource() != FinancialValueSource.OPEN_BANKING
+                        || !Objects.equals(input.getNetAssets(), request.netAssets()))) {
+            throw new BusinessException(ErrorCode.INVALID_FINANCIAL_INCOME_CONFIRMATION);
         }
     }
 
