@@ -96,6 +96,17 @@ public class DiagnosisService {
         return response(diagnosis, cost);
     }
 
+    @Transactional(readOnly = true)
+    public DiagnosisResponse get(Long memberId, Long planId, Long diagnosisId) {
+        ownedJeonsePlan(memberId, planId);
+        Diagnosis diagnosis = diagnoses
+                .findByIdAndPlanId(diagnosisId, planId)
+                .orElseThrow(() -> new BusinessException(ErrorCode.DIAGNOSIS_NOT_FOUND));
+        CostEstimate cost = costs.findById(diagnosis.getCostEstimateId())
+                .orElseThrow(() -> new BusinessException(ErrorCode.DIAGNOSIS_NOT_FOUND));
+        return response(diagnosis, cost);
+    }
+
     private Calculation compute(
             Long memberId, Long planId, DiagnosisCalculationRequest request, DiagnosisOverrides overrides) {
         Plan plan = ownedJeonsePlan(memberId, planId);

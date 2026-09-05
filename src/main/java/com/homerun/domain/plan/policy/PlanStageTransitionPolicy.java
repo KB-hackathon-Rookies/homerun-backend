@@ -16,8 +16,12 @@ public class PlanStageTransitionPolicy {
         if (gate == null) {
             return;
         }
-        if (gate.stage() != plan.getStage()) {
+        if (gate.stage().ordinal() > plan.getStage().ordinal()) {
             throw new BusinessException(ErrorCode.INVALID_STAGE_TRANSITION);
+        }
+        if (gate.stage().ordinal() < plan.getStage().ordinal()) {
+            // 이전 단계의 재계산을 완료할 때 현재 진행 단계를 다시 전진시키지 않는다.
+            return;
         }
         if (gate.stage() == PlanStage.HOME) {
             // 홈은 완료 시점이 없는 지속 관리 단계다. 현재 작업 묶음이 끝나도 계획을 닫지 않는다.
