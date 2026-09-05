@@ -180,10 +180,10 @@ public class PolicyRuleEngine {
         return switch (condition.op()) {
             case "eq" -> equalityCheck(condition, input, property, true);
             case "ne" -> equalityCheck(condition, input, property, false);
-            case "lte" -> numericCheck(condition, input, false);
-            case "lte_by_region" -> regionalLimit(condition, input);
+            case "lte" -> numericCheck(condition, input, property, false);
+            case "lte_by_region" -> regionalLimit(condition, input, property);
             case "region_eq" -> regionEquals(condition, input);
-            case "gte" -> numericCheck(condition, input, true);
+            case "gte" -> numericCheck(condition, input, property, true);
             case "annual_lte" -> annualIncomeCheck(condition, input);
             case "annual_lte_by_age_group" -> annualLteByAgeGroup(condition, input);
             case "age_within_years_adjusted" -> ageWithinYearsAdjusted(condition, input);
@@ -216,11 +216,12 @@ public class PolicyRuleEngine {
 
     /** field 가 BIGINT(금액 등)든 NUMERIC(면적 등)이든 상관없이 fact 와 비교한다 — 둘 다
      * plan_input 에 섞여 있어서(#102) 하나로 받는다. */
-    private ConditionResult numericCheck(RuleCondition condition, PlanInput input, boolean gte) {
+    private ConditionResult numericCheck(RuleCondition condition, PlanInput input, Property property, boolean gte) {
         if (financialValueNeedsConfirmation(condition.field(), input)) {
             return needInfo(condition, "외부 금융정보를 사용자가 확인해야 합니다.");
         }
-        BigDecimal amount = toComparable(resolveField(condition.field(), input));
+        // 매물을 함께 넘긴다 — area_m2 처럼 매물이 있으면 그쪽을 우선하는 필드가 있다(BR-09).
+        BigDecimal amount = toComparable(resolveField(condition.field(), input, property));
         if (amount == null) {
             return needInfo(condition, null);
         }
@@ -233,13 +234,13 @@ public class PolicyRuleEngine {
         return met(condition, pass, fact.get());
     }
 
-    private ConditionResult regionalLimit(RuleCondition condition, PlanInput input) {
+    private ConditionResult regionalLimit(RuleCondition condition, PlanInput input, Property property) {
         PolicyArea area = regions.resolve(input == null ? null : input.getRegionId());
         if (area == null) return needInfo(condition, "희망 지역을 확인해야 상한을 결정할 수 있습니다.");
         String factCode = area == PolicyArea.NON_CAPITAL ? condition.altFactCode() : condition.factCode();
         RuleCondition selected =
                 new RuleCondition(condition.code(), condition.field(), "lte", condition.value(), factCode, null);
-        return numericCheck(selected, input, false);
+        return numericCheck(selected, input, property, false);
     }
 
     private ConditionResult regionEquals(RuleCondition condition, PlanInput input) {
@@ -469,6 +470,15 @@ public class PolicyRuleEngine {
     }
 
     /** 매물 조건(위반건축물·다가구 등, #100)과 plan_input 조건을 이름 하나로 같이 찾는다. */
+    /** 매물 면적이 있으면 그것을, 없으면 계획 입력의 희망 면적을 쓴다. 둘 다 없으면 null 이라
+     * 면적 조건이 NEED_INFO 로 떨어진다 — 0 으로 채우면 85㎡ 이하로 통과해 버린다. */
+    private Object propertyAreaOr(Property property, PlanInput input) {
+        if (property != null && property.getExclusiveArea() != null) {
+            return property.getExclusiveArea();
+        }
+        return input == null ? null : input.getAreaM2();
+    }
+
     private Object resolveField(String field, PlanInput input, Property property) {
         if (field == null) {
             return null;
@@ -483,7 +493,10 @@ public class PolicyRuleEngine {
             case "monthly_income" -> input == null ? null : input.getMonthlyIncome();
             case "net_assets" -> input == null ? null : input.getNetAssets();
             case "hope_deposit" -> input == null ? null : input.getHopeDeposit();
-            case "area_m2" -> input == null ? null : input.getAreaM2();
+            // 매물이 붙어 있으면 실제 전용면적을 쓴다(BR-09). plan_input 의 면적은 1루에서
+            // 받은 희망 조건이라, 매물을 정한 뒤에는 그 집의 면적으로 판정해야 한다.
+            // is_violation_building 이 매물에서만 읽는 것과 같은 방향이다.
+            case "area_m2" -> propertyAreaOr(property, input);
             case "is_violation_building" -> property == null ? null : property.getViolationBuilding();
             case "is_multi_household" -> property == null ? null : property.getMultiHousehold();
             default -> null;
