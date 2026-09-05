@@ -6,6 +6,7 @@ import com.homerun.global.response.ApiResponse;
 import com.homerun.global.security.principal.MemberPrincipal;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import java.util.List;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -16,6 +17,7 @@ import org.springframework.web.bind.annotation.RestController;
 
 @RestController
 @RequestMapping("/api/v1/plans/{planId}/input/open-banking-sync")
+@Tag(name = "계획 입력", description = "진단 입력 자동 저장과 외부 금융정보 동기화")
 public class OpenBankingPlanSyncController {
     private final OpenBankingPlanSyncService service;
 
