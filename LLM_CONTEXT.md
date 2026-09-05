@@ -124,33 +124,41 @@
 
 | | |
 |---|---|
-| 도메인 패키지 | 15개 (`application` `auth` `consent` `contract` `dashboard` `document` `fact` `house` `member` `openbanking` `plan` `property` `region` `rent` `terms`) |
-| 컨트롤러 | 19개 |
-| 마이그레이션 | `V1` ~ `V19` |
-| 테스트 | 41개 클래스 |
-| 팩트 레지스트리 | 169건 |
+| 도메인 패키지 | 20개 (`alternative` `application` `asset` `auth` `consent` `contract` `dashboard` `diagnosis` `document` `fact` `house` `member` `openbanking` `plan` `policy` `property` `region` `rent` `terms` `verification`) |
+| 컨트롤러 | 34개 |
+| 마이그레이션 | `V1` ~ `V36` |
+| 테스트 | 84개 클래스 |
+| 팩트 레지스트리 | 210건 (`V2` 가 141건, 이후 마이그레이션이 69건) |
 
 **이제 "기존 코드를 따른다"가 실제로 적용된다.** 새 구조를 지어내기 전에 같은 일을 하는 도메인을 먼저 찾는다.
 
 구현된 API 묶음.
 
 ```text
-/api/v1/auth                              로그인·토큰·소셜
-/api/v1/auth/email                        이메일 인증 가입
-/api/v1/members/me                        회원 정보·탈퇴
-/api/v1/plans                             계획·단계·입력
-/api/v1/plans/{planId}/input              계획 입력 이력
-/api/v1/plans/{planId}/contract           계약 실행·매물 검증
-/api/v1/plans/{planId}/consents           가구원 동의
-/api/v1/plans/{planId}/applications       정책 신청
-/api/v1/plans/{planId}/documents          서류 보유·유효기간
-/api/v1/plans/{planId}/dashboard          대시보드
-/api/v1/documents                         서류 카탈로그·발급 안내·방문 계획
-/api/v1/policies/rent                     월세 정책 판정
-/api/v1/consents/{token}                  가구원 공개 링크
-/api/v1/houses · /buildings · /addresses  주택·건축물대장·주소
-/api/v1/real-estate/rent-transactions     실거래가
-/api/v1/open-banking                      금융 요약
+/api/v1/auth · /auth/email                 로그인·토큰·소셜·이메일 인증 가입
+/api/v1/members/me                         회원 정보·탈퇴
+/api/v1/plans                              계획·단계·입력
+/api/v1/plans/{planId}/input               계획 입력 이력·오픈뱅킹 동기화·프로필 프리필
+/api/v1/plans/{planId}/diagnosis           1루 진단 계산·시뮬레이션 (DIA-02)
+/api/v1/plans/{planId}/policies/jeonse     전세 정책·반환보증·보증료 지원 판정
+/api/v1/plans/{planId}/policies/youth-savings  청년미래적금 판정
+/api/v1/plans/{planId}/alternatives        재도전 큐·미충족 원인·대안 재계산 (ALT-01)
+/api/v1/plans/{planId}/assets              IRP·청약·적금 비교 (AST-01)
+/api/v1/plans/{planId}/verifications       추가 확인 조건 조회·재판정
+/api/v1/plans/{planId}/properties          매물 후보·검증
+/api/v1/plans/{planId}/contract            계약 실행
+/api/v1/plans/{planId}/consents            가구원 동의
+/api/v1/plans/{planId}/applications        정책 신청
+/api/v1/plans/{planId}/documents           서류 보유·유효기간
+/api/v1/plans/{planId}/tasks               할 일·대시보드
+/api/v1/policies/rent                      월세 정책 판정
+/api/v1/guarantee-agencies                 보증기관 비교 (POL-03-08)
+/api/v1/bank-loan-rates                    은행별 공시 평균금리 비교 (POL-03-07)
+/api/v1/documents · /contract-checklist    서류 카탈로그·발급 안내·계약 체크리스트
+/api/v1/consents/{token}                   가구원 공개 링크
+/api/v1/houses · /buildings · /addresses · /regions  주택·건축물대장·주소·지역
+/api/v1/real-estate/rent-transactions      실거래가
+/api/v1/open-banking                       금융 요약·스냅샷
 ```
 
 ---
@@ -173,8 +181,9 @@
 
 * 기본정보·병역·가구·고용소득·자산부채·주거조건 입력
 * 오픈뱅킹 연동 및 목 데이터 지원(`DIA-01-00`)
-* 초기 필요자금, 월 현금흐름, RIR, 부족자금 산출
+* 초기 필요자금, 월 현금흐름, 부족자금 산출
 * 정책 적용 전후 비교, 독립 가능성 판정
+* **RIR은 계산하지 않는다.** `DIA-02-03`(RIR 계산)과 `DIA-02-07`(RIR 판정 기준 적용)은 범위에서 뺐다 — **RIR 제외 결정** 참고
 
 ## 2루 정책 (`POL` `GTE` `AST` `ALT` `WRN` `PRE`, 52건)
 
@@ -690,7 +699,7 @@ ERD: `https://dbdiagram.io/d/6a96771f5450bea1beb84886`
 
 ## 판정 기준값
 
-* RIR 20% 이하 안정 / 30% 초과 위험 — **단, 공식 출처 미확보. 미해결 항목 참고**
+* ~~RIR 20% 이하 안정 / 30% 초과 위험~~ — **판정에 쓰지 않는다.** RIR 자체를 범위에서 뺐다(아래 **RIR 제외 결정**)
 * 버팀목 대상 주택: 임차보증금 3억 이하, 전용 85㎡ 이하(주거형 오피스텔 가능)
 * 버팀목 우대: 만 25세 미만 단독세대주(전용 60㎡ 이하 · 보증금 3억 이하 · 대출 1.2억 이하) 연 0.3%p, 최대 4년
 * 보증료 지원 소득 기준: 청년(19~39세) 5,000만 / 신혼(혼인 7년 내) 부부합산 7,500만 / 일반 6,000만
@@ -831,14 +840,26 @@ RF-HM-05-02   홈(RF) 대시보드계열(HM) 5번블록 2번항목
 
 | 항목 | 막히는 기능 |
 |---|---|
-| **판정 임계값 근거** — RIR 컷오프, 전세가율 70/80% 공식 출처 | `DIA-02` 전체 · `RF-HM-06-02` |
+| **전세가율 70/80% 컷오프 공식 출처** (`FCT-119`) | `PRP-01-05` · `RF-HM-06-02` |
 | 청약저축 해지 손실 미조사 | `AST-01-05` |
 | 가구원 동의가 필요한 정책 목록 (기술 설계는 완료) | `FAM-01-01`~`04` · `ALT-01-03` |
 | KPI 측정 정의와 로그 스키마 | `KPI-01-01`~`05` |
 | 정책 데이터 소스 — 보조금24가 실제로 열리는지 | `ADM-01-01`~`02` · `POL-02` |
 | 1~3루 경쟁 서비스 조사 | 발표 차별화 |
 
-**판정 임계값이 특히 급하다.** 안정/주의/위험 컷오프의 출처가 없으면 심사에서 바로 질문이 들어온다.
+**남은 임계값은 전세가율이다.** 70/80% 컷오프(`FCT-119`)는 아직 자체 기준이라, 화면에 그대로 등급으로 보여주면 심사에서 출처를 묻는 질문이 들어온다.
+
+## RIR 제외 결정
+
+**`DIA-02-03`(RIR 계산)과 `DIA-02-07`(RIR 판정 기준 적용)은 구현하지 않는다.** 2026-09-05 결정.
+
+* 시트2에는 둘 다 **우선순위 높음**으로 남아 있다. 시트2를 아직 고치지 않았으므로 여기가 더 최신이다.
+* `DIA-02-06`(독립 가능성 판정)은 시트2가 "자금, 현금흐름, **주거비 부담률**"을 기준으로 하라고 적었지만, 실제 구현은 **자금과 현금흐름 두 축**으로만 판정한다.
+* 컷오프 팩트 `FCT-076`("안정 ~20% / 주의 20~30% / 위험 30% 초과")은 레지스트리에 있으나 출처가 **'자체 제안'** 이고 확정도가 `REVIEW` 다. 규칙상 못 쓰는 값은 아니지만(판정 금지는 `UNKNOWN`·`CONFLICT`), 발표에서 "왜 20%/30%인가"를 방어해야 한다는 부담이 있어 빼는 쪽을 택했다.
+* `diagnosis.rir` · `rir_level` 컬럼과 `ck_rir_level` 제약은 **지우지 않고 비워 둔다**(`docs/architecture/dia-02-diagnosis.md`). 나중에 되살릴 때 마이그레이션 없이 채우면 된다.
+* ⚠️ `FCT-077`(청년층 RIR 58%)은 확정도가 `UNKNOWN` 이고 비고에 **"발표에 쓰지 말 것"** 이라고 적혀 있다. 되살리더라도 이 값은 쓰지 않는다.
+
+되살리기로 하면 `FCT-073`(전체 임차가구 중위수 15.8%)·`FCT-075`(국제 과부담 기준 30%)가 둘 다 `CONFIRMED` 라, 등급을 매기지 않고 **비교 기준으로 나란히 보여주는 방식**이 가장 방어하기 쉽다.
 
 ## 낡거나 비어 있는 문서
 
