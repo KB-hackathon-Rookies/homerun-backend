@@ -68,6 +68,8 @@ class JeonseLoanCardsTest {
                 List.of(),
                 verdict == PolicyVerdictResult.FAIL
                         ? null
-                        : new LoanEstimateResponse(null, 144_000_000L, 36_000_000L, null, null, null, null));
+                        : new LoanEstimateResponse(null, 144_000_000L, 36_000_000L, null, null, null, null),
+                null,
+                List.of());
     }
 }

@@ -11,6 +11,7 @@ import com.homerun.domain.policy.entity.PolicyRule;
 import com.homerun.domain.policy.entity.PolicyVerdict;
 import com.homerun.domain.policy.entity.VerdictBasis;
 import com.homerun.domain.policy.model.ConditionResult;
+import com.homerun.domain.policy.model.SavedVerdict;
 import com.homerun.domain.policy.repository.PolicyRepository;
 import com.homerun.domain.policy.repository.PolicyRuleRepository;
 import com.homerun.domain.policy.repository.PolicyVerdictRepository;
@@ -21,7 +22,10 @@ import com.homerun.global.exception.BusinessException;
 import com.homerun.global.exception.ErrorCode;
 import java.time.Clock;
 import java.time.LocalDate;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
+import java.util.Objects;
 import java.util.Optional;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -96,17 +100,19 @@ public class YouthSavingsVerdictService {
 
         PolicyVerdictResult verdict = aggregate(conditionResults);
         Long ruleId = activeRule.map(PolicyRule::getId).orElse(null);
-        PolicyVerdict saved = save(planId, policy.getId(), ruleId, verdict, conditionResults);
+        SavedVerdict saved = save(planId, policy.getId(), ruleId, verdict, conditionResults);
 
         return new PolicyVerdictResponse(
                 policy.getCode(),
                 policy.getName(),
-                saved.getVerdict(),
+                saved.verdict().getVerdict(),
                 activeRule.map(PolicyRule::getVersion).orElse(null),
                 toBasisResponses(conditionResults),
                 missingFields(conditionResults),
                 List.of(),
-                null);
+                null,
+                saved.previousVerdict(),
+                saved.changedConditionCodes());
     }
 
     /** NEED_INFO 로 빠진 조건 코드들 — API 공통계약의 missingFields[]. */
@@ -117,14 +123,24 @@ public class YouthSavingsVerdictService {
                 .toList();
     }
 
-    private PolicyVerdict save(
+    private SavedVerdict save(
             Long planId, Long policyId, Long ruleId, PolicyVerdictResult verdict, List<ConditionResult> conditions) {
-        PolicyVerdict verdictEntity = policyVerdictRepository
-                .findByPlanIdAndPolicyIdAndRuleId(planId, policyId, ruleId)
-                .map(existing -> {
-                    existing.reevaluate(verdict, null, null, null, ENGINE_VERSION);
-                    verdictBasisRepository.deleteByVerdictId(existing.getId());
-                    return existing;
+        Optional<PolicyVerdict> existing =
+                policyVerdictRepository.findByPlanIdAndPolicyIdAndRuleId(planId, policyId, ruleId);
+
+        // 덮어쓰기 전에 직전 상태를 남긴다(VER-01-05). Collectors.toMap 은 value 가 null 이면
+        // 던지므로(NEED_INFO 조건의 isMet=null) put 으로 직접 채운다.
+        PolicyVerdictResult previousVerdict =
+                existing.map(PolicyVerdict::getVerdict).orElse(null);
+        Map<String, Boolean> previousMetByCode = new HashMap<>();
+        existing.ifPresent(e -> verdictBasisRepository
+                .findByVerdictId(e.getId())
+                .forEach(basis -> previousMetByCode.put(basis.getConditionCode(), basis.getMet())));
+
+        PolicyVerdict verdictEntity = existing.map(e -> {
+                    e.reevaluate(verdict, null, null, null, ENGINE_VERSION);
+                    verdictBasisRepository.deleteByVerdictId(e.getId());
+                    return e;
                 })
                 .orElseGet(() ->
                         PolicyVerdict.create(planId, policyId, ruleId, null, verdict, null, null, ENGINE_VERSION));
@@ -139,7 +155,13 @@ public class YouthSavingsVerdictService {
                 condition.factCode(),
                 condition.sourceUrl())));
 
-        return saved;
+        List<String> changedConditionCodes = conditions.stream()
+                .filter(condition -> previousMetByCode.containsKey(condition.code())
+                        && !Objects.equals(previousMetByCode.get(condition.code()), condition.isMet()))
+                .map(ConditionResult::code)
+                .toList();
+
+        return new SavedVerdict(saved, previousVerdict, changedConditionCodes);
     }
 
     private PolicyVerdictResult aggregate(List<ConditionResult> results) {
