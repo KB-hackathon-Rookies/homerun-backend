@@ -69,9 +69,11 @@ public class DocumentHoldingService {
                 .findByCode(request.documentCode())
                 .orElseThrow(() -> new BusinessException(ErrorCode.DOCUMENT_NOT_FOUND));
 
-        UserDocument holding = holdings.findByPlanIdAndDocumentTypeId(planId, document.getId())
-                .orElseGet(() -> new UserDocument(planId, document.getId()));
+        UserDocument holding = holdings.findByPlanIdAndDocumentTypeIdAndPurpose(
+                        planId, document.getId(), request.purpose())
+                .orElseGet(() -> new UserDocument(planId, document.getId(), request.purpose()));
         holding.record(request.status(), request.issuedAt(), document.getValidityDays());
+        holding.recordIssueOptions(request.issueOptions());
         if (request.status() == DocumentHoldingStatus.SUBMITTED) {
             holding.markSubmitted(LocalDate.now(clock));
         }
@@ -127,6 +129,8 @@ public class DocumentHoldingService {
         return new HoldingView(
                 document.getCode(),
                 document.getName(),
+                holding.getPurpose(),
+                holding.getIssueOptions(),
                 status,
                 status.label(),
                 holding.getIssuedAt(),

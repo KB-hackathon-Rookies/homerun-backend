@@ -104,7 +104,11 @@ public class ContractService {
                 request.bankConsultedAt(),
                 request.loanAppliedAt(),
                 request.balancePaidAt(),
-                request.electronic());
+                request.electronic(),
+                request.loanProductKind(),
+                request.collateralMethod(),
+                request.applicationMethod(),
+                request.houseType());
 
         LeaseContract saved = contracts.save(contract);
         // 마감은 계약 날짜에서 나온다. 잔금일이 바뀌면 같이 다시 잡아야 한다(SEQ-01-04).

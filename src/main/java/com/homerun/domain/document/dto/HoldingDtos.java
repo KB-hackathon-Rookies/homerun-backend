@@ -1,11 +1,13 @@
 package com.homerun.domain.document.dto;
 
 import com.homerun.domain.document.type.DocumentHoldingStatus;
+import com.homerun.domain.document.type.DocumentPurpose;
 import io.swagger.v3.oas.annotations.media.Schema;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import java.time.LocalDate;
 import java.util.List;
+import java.util.Map;
 
 /** 서류 보유 상태와 유효기간(EVI-01-04 · EVI-01-07). */
 public final class HoldingDtos {
@@ -22,7 +24,18 @@ public final class HoldingDtos {
     public record RecordRequest(
             @NotBlank(message = "서류 코드가 필요하다") String documentCode,
             @NotNull(message = "상태가 필요하다") DocumentHoldingStatus status,
-            LocalDate issuedAt) {}
+            LocalDate issuedAt,
+            @NotNull DocumentPurpose purpose,
+            Map<String, String> issueOptions) {
+
+        public RecordRequest(String documentCode, DocumentHoldingStatus status, LocalDate issuedAt) {
+            this(documentCode, status, issuedAt, DocumentPurpose.GENERAL, Map.of());
+        }
+
+        public RecordRequest {
+            issueOptions = issueOptions == null ? Map.of() : Map.copyOf(issueOptions);
+        }
+    }
 
     /**
      * 서류 한 건의 보유 현황.
@@ -36,6 +49,8 @@ public final class HoldingDtos {
     public record HoldingView(
             String documentCode,
             String documentName,
+            DocumentPurpose purpose,
+            Map<String, String> issueOptions,
             DocumentHoldingStatus status,
             String statusLabel,
             LocalDate issuedAt,
