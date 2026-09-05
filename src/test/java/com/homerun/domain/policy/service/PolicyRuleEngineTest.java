@@ -481,6 +481,55 @@ class PolicyRuleEngineTest {
         assertThat(results.get(0).isMet()).isTrue();
     }
 
+    @Test
+    void should_returnEligibleDate_when_stillTooYoungForMinAge() {
+        when(facts.require("FCT-179")).thenReturn(fact("FCT-179", "19"));
+        // 2008-01-01 생일 → 만 19세는 2027-01-01부터. 오늘(clock=2026-09-04)은 아직 하한 미달.
+        RuleCondition condition = ageRangeDocument().conditions().get(0);
+        PlanInput input = input(null, null, null, LocalDate.of(2008, 1, 1), 0);
+
+        var gap = engine.upcomingAgeEligibility(condition, input);
+
+        assertThat(gap).isPresent();
+        assertThat(gap.get().eligibleFrom()).isEqualTo(LocalDate.of(2027, 1, 1));
+    }
+
+    @Test
+    void should_returnEmpty_when_minAgeAlreadyMet() {
+        when(facts.require("FCT-179")).thenReturn(fact("FCT-179", "19"));
+        // 2007-09-04 생일 → 오늘이 정확히 만 19세 생일 당일 → 이미 충족이라 큐에 넣을 이유가 없다.
+        RuleCondition condition = ageRangeDocument().conditions().get(0);
+        PlanInput input = input(null, null, null, LocalDate.of(2007, 9, 4), 0);
+
+        assertThat(engine.upcomingAgeEligibility(condition, input)).isEmpty();
+    }
+
+    @Test
+    void should_returnEmpty_when_conditionIsNotAgeRangeAdjusted() {
+        RuleCondition condition =
+                new RuleCondition("INCOME_CAP", "monthly_income", "annual_lte", null, "FCT-003", null);
+        PlanInput input = input(null, null, null, LocalDate.of(2008, 1, 1), 0);
+
+        assertThat(engine.upcomingAgeEligibility(condition, input)).isEmpty();
+    }
+
+    @Test
+    void should_returnEmpty_when_birthDateMissingForAgeGap() {
+        RuleCondition condition = ageRangeDocument().conditions().get(0);
+        PlanInput input = input(null, null, null, null, 0);
+
+        assertThat(engine.upcomingAgeEligibility(condition, input)).isEmpty();
+    }
+
+    @Test
+    void should_returnEmpty_when_minAgeFactUnusable() {
+        when(facts.require("FCT-179")).thenThrow(new UnusableFactException("FCT-179", Confidence.UNKNOWN));
+        RuleCondition condition = ageRangeDocument().conditions().get(0);
+        PlanInput input = input(null, null, null, LocalDate.of(2008, 1, 1), 0);
+
+        assertThat(engine.upcomingAgeEligibility(condition, input)).isEmpty();
+    }
+
     private RuleDocument ageRangeDocument() {
         return new RuleDocument(
                 "AND",
