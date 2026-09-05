@@ -148,6 +148,15 @@ class MigrationTest {
     }
 
     @Test
+    @DisplayName("V40이 STEP별 진단 입력 체크포인트를 추가한다")
+    void should_add_planInputStepCheckpoint_whenV40IsApplied() {
+        assertThat(tableNames()).contains("plan_input_step");
+        assertThat(columnNames("plan_input_step"))
+                .contains("plan_id", "step_code", "status", "completed_at", "updated_at", "version");
+        assertThat(constraintDefinition("uq_plan_input_step")).contains("plan_id", "step_code");
+    }
+
+    @Test
     @DisplayName("V21이 매물 후보 분석과 최종 선택 컬럼을 추가한다")
     void should_add_propertyCandidateColumns_whenV21IsApplied() {
         assertThat(columnNames("property"))
