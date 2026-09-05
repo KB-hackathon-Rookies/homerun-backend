@@ -5,5 +5,6 @@ public enum StepTaskStatus {
     DOING,
     DONE,
     SKIPPED,
-    RECALC_REQUIRED
+    RECALC_REQUIRED,
+    EXPIRED
 }

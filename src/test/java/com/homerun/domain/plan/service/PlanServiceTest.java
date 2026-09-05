@@ -154,7 +154,7 @@ class PlanServiceTest {
     }
 
     @Test
-    void should_finishPlan_when_allGatesAreCompletedInOrder() {
+    void should_keepPlanActiveAtHome_when_allGatesAreCompletedInOrder() {
         givenPlanOwnedByMember();
         CompletePlanStepRequest request = new CompletePlanStepRequest(Plan.CURRENT_RULE_VERSION);
 
@@ -163,7 +163,7 @@ class PlanServiceTest {
         }
 
         assertThat(plan.getStage()).isEqualTo(PlanStage.HOME);
-        assertThat(plan.getStatus()).isEqualTo(PlanStatus.DONE);
+        assertThat(plan.getStatus()).isEqualTo(PlanStatus.ACTIVE);
         assertThat(steps).allMatch(step -> step.getStatus() == PlanStepStatus.DONE);
     }
 

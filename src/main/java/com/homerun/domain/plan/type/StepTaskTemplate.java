@@ -21,24 +21,23 @@ public enum StepTaskTemplate {
     INPUT_HOUSING_CONDITION("INPUT_HOUSING_CONDITION", "대출 진단 정보 입력", PlanGate.FIRST_DIAGNOSIS, 2, false),
     REVIEW_DIAGNOSIS("REVIEW_DIAGNOSIS", "전세대출 예상 스펙 확인", PlanGate.FIRST_DIAGNOSIS, 3, false, deposit()),
     LOAN_LIMIT_CHECK("LOAN_LIMIT_CHECK", "가능 대출 목록 확인", PlanGate.FIRST_DIAGNOSIS, 4, false, deposit()),
-    PROPERTY_SEARCH("PROPERTY_SEARCH", "매물 후보 찾기", PlanGate.FIRST_DIAGNOSIS, 5, false),
-    BUILDING_REGISTER_CHECK("BUILDING_REGISTER_CHECK", "건축물대장 확인", PlanGate.FIRST_DIAGNOSIS, 6, false),
-    ACTUAL_PRICE_CHECK("ACTUAL_PRICE_CHECK", "전월세 실거래가 확인", PlanGate.FIRST_DIAGNOSIS, 7, false),
-    REGISTER_CHECK("REGISTER_CHECK", "등기부등본 확인", PlanGate.FIRST_DIAGNOSIS, 8, false, deposit()),
-
-    BANK_CONSULTATION("BANK_CONSULTATION", "은행 사전상담", PlanGate.SECOND_POLICY_SELECTION, 1, false, deposit()),
-    SELECT_LOAN_PRODUCT("SELECT_LOAN_PRODUCT", "대출 상품 확정", PlanGate.SECOND_POLICY_SELECTION, 2, false, deposit()),
-    SELECT_GUARANTEE("SELECT_GUARANTEE", "보증 방식 확인", PlanGate.SECOND_POLICY_SELECTION, 3, false, deposit()),
+    PROPERTY_SEARCH("PROPERTY_SEARCH", "매물 후보 찾기", PlanGate.SECOND_POLICY_SELECTION, 1, false),
+    BUILDING_REGISTER_CHECK("BUILDING_REGISTER_CHECK", "건축물대장 확인", PlanGate.SECOND_POLICY_SELECTION, 2, false),
+    ACTUAL_PRICE_CHECK("ACTUAL_PRICE_CHECK", "전월세 실거래가 확인", PlanGate.SECOND_POLICY_SELECTION, 3, false),
+    REGISTER_CHECK("REGISTER_CHECK", "등기부등본 확인", PlanGate.SECOND_POLICY_SELECTION, 4, false, deposit()),
+    BANK_CONSULTATION("BANK_CONSULTATION", "은행 사전상담", PlanGate.SECOND_POLICY_SELECTION, 5, false, deposit()),
+    SELECT_LOAN_PRODUCT("SELECT_LOAN_PRODUCT", "대출 상품 확정", PlanGate.SECOND_POLICY_SELECTION, 6, false, deposit()),
+    SELECT_GUARANTEE("SELECT_GUARANTEE", "보증 방식 확인", PlanGate.SECOND_POLICY_SELECTION, 7, false, deposit()),
     MONTHLY_SUPPORT_CHECK(
             "MONTHLY_SUPPORT_CHECK",
             "월세 지원 정책 확인",
             PlanGate.SECOND_POLICY_SELECTION,
-            4,
+            8,
             false,
             EnumSet.of(LeaseType.WOLSE, LeaseType.BANJEONSE)),
-    DOCUMENT_CHECK("DOCUMENT_CHECK", "대출 신청 서류 준비", PlanGate.SECOND_POLICY_SELECTION, 5, false),
+    DOCUMENT_CHECK("DOCUMENT_CHECK", "대출 신청 서류 준비", PlanGate.SECOND_POLICY_SELECTION, 9, false),
     RECORD_BANK_CONSULTATION(
-            "RECORD_BANK_CONSULTATION", "은행 상담 결과 입력", PlanGate.SECOND_POLICY_SELECTION, 6, false, deposit()),
+            "RECORD_BANK_CONSULTATION", "은행 상담 결과 입력", PlanGate.SECOND_POLICY_SELECTION, 10, false, deposit()),
 
     PROPERTY_VISIT("PROPERTY_VISIT", "부동산 방문", PlanGate.THIRD_EXECUTION, 1, false),
     SELECT_FINAL_PROPERTY("SELECT_FINAL_PROPERTY", "최종 매물 결정", PlanGate.THIRD_EXECUTION, 2, false),
@@ -52,7 +51,14 @@ public enum StepTaskTemplate {
 
     GUARANTEE_CHECK("GUARANTEE_CHECK", "반환보증·보증료 지원 확인", PlanGate.HOME_SETTLEMENT, 1, false, deposit()),
     REGISTER_FIXED_EXPENSE("REGISTER_FIXED_EXPENSE", "고정지출 등록", PlanGate.HOME_SETTLEMENT, 2, false),
-    FIRST_MONTH_CHECKIN("FIRST_MONTH_CHECKIN", "첫 달 실적 입력", PlanGate.HOME_SETTLEMENT, 3, false);
+    FIRST_MONTH_CHECKIN(
+            "FIRST_MONTH_CHECKIN",
+            "첫 달 실적 입력",
+            PlanGate.HOME_SETTLEMENT,
+            3,
+            false,
+            EnumSet.allOf(LeaseType.class),
+            TaskRecurrence.MONTHLY);
 
     private final String code;
     private final String displayName;
@@ -60,9 +66,10 @@ public enum StepTaskTemplate {
     private final int sequence;
     private final boolean irreversible;
     private final Set<LeaseType> leaseTypes;
+    private final TaskRecurrence recurrence;
 
     StepTaskTemplate(String code, String displayName, PlanGate gate, int sequence, boolean irreversible) {
-        this(code, displayName, gate, sequence, irreversible, EnumSet.allOf(LeaseType.class));
+        this(code, displayName, gate, sequence, irreversible, EnumSet.allOf(LeaseType.class), TaskRecurrence.ONCE);
     }
 
     StepTaskTemplate(
@@ -72,12 +79,24 @@ public enum StepTaskTemplate {
             int sequence,
             boolean irreversible,
             Set<LeaseType> leaseTypes) {
+        this(code, displayName, gate, sequence, irreversible, leaseTypes, TaskRecurrence.ONCE);
+    }
+
+    StepTaskTemplate(
+            String code,
+            String displayName,
+            PlanGate gate,
+            int sequence,
+            boolean irreversible,
+            Set<LeaseType> leaseTypes,
+            TaskRecurrence recurrence) {
         this.code = code;
         this.displayName = displayName;
         this.gate = gate;
         this.sequence = sequence;
         this.irreversible = irreversible;
         this.leaseTypes = leaseTypes;
+        this.recurrence = recurrence;
     }
 
     private static Set<LeaseType> deposit() {
@@ -110,5 +129,9 @@ public enum StepTaskTemplate {
 
     public boolean irreversible() {
         return irreversible;
+    }
+
+    public TaskRecurrence recurrence() {
+        return recurrence;
     }
 }
