@@ -1,6 +1,9 @@
 package com.homerun.domain.application.repository;
 
 import com.homerun.domain.application.entity.PolicyApplication;
+import com.homerun.domain.application.type.ApplicationStatus;
+import java.time.Instant;
+import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
 import org.springframework.data.jpa.repository.JpaRepository;
@@ -8,6 +11,10 @@ import org.springframework.data.jpa.repository.JpaRepository;
 public interface PolicyApplicationRepository extends JpaRepository<PolicyApplication, Long> {
 
     List<PolicyApplication> findByPlanIdOrderByIdDesc(Long planId);
+
+    /** 제출됐지만(SUBMITTED/SCREENING) 오래 결과가 없는 신청. 결과 대기 지연 넛지용. */
+    List<PolicyApplication> findByStatusInAndSubmittedAtBefore(
+            Collection<ApplicationStatus> statuses, Instant submittedBefore);
 
     boolean existsByPlanIdAndPolicyId(Long planId, Long policyId);
 

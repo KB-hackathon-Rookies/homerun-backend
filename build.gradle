@@ -32,6 +32,8 @@ dependencies {
     implementation 'org.flywaydb:flyway-database-postgresql'
     implementation 'org.springdoc:springdoc-openapi-starter-webmvc-ui:3.0.3'
     implementation 'io.jsonwebtoken:jjwt-api:0.12.6'
+    // FCM 푸시 전송. BOM 관리 대상이 아니라 버전을 직접 고정한다(착수 시 Maven Central 최신 9.4.x 확인).
+    implementation 'com.google.firebase:firebase-admin:9.4.3'
     compileOnly 'org.projectlombok:lombok'
     developmentOnly 'org.springframework.boot:spring-boot-docker-compose'
     runtimeOnly 'org.postgresql:postgresql'
