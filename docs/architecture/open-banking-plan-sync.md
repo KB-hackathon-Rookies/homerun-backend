@@ -6,11 +6,11 @@
 
 | 원문 API/필드 | 서비스 가공 | 계획 입력 사용 |
 | --- | --- | --- |
-| 잔액조회 `balance_amt` | 등록 계좌 잔액 합계 | 요약 표시만. 순자산이 아님 |
+| 잔액조회 `balance_amt` | 등록 계좌 잔액 합계 | 조회가 모두 성공하면 금융 스냅샷에 저장. 순자산이 아님 |
 | 잔액조회 `available_amt` | 등록 계좌 출금가능액 합계 | 요약 표시만. 가용현금으로 자동 저장하지 않음 |
 | 거래내역 `inout_type=입금`, `tran_type=급여`, `tran_amt` | 최근 완료 3개월의 월별 급여 합계 평균(원 단위 HALF_UP) | 모든 등록 계좌 조회 성공 + 3개월 각각 감지 시 `monthlyIncome` 제안/저장 |
 | 대출목록 `loan_list` | 금융기관별 대출 계좌 중복 제거 | 대출 개수·목록 표시 |
-| 대출기본 `res_list.trans_type=02`, `trans_amt` | 최근 완료 3개월 상환 합계 / 3 | 월평균 대출 상환 참고 정보. plan_input에는 아직 대응 필드가 없어 저장하지 않음 |
+| 대출기본 `res_list.trans_type=02`, `trans_amt` | 최근 완료 3개월 상환 합계 / 3 | 대출목록·상환상세가 모두 성공하면 금융 스냅샷에 저장. plan_input에는 저장하지 않음 |
 
 공식 문서:
 
@@ -36,6 +36,18 @@
 
 `monthlyIncomeSyncStatus`는 `APPLIED`, `UNCHANGED`, `MANUAL_VALUE_PRESERVED`, `CONFIRMED_VALUE_PRESERVED`, `NOT_APPLICABLE` 중 하나다. 연결 실패는 기존 오픈뱅킹 오류 응답을 사용하고, 일부 조회 실패는 summary coverage/warnings와 함께 `NOT_APPLICABLE`로 반환한다.
 
+## 금융정보 스냅샷
+
+계획 입력 동기화가 외부 요약을 받은 뒤 기존 `financial_snapshot` 테이블에 해당 시점의 안전한 값만 별도 저장한다. 동기화 응답의 `snapshot`으로 바로 확인할 수 있고, 이후에는 `GET /api/v1/open-banking/financial-snapshots/latest`로 외부 API를 다시 호출하지 않고 최근 값을 조회한다.
+
+- `financialAsset`: 등록 계좌 잔액 조회가 전부 성공하고 계좌가 하나 이상일 때만 저장한다. 전체 순자산을 뜻하지 않는다.
+- `monthlyIncome`: 계획 입력과 같은 기준으로, 모든 등록 계좌의 최근 완료 3개월 거래 조회가 성공하고 매월 급여가 감지될 때만 저장한다.
+- `monthlyDebtPayment`: 조회 대상 금융기관의 대출목록과 모든 대출 상환상세가 성공할 때만 저장한다.
+- `monthlyExpense`, `loanBalance`: 현재 금융결제원 응답만으로 확정할 수 없으므로 `null`이다.
+- 신뢰 가능한 값이 하나도 없으면 빈 스냅샷을 저장하지 않는다. 스냅샷은 원문 계좌번호나 토큰을 보관하지 않는다.
+
+스냅샷은 외부 데이터를 수집한 기록이므로 `confirmedByUser=false`로 저장한다. 이 플래그는 스냅샷 전체 확인 상태이며, 현재의 소득 확인 API가 다른 금융값까지 확인한 것으로 만들지는 않는다.
+
 ## 확인 또는 수동 교체
 
 동기화 후 `PUT /api/v1/plans/{planId}/input/financial-income`을 호출한다.
@@ -57,4 +69,4 @@
 - `totalAvailableBalance → availableCash`
 - `averageMonthlyLoanRepayment → maxMonthlyBurden`
 
-화면에는 출금가능액·대출상환액과 coverage/warnings를 참고 정보로 표시하고 사용자가 별도로 확인·입력해야 한다. 원문 계좌번호와 토큰은 응답하거나 로그에 남기지 않는다.
+화면에는 출금가능액·대출상환액과 coverage/warnings를 참고 정보로 표시하고 사용자가 별도로 확인·입력해야 한다. 금융 스냅샷에 보관하더라도 이를 `netAssets`, `availableCash`, `maxMonthlyBurden`으로 자동 변환하지 않는다. 원문 계좌번호와 토큰은 응답하거나 로그에 남기지 않는다.

@@ -1,6 +1,7 @@
 package com.homerun.domain.plan.dto.response;
 
 import com.homerun.domain.openbanking.dto.response.ExternalDataCoverage;
+import com.homerun.domain.openbanking.dto.response.FinancialSnapshotResponse;
 import com.homerun.domain.openbanking.dto.response.FinancialSummaryStatus;
 import com.homerun.domain.openbanking.dto.response.OpenBankingDataWarning;
 import com.homerun.domain.plan.type.OpenBankingIncomeSyncStatus;
@@ -33,6 +34,9 @@ public record PlanFinancialSyncResponse(
         boolean incomplete,
         List<OpenBankingDataWarning> warnings,
         Instant fetchedAt,
+
+        @Schema(description = "이번 동기화로 저장된 금융정보 스냅샷. 신뢰 가능한 값이 하나도 없으면 null")
+        FinancialSnapshotResponse snapshot,
 
         @Schema(description = "동기화 후 계획 입력. 적용할 소득이 없고 기존 입력도 없으면 null")
         PlanInputResponse input) {}

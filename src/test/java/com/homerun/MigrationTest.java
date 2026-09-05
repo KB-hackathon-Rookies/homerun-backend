@@ -125,6 +125,12 @@ class MigrationTest {
     }
 
     @Test
+    @DisplayName("V32가 사용자별 최근 금융 스냅샷 조회 인덱스를 추가한다")
+    void should_indexLatestFinancialSnapshot_whenV32IsApplied() {
+        assertThat(indexNames("financial_snapshot")).contains("idx_financial_snapshot_user_created");
+    }
+
+    @Test
     @DisplayName("V20이 전세대출 진단 입력과 금융정보 출처를 추가한다")
     void should_add_jeonseDiagnosisInput_whenV20IsApplied() {
         assertThat(columnNames("plan_input"))

@@ -4,9 +4,12 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.Mockito.*;
 
 import com.homerun.domain.openbanking.dto.response.ExternalDataCoverage;
+import com.homerun.domain.openbanking.dto.response.FinancialSnapshotResponse;
 import com.homerun.domain.openbanking.dto.response.FinancialSummaryStatus;
 import com.homerun.domain.openbanking.dto.response.OpenBankingFinancialSummaryResponse;
+import com.homerun.domain.openbanking.service.FinancialSnapshotService;
 import com.homerun.domain.openbanking.service.OpenBankingService;
+import com.homerun.domain.openbanking.type.FinancialSnapshotSource;
 import com.homerun.domain.plan.service.PlanInputService.OpenBankingIncomeSyncResult;
 import com.homerun.domain.plan.type.OpenBankingIncomeSyncStatus;
 import com.homerun.global.exception.BusinessException;
@@ -29,17 +32,32 @@ class OpenBankingPlanSyncServiceTest {
     @Mock
     OpenBankingService openBanking;
 
+    @Mock
+    FinancialSnapshotService snapshots;
+
     private OpenBankingPlanSyncService service;
 
     @BeforeEach
     void setUp() {
-        service = new OpenBankingPlanSyncService(inputs, openBanking);
+        service = new OpenBankingPlanSyncService(inputs, openBanking, snapshots);
     }
 
     @Test
     void should_applyIncome_whenAllAccountsAndThreeSalaryMonthsAreCovered() {
         var summary = summary(new ExternalDataCoverage(2, 2), new BigDecimal("2900000"), 3);
         when(openBanking.financialSummary(1L, List.of("004"))).thenReturn(summary);
+        var snapshot = new FinancialSnapshotResponse(
+                3L,
+                LocalDate.of(2026, 8, 31),
+                FinancialSnapshotSource.OPEN_BANKING,
+                false,
+                15_000_000L,
+                2_900_000L,
+                null,
+                null,
+                300_000L,
+                Instant.parse("2026-09-05T00:00:00Z"));
+        when(snapshots.capture(1L, summary, 2_900_000L)).thenReturn(snapshot);
         when(inputs.syncOpenBankingIncome(1L, 10L, 2_900_000L))
                 .thenReturn(new OpenBankingIncomeSyncResult(OpenBankingIncomeSyncStatus.APPLIED, null));
 
@@ -49,6 +67,7 @@ class OpenBankingPlanSyncServiceTest {
         assertThat(result.suggestedMonthlyIncome()).isEqualTo(2_900_000L);
         assertThat(result.totalAvailableBalance()).isEqualByComparingTo("14000000");
         assertThat(result.suggestedNetAssets()).isNull();
+        assertThat(result.snapshot()).isSameAs(snapshot);
     }
 
     @Test
@@ -74,6 +93,7 @@ class OpenBankingPlanSyncServiceTest {
                 .isInstanceOf(BusinessException.class);
 
         verifyNoInteractions(openBanking);
+        verifyNoInteractions(snapshots);
     }
 
     private OpenBankingFinancialSummaryResponse summary(
