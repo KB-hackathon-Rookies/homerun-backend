@@ -4,6 +4,7 @@ import com.homerun.domain.plan.type.LeaseType;
 import io.swagger.v3.oas.annotations.media.Schema;
 import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotNull;
+import java.time.LocalDate;
 
 /**
  * 매물 검증의 입력.
@@ -37,4 +38,39 @@ public record PropertyFacts(
         Boolean violationBuilding,
         Boolean trustRegistered,
         Boolean multiHousehold,
-        Boolean landlordTaxUnpaid) {}
+        Boolean landlordTaxUnpaid,
+        Boolean leaseholdRegistered,
+        Boolean seizureOrDispositionRestricted,
+        Boolean auctionInProgress,
+        LocalDate seniorDebtRegisteredAt) {
+
+    public PropertyFacts(
+            LeaseType leaseType,
+            long deposit,
+            String regionCode,
+            Long marketPrice,
+            Long officialPrice,
+            Long seniorDebt,
+            Boolean ownerMatches,
+            Boolean violationBuilding,
+            Boolean trustRegistered,
+            Boolean multiHousehold,
+            Boolean landlordTaxUnpaid) {
+        this(
+                leaseType,
+                deposit,
+                regionCode,
+                marketPrice,
+                officialPrice,
+                seniorDebt,
+                ownerMatches,
+                violationBuilding,
+                trustRegistered,
+                multiHousehold,
+                landlordTaxUnpaid,
+                null,
+                null,
+                null,
+                null);
+    }
+}
