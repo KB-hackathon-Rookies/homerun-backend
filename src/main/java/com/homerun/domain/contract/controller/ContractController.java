@@ -2,7 +2,12 @@ package com.homerun.domain.contract.controller;
 
 import com.homerun.domain.contract.dto.ContractDtos.ContractGuide;
 import com.homerun.domain.contract.dto.ContractDtos.SaveRequest;
+import com.homerun.domain.contract.dto.request.RegistrySnapshotRequest;
+import com.homerun.domain.contract.dto.response.ContractScheduleResponse;
+import com.homerun.domain.contract.dto.response.RegistryComparisonResponse;
+import com.homerun.domain.contract.service.ContractScheduleService;
 import com.homerun.domain.contract.service.ContractService;
+import com.homerun.domain.contract.service.RegistryComparisonService;
 import com.homerun.domain.property.dto.request.PropertyFacts;
 import com.homerun.domain.property.dto.response.PropertyVerification;
 import com.homerun.global.response.ApiResponse;
@@ -26,9 +31,37 @@ import org.springframework.web.bind.annotation.RestController;
 public class ContractController {
 
     private final ContractService service;
+    private final ContractScheduleService schedules;
+    private final RegistryComparisonService registries;
 
-    public ContractController(ContractService service) {
+    public ContractController(
+            ContractService service, ContractScheduleService schedules, RegistryComparisonService registries) {
         this.service = service;
+        this.schedules = schedules;
+        this.registries = registries;
+    }
+
+    @GetMapping("/schedule")
+    @Operation(summary = "잔금일 기준 실행 일정", description = "상품·담보·신청방법·주택유형에 따라 D-day 일정을 분기합니다.")
+    public ApiResponse<ContractScheduleResponse> schedule(
+            @AuthenticationPrincipal MemberPrincipal principal, @PathVariable Long planId) {
+        return ApiResponse.success(schedules.get(principal.memberId(), planId));
+    }
+
+    @PostMapping("/registry-snapshots")
+    @Operation(summary = "계약·잔금일 등기부 기록", description = "계약 체결 시점과 잔금일 등기부를 각각 저장하고 즉시 대조합니다.")
+    public ApiResponse<RegistryComparisonResponse> recordRegistry(
+            @AuthenticationPrincipal MemberPrincipal principal,
+            @PathVariable Long planId,
+            @Valid @RequestBody RegistrySnapshotRequest request) {
+        return ApiResponse.success(registries.record(principal.memberId(), planId, request));
+    }
+
+    @GetMapping("/registry-comparison")
+    @Operation(summary = "등기부 변경 위험 대조")
+    public ApiResponse<RegistryComparisonResponse> compareRegistry(
+            @AuthenticationPrincipal MemberPrincipal principal, @PathVariable Long planId) {
+        return ApiResponse.success(registries.compare(principal.memberId(), planId));
     }
 
     @GetMapping

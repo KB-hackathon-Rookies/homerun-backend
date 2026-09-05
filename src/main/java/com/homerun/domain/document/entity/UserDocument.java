@@ -1,6 +1,7 @@
 package com.homerun.domain.document.entity;
 
 import com.homerun.domain.document.type.DocumentHoldingStatus;
+import com.homerun.domain.document.type.DocumentPurpose;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;
@@ -10,6 +11,9 @@ import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
 import jakarta.persistence.Table;
 import java.time.LocalDate;
+import java.util.Map;
+import org.hibernate.annotations.JdbcTypeCode;
+import org.hibernate.type.SqlTypes;
 
 /**
  * 사용자가 준비하는 서류 한 건(EVI-01-04).
@@ -32,6 +36,14 @@ public class UserDocument {
     private Long documentTypeId;
 
     @Enumerated(EnumType.STRING)
+    @Column(nullable = false, length = 30)
+    private DocumentPurpose purpose = DocumentPurpose.GENERAL;
+
+    @JdbcTypeCode(SqlTypes.JSON)
+    @Column(name = "issue_options", nullable = false, columnDefinition = "jsonb")
+    private Map<String, String> issueOptions = Map.of();
+
+    @Enumerated(EnumType.STRING)
     @Column(nullable = false, length = 20)
     private DocumentHoldingStatus status = DocumentHoldingStatus.NEEDED;
 
@@ -47,8 +59,13 @@ public class UserDocument {
     protected UserDocument() {}
 
     public UserDocument(Long planId, Long documentTypeId) {
+        this(planId, documentTypeId, DocumentPurpose.GENERAL);
+    }
+
+    public UserDocument(Long planId, Long documentTypeId, DocumentPurpose purpose) {
         this.planId = planId;
         this.documentTypeId = documentTypeId;
+        this.purpose = purpose;
     }
 
     /**
@@ -62,6 +79,10 @@ public class UserDocument {
         this.issuedAt = issuedAt;
         this.expiresAt = issuedAt == null || validityDays == null ? null : issuedAt.plusDays(validityDays);
         this.submittedAt = status == DocumentHoldingStatus.SUBMITTED ? this.submittedAt : null;
+    }
+
+    public void recordIssueOptions(Map<String, String> issueOptions) {
+        this.issueOptions = issueOptions == null ? Map.of() : Map.copyOf(issueOptions);
     }
 
     public void markSubmitted(LocalDate submittedAt) {
@@ -87,6 +108,14 @@ public class UserDocument {
 
     public Long getDocumentTypeId() {
         return documentTypeId;
+    }
+
+    public DocumentPurpose getPurpose() {
+        return purpose;
+    }
+
+    public Map<String, String> getIssueOptions() {
+        return Map.copyOf(issueOptions);
     }
 
     public DocumentHoldingStatus getStatus() {

@@ -11,6 +11,7 @@ import com.homerun.domain.document.repository.DocumentTypeRepository;
 import com.homerun.domain.document.repository.UserDocumentRepository;
 import com.homerun.domain.document.service.DocumentHoldingService;
 import com.homerun.domain.document.type.DocumentHoldingStatus;
+import com.homerun.domain.document.type.DocumentPurpose;
 import com.homerun.domain.plan.repository.PlanRepository;
 import com.homerun.global.exception.BusinessException;
 import com.homerun.global.exception.ErrorCode;
@@ -18,6 +19,7 @@ import jakarta.persistence.EntityManager;
 import java.time.Clock;
 import java.time.LocalDate;
 import java.time.ZoneOffset;
+import java.util.Map;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -121,6 +123,39 @@ class DocumentHoldingServiceTest {
         assertThat(service.list(ownerId, planId).documents()).hasSize(1);
         assertThat(find(service.list(ownerId, planId), "RESIDENT_LIST").status())
                 .isEqualTo(DocumentHoldingStatus.ISSUED);
+    }
+
+    @Test
+    @DisplayName("같은 서류도 제출 목적과 발급 옵션별로 따로 관리한다")
+    void should_manage_same_document_for_each_purpose() {
+        service.record(
+                ownerId,
+                planId,
+                new RecordRequest(
+                        "RESIDENT_LIST",
+                        DocumentHoldingStatus.IN_PROGRESS,
+                        null,
+                        DocumentPurpose.BANK_CONSULTATION,
+                        Map.of("includeAddressHistory", "true")));
+        service.record(
+                ownerId,
+                planId,
+                new RecordRequest(
+                        "RESIDENT_LIST",
+                        DocumentHoldingStatus.NEEDED,
+                        null,
+                        DocumentPurpose.LOAN_APPLICATION,
+                        Map.of("maskResidentNumber", "false")));
+
+        assertThat(service.list(ownerId, planId).documents())
+                .filteredOn(view -> view.documentCode().equals("RESIDENT_LIST"))
+                .extracting(HoldingView::purpose)
+                .containsExactlyInAnyOrder(DocumentPurpose.BANK_CONSULTATION, DocumentPurpose.LOAN_APPLICATION);
+        assertThat(service.list(ownerId, planId).documents())
+                .filteredOn(view -> view.purpose() == DocumentPurpose.BANK_CONSULTATION)
+                .singleElement()
+                .extracting(HoldingView::issueOptions)
+                .isEqualTo(Map.of("includeAddressHistory", "true"));
     }
 
     @Test

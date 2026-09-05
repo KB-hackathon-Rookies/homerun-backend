@@ -1,5 +1,9 @@
 package com.homerun.domain.contract.entity;
 
+import com.homerun.domain.contract.type.ApplicationMethod;
+import com.homerun.domain.contract.type.ContractCollateralMethod;
+import com.homerun.domain.contract.type.LoanProductKind;
+import com.homerun.domain.plan.type.HouseType;
 import com.homerun.domain.plan.type.LeaseType;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
@@ -76,6 +80,22 @@ public class LeaseContract {
     @Column(name = "is_electronic", nullable = false)
     private boolean electronic;
 
+    @Enumerated(EnumType.STRING)
+    @Column(name = "loan_product_kind", length = 30)
+    private LoanProductKind loanProductKind;
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "collateral_method", length = 30)
+    private ContractCollateralMethod collateralMethod;
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "application_method", length = 20)
+    private ApplicationMethod applicationMethod;
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "house_type", length = 30)
+    private HouseType houseType;
+
     @Column(name = "lease_end_date")
     private LocalDate leaseEndDate;
 
@@ -110,7 +130,11 @@ public class LeaseContract {
             LocalDate bankConsultedAt,
             LocalDate loanAppliedAt,
             LocalDate balancePaidAt,
-            boolean electronic) {
+            boolean electronic,
+            LoanProductKind loanProductKind,
+            ContractCollateralMethod collateralMethod,
+            ApplicationMethod applicationMethod,
+            HouseType houseType) {
         this.propertyId = propertyId;
         this.leaseType = leaseType;
         this.deposit = deposit;
@@ -126,6 +150,10 @@ public class LeaseContract {
         this.loanAppliedAt = loanAppliedAt;
         this.balancePaidAt = balancePaidAt;
         this.electronic = electronic;
+        this.loanProductKind = loanProductKind;
+        this.collateralMethod = collateralMethod;
+        this.applicationMethod = applicationMethod;
+        this.houseType = houseType;
     }
 
     /** 보증금이 걸린 계약인가. 순수 월세가 아니면 전세와 같은 검증이 필요하다(PRP-02-07). */
@@ -199,6 +227,22 @@ public class LeaseContract {
 
     public boolean isElectronic() {
         return electronic;
+    }
+
+    public LoanProductKind getLoanProductKind() {
+        return loanProductKind;
+    }
+
+    public ContractCollateralMethod getCollateralMethod() {
+        return collateralMethod;
+    }
+
+    public ApplicationMethod getApplicationMethod() {
+        return applicationMethod;
+    }
+
+    public HouseType getHouseType() {
+        return houseType;
     }
 
     public LocalDate getLeaseEndDate() {

@@ -1,8 +1,12 @@
 package com.homerun.domain.contract.dto;
 
+import com.homerun.domain.contract.type.ApplicationMethod;
 import com.homerun.domain.contract.type.ChecklistStatus;
+import com.homerun.domain.contract.type.ContractCollateralMethod;
 import com.homerun.domain.contract.type.ContractStep;
+import com.homerun.domain.contract.type.LoanProductKind;
 import com.homerun.domain.contract.type.StepStatus;
+import com.homerun.domain.plan.type.HouseType;
 import com.homerun.domain.plan.type.LeaseType;
 import io.swagger.v3.oas.annotations.media.Schema;
 import jakarta.validation.constraints.Min;
@@ -40,7 +44,50 @@ public final class ContractDtos {
             LocalDate bankConsultedAt,
             LocalDate loanAppliedAt,
             LocalDate balancePaidAt,
-            boolean electronic) {}
+            boolean electronic,
+            LoanProductKind loanProductKind,
+            ContractCollateralMethod collateralMethod,
+            ApplicationMethod applicationMethod,
+            HouseType houseType) {
+
+        public SaveRequest(
+                Long propertyId,
+                LeaseType leaseType,
+                long deposit,
+                long monthlyRent,
+                long maintenanceFee,
+                Long downPayment,
+                LocalDate contractDate,
+                LocalDate balanceDate,
+                LocalDate moveInDate,
+                LocalDate confirmedDateAt,
+                LocalDate moveInReportAt,
+                LocalDate bankConsultedAt,
+                LocalDate loanAppliedAt,
+                LocalDate balancePaidAt,
+                boolean electronic) {
+            this(
+                    propertyId,
+                    leaseType,
+                    deposit,
+                    monthlyRent,
+                    maintenanceFee,
+                    downPayment,
+                    contractDate,
+                    balanceDate,
+                    moveInDate,
+                    confirmedDateAt,
+                    moveInReportAt,
+                    bankConsultedAt,
+                    loanAppliedAt,
+                    balancePaidAt,
+                    electronic,
+                    null,
+                    null,
+                    null,
+                    null);
+        }
+    }
 
     /**
      * 계약 진행 단계 하나(PRP-02-04).
