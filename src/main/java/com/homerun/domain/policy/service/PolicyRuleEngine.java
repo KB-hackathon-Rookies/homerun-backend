@@ -188,6 +188,7 @@ public class PolicyRuleEngine {
             case "age_range_adjusted" -> ageRangeAdjusted(condition, input);
             case "annual_lte_by_employment_type" -> annualLteByEmploymentType(condition, input);
             case "deposit_lte_price_times_fact" -> depositWithinPriceRatio(condition, property);
+            case "reference_only" -> referenceOnly(condition);
             default -> needInfo(condition, "이 조건은 자동판정 대상이 아닙니다. 원문을 직접 확인해야 합니다.");
         };
     }
@@ -407,6 +408,16 @@ public class PolicyRuleEngine {
                 .multiply(fact.get().requireNumber());
         boolean pass = BigDecimal.valueOf(property.getDeposit()).compareTo(threshold) <= 0;
         return met(condition, pass, fact.get());
+    }
+
+    /** 판정을 막지 않는 참고용 조건. 원문 안내만 하고 fact 가 있으면 항상 충족으로 둔다
+     * (반환보증 LIMIT 조건 등, #126) — fact 자체가 없으면 그때만 확인 필요로 남긴다. */
+    private ConditionResult referenceOnly(RuleCondition condition) {
+        Optional<Fact> fact = resolveFact(condition.factCode());
+        if (fact.isEmpty()) {
+            return needInfo(condition, null);
+        }
+        return met(condition, true, fact.get());
     }
 
     private Object resolveField(String field, PlanInput input) {

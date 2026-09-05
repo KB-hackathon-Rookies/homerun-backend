@@ -105,6 +105,30 @@ class PolicyRuleEngineTest {
     }
 
     @Test
+    void should_beMet_when_referenceOnlyFactExists() {
+        when(facts.require("FCT-056")).thenReturn(fact("FCT-056", "126"));
+        RuleDocument document = new RuleDocument(
+                "AND", List.of(new RuleCondition("LIMIT", null, "reference_only", null, "FCT-056", null)));
+        PlanInput input = input(null, null, null, null, null);
+
+        List<ConditionResult> results = engine.evaluate(document, input);
+
+        assertThat(results.get(0).isMet()).isTrue();
+    }
+
+    @Test
+    void should_returnNeedInfo_when_referenceOnlyFactMissing() {
+        when(facts.require("FCT-999")).thenThrow(new UnusableFactException("FCT-999", Confidence.UNKNOWN));
+        RuleDocument document = new RuleDocument(
+                "AND", List.of(new RuleCondition("LIMIT", null, "reference_only", null, "FCT-999", null)));
+        PlanInput input = input(null, null, null, null, null);
+
+        List<ConditionResult> results = engine.evaluate(document, input);
+
+        assertThat(results.get(0).isMet()).isNull();
+    }
+
+    @Test
     void should_beEligible_when_exactlyOneDayBeforeAgeCutoff() {
         when(facts.require("FCT-174")).thenReturn(fact("FCT-174", "34"));
         // 1991-09-05 생일 → 만 35세 생일 전날인 2026-09-04(clock 과 같은 날)까지는 충족.
