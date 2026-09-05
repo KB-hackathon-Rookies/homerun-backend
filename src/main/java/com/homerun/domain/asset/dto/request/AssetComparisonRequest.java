@@ -13,7 +13,7 @@ public record AssetComparisonRequest(
         @Valid @NotEmpty(message = "비교할 자산을 하나 이상 넣어야 합니다") List<Entry> assets) {
 
     /**
-     * @param assetType IRP, HOUSING_SUBSCRIPTION(주택청약), YOUTH_SAVINGS(청년미래적금) 중 하나
+     * @param assetType IRP, HOUSING_SUBSCRIPTION(주택청약) 중 하나
      * @param balance 현재 보유 잔액(원)
      * @param withdrawAmount 인출·해지해서 보증금으로 쓰려는 금액(원)
      */

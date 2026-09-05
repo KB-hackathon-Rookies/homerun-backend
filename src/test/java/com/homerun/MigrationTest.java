@@ -216,7 +216,8 @@ class MigrationTest {
     void should_activateOnlyReviewedVersions_whenV31IsApplied() {
         Integer activeCount =
                 jdbc.queryForObject("SELECT count(*) FROM policy_rule WHERE status = 'ACTIVE'", Integer.class);
-        assertThat(activeCount).isEqualTo(8);
+        // V42가 청년미래적금을 DRAFT로 되돌려 8 → 7이 됐다(#175).
+        assertThat(activeCount).isEqualTo(7);
 
         // 승격 대상이 아닌 버전은 여전히 DRAFT다 — 승격이 정확히 지정한 버전에만 적용됐는지 확인한다.
         assertThat(ruleStatus("JEONSE-YOUTH-BEOTIMMOK", 1)).isEqualTo("DRAFT");
@@ -229,7 +230,22 @@ class MigrationTest {
         assertThat(ruleStatus("RETURN-GUARANTEE-HF", 1)).isEqualTo("ACTIVE");
         assertThat(ruleStatus("RETURN-GUARANTEE-SGI", 1)).isEqualTo("ACTIVE");
         assertThat(ruleStatus("RETURN-GUARANTEE-FEE-SUPPORT", 1)).isEqualTo("ACTIVE");
-        assertThat(ruleStatus("YOUTH-FUTURE-SAVINGS", 1)).isEqualTo("ACTIVE");
+    }
+
+    @Test
+    @DisplayName("V42가 범위에서 뺀 청년미래적금 규칙을 DRAFT로 되돌린다")
+    void should_demoteYouthSavingsRule_whenV42IsApplied() {
+        // 폐지가 아니라 범위 제외다. policy 행과 팩트는 그대로 남아 되살릴 수 있다(#175).
+        assertThat(ruleStatus("YOUTH-FUTURE-SAVINGS", 1)).isEqualTo("DRAFT");
+
+        Integer policyRow =
+                jdbc.queryForObject("SELECT count(*) FROM policy WHERE code = 'YOUTH-FUTURE-SAVINGS'", Integer.class);
+        assertThat(policyRow).isEqualTo(1);
+
+        // 폐지 상품으로 표시하면 "이제 없는 상품"이라는 거짓 안내가 된다.
+        String status =
+                jdbc.queryForObject("SELECT status FROM policy WHERE code = 'YOUTH-FUTURE-SAVINGS'", String.class);
+        assertThat(status).isNotEqualTo("DISCONTINUED");
     }
 
     private String ruleStatus(String policyCode, int version) {
