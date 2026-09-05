@@ -40,11 +40,13 @@ class PropertyCandidateServiceTest {
     private final PropertyRepository properties = mock(PropertyRepository.class);
     private final HouseAnalysisService houses = mock(HouseAnalysisService.class);
     private final PropertyVerificationService verifications = mock(PropertyVerificationService.class);
+    private final PropertyTrafficLightResolver trafficLights = mock(PropertyTrafficLightResolver.class);
     private final PropertyCandidateService service = new PropertyCandidateService(
             plans,
             properties,
             houses,
             verifications,
+            trafficLights,
             Clock.fixed(Instant.parse("2026-09-04T00:00:00Z"), ZoneOffset.UTC));
 
     @BeforeEach
