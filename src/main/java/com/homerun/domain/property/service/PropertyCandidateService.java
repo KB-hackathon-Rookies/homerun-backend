@@ -12,8 +12,10 @@ import com.homerun.domain.property.dto.response.PropertyCandidateResponse;
 import com.homerun.domain.property.dto.response.PropertyVerification;
 import com.homerun.domain.property.entity.Property;
 import com.homerun.domain.property.repository.PropertyRepository;
+import com.homerun.domain.property.type.DataSource;
 import com.homerun.global.exception.BusinessException;
 import com.homerun.global.exception.ErrorCode;
+import java.math.BigDecimal;
 import java.time.Clock;
 import java.time.Instant;
 import java.util.List;
@@ -24,6 +26,10 @@ import org.springframework.transaction.annotation.Transactional;
 
 @Service
 public class PropertyCandidateService {
+
+    /** 계획당 매물 등록 상한(FR-P1-03). 명세서 NFR-OPS-02 는 설정 테이블 분리를 권하지만, 화면
+     * 비교 가능 개수와 묶인 값이라 지금은 여기 둔다. */
+    private static final int MAX_PROPERTIES_PER_PLAN = 5;
 
     private final PlanRepository plans;
     private final PropertyRepository properties;
@@ -50,6 +56,12 @@ public class PropertyCandidateService {
     public PropertyCandidateAnalysisResponse analyzeAndSave(
             Long memberId, Long planId, PropertyCandidateAnalysisRequest request) {
         Plan plan = ownedPlan(memberId, planId);
+        // FR-P1-03. 5개가 차면 더 등록하지 않는다. 외부 조회 앞에서 막는다 — 어차피 거절할
+        // 요청으로 공공 API 호출 한도를 쓰지 않는다.
+        if (properties.countByPlanId(planId) >= MAX_PROPERTIES_PER_PLAN) {
+            throw new BusinessException(ErrorCode.PROPERTY_LIMIT_EXCEEDED);
+        }
+
         HouseAnalysisResponse analysis = houseAnalysisService.analyze(request.house());
         BuildingSafetyFactsResponse automatic = automaticFacts(analysis);
         Instant analyzedAt = Instant.now(clock);
@@ -70,6 +82,18 @@ public class PropertyCandidateService {
                 automatic.multiHousehold(),
                 request.landlordTaxUnpaid(),
                 analyzedAt));
+        boolean priceMatched = analysis.rents() != null && analysis.rents().matchedCount() > 0;
+        BigDecimal matchedArea = priceMatched ? exclusiveAreaOf(analysis.rents().items()) : null;
+        // 실거래에서 못 가져오면 사용자가 적은 값을 쓴다(FR-P1-10). 둘 다 없으면 null 로 두고
+        // 면적 판정을 하지 않는다 — 0 으로 채우면 85㎡ 이하로 통과해 버린다.
+        BigDecimal area = matchedArea != null ? matchedArea : request.exclusiveArea();
+        property.recordSourcedFacts(
+                request.house().mainLotNumber(),
+                request.detailAddress(),
+                area,
+                matchedArea != null ? DataSource.AUTO : DataSource.MANUAL,
+                request.house().housingType() == null ? DataSource.AUTO : DataSource.MANUAL,
+                priceMatched);
         property.recordRegistryRisks(
                 request.leaseholdRegistered(),
                 request.seizureOrDispositionRestricted(),
@@ -137,6 +161,27 @@ public class PropertyCandidateService {
                 ? Boolean.TRUE
                 : description.matches(".*(다세대|연립|아파트|오피스텔).*") ? Boolean.FALSE : null;
         return new BuildingSafetyFactsResponse(violation, multiHousehold);
+    }
+
+    /**
+     * 매칭된 실거래에서 전용면적을 읽는다. 키 {@code excluUseAr} 는 국토부 실거래가 응답의 것으로
+     * {@code RealEstateTransactionXmlParserTest} 가 검증하고 있다.
+     *
+     * <p>값이 숫자가 아니면 조용히 넘긴다. 억지로 파싱해 이상한 면적을 넣느니 없는 편이 낫다.
+     */
+    private BigDecimal exclusiveAreaOf(List<Map<String, String>> rows) {
+        for (Map<String, String> row : rows) {
+            String raw = row.get("excluUseAr");
+            if (raw == null || raw.isBlank()) {
+                continue;
+            }
+            try {
+                return new BigDecimal(raw.trim());
+            } catch (NumberFormatException ignored) {
+                return null;
+            }
+        }
+        return null;
     }
 
     private Boolean booleanValue(List<Map<String, String>> rows, String... keys) {

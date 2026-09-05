@@ -99,6 +99,7 @@ public enum ErrorCode {
     CONTRACT_NOT_FOUND(HttpStatus.NOT_FOUND, "PRP_001", "계약 정보를 찾을 수 없습니다."),
     PROPERTY_NOT_IN_PLAN(HttpStatus.BAD_REQUEST, "PRP_002", "이 계획의 매물이 아닙니다."),
     PROPERTY_COMPARISON_DUPLICATE(HttpStatus.BAD_REQUEST, "PRP_004", "같은 매물을 중복해서 비교할 수 없습니다."),
+    PROPERTY_LIMIT_EXCEEDED(HttpStatus.BAD_REQUEST, "PRP_008", "매물은 최대 5개까지 등록할 수 있습니다."),
     BANK_CONSULTATION_NOT_FOUND(HttpStatus.NOT_FOUND, "PRP_005", "은행 상담 결과를 찾을 수 없습니다."),
     CONSULTATION_PROPERTY_MISMATCH(HttpStatus.BAD_REQUEST, "PRP_006", "선택한 상담 결과가 해당 매물의 것이 아닙니다."),
     PROPERTY_DECISION_NOT_FOUND(HttpStatus.NOT_FOUND, "PRP_007", "확정한 매물과 대출 조건이 없습니다."),
