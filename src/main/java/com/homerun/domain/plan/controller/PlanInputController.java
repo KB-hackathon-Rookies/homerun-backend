@@ -2,8 +2,13 @@ package com.homerun.domain.plan.controller;
 
 import com.homerun.domain.plan.dto.request.FinancialIncomeConfirmationRequest;
 import com.homerun.domain.plan.dto.request.PlanInputRequest;
+import com.homerun.domain.plan.dto.request.PlanInputStepSaveRequest;
 import com.homerun.domain.plan.dto.response.PlanInputResponse;
+import com.homerun.domain.plan.dto.response.PlanInputResumeResponse;
+import com.homerun.domain.plan.dto.response.PlanInputStepSaveResponse;
 import com.homerun.domain.plan.service.PlanInputService;
+import com.homerun.domain.plan.service.PlanInputStepService;
+import com.homerun.domain.plan.type.DiagnosisInputStep;
 import com.homerun.global.response.ApiResponse;
 import com.homerun.global.security.principal.MemberPrincipal;
 import io.swagger.v3.oas.annotations.Operation;
@@ -23,9 +28,11 @@ import org.springframework.web.bind.annotation.RestController;
 public class PlanInputController {
 
     private final PlanInputService inputService;
+    private final PlanInputStepService stepService;
 
-    public PlanInputController(PlanInputService inputService) {
+    public PlanInputController(PlanInputService inputService, PlanInputStepService stepService) {
         this.inputService = inputService;
+        this.stepService = stepService;
     }
 
     @PutMapping
@@ -47,6 +54,25 @@ public class PlanInputController {
     public ApiResponse<PlanInputResponse> get(
             @AuthenticationPrincipal MemberPrincipal principal, @PathVariable Long planId) {
         return ApiResponse.success(inputService.get(principal.memberId(), planId));
+    }
+
+    @PutMapping("/steps/{stepCode}")
+    @Operation(
+            summary = "진단 입력 STEP 저장",
+            description = "현재 STEP의 값만 병합 저장하고 다음 STEP을 이어하기 위치로 함께 기록합니다. expectedRevision으로 다른 기기의 동시 수정을 감지합니다.")
+    public ApiResponse<PlanInputStepSaveResponse> saveStep(
+            @AuthenticationPrincipal MemberPrincipal principal,
+            @PathVariable Long planId,
+            @PathVariable DiagnosisInputStep stepCode,
+            @Valid @RequestBody PlanInputStepSaveRequest request) {
+        return ApiResponse.success(stepService.save(principal.memberId(), planId, stepCode, request));
+    }
+
+    @GetMapping("/resume")
+    @Operation(summary = "진단 입력 이어하기", description = "저장된 답변과 완료 STEP을 복원하고 다음에 보여줄 STEP을 반환합니다.")
+    public ApiResponse<PlanInputResumeResponse> resume(
+            @AuthenticationPrincipal MemberPrincipal principal, @PathVariable Long planId) {
+        return ApiResponse.success(stepService.resume(principal.memberId(), planId));
     }
 
     @PutMapping("/financial-income")

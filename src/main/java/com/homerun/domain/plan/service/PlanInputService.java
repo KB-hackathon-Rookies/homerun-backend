@@ -16,6 +16,7 @@ import com.homerun.domain.plan.type.FinancialValueSource;
 import com.homerun.domain.plan.type.OpenBankingIncomeSyncStatus;
 import com.homerun.domain.plan.type.PlanGate;
 import com.homerun.domain.plan.type.PlanInputUnknownField;
+import com.homerun.domain.plan.type.PlanStepStatus;
 import com.homerun.domain.region.repository.RegionRepository;
 import com.homerun.global.exception.BusinessException;
 import com.homerun.global.exception.ErrorCode;
@@ -153,6 +154,13 @@ public class PlanInputService {
 
     private void markAffectedStepsForRecalculation(Long planId) {
         List<PlanStep> steps = stepRepository.findAllByPlanIdOrderBySequenceAsc(planId);
+        boolean diagnosisAlreadyCalculated = steps.stream()
+                .filter(step -> step.getStepCode().equals(PlanGate.FIRST_DIAGNOSIS.code()))
+                .map(PlanStep::getStatus)
+                .anyMatch(status -> status == PlanStepStatus.DONE || status == PlanStepStatus.RECALC_REQUIRED);
+        if (!diagnosisAlreadyCalculated) {
+            return;
+        }
         steps.stream()
                 .filter(step -> step.getSequence() >= PlanGate.FIRST_DIAGNOSIS.sequence())
                 .forEach(PlanStep::requireRecalculation);

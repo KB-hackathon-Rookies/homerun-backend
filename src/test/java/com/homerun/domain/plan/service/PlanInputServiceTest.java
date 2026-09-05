@@ -149,6 +149,23 @@ class PlanInputServiceTest {
     }
 
     @Test
+    void should_notMarkDiagnosisForRecalculation_while_initialWizardIsInProgress() {
+        givenOwnedPlan();
+        PlanInput input = PlanInput.create(PLAN_ID, request(100_000_000L, 500_000L, Set.of()));
+        List<PlanStep> steps = PlanStep.defaultSteps(PLAN_ID);
+        steps.get(0).complete();
+        steps.get(1).unlockWhenDependenciesCompleted(List.of(PlanGate.BENCH_ONBOARDING.code()));
+        steps.get(1).start();
+        when(inputRepository.findByPlanId(PLAN_ID)).thenReturn(Optional.of(input));
+        when(historyRepository.save(any(PlanInputHistory.class))).thenAnswer(invocation -> invocation.getArgument(0));
+        when(stepRepository.findAllByPlanIdOrderBySequenceAsc(PLAN_ID)).thenReturn(steps);
+
+        inputService.save(MEMBER_ID, PLAN_ID, request(120_000_000L, 500_000L, Set.of()));
+
+        assertThat(steps.get(1).getStatus()).isEqualTo(PlanStepStatus.DOING);
+    }
+
+    @Test
     void should_rejectUnknownField_when_valueIsAlsoProvided() {
         PlanInputRequest request = request(null, 500_000L, Set.of(PlanInputUnknownField.MONTHLY_RENT));
 
