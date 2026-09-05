@@ -3,7 +3,9 @@ package com.homerun.domain.plan.dto.response;
 import com.homerun.domain.plan.entity.PlanStep;
 import com.homerun.domain.plan.entity.StepTask;
 import com.homerun.domain.plan.type.StepTaskStatus;
+import com.homerun.domain.plan.type.TaskRecurrence;
 import java.time.Instant;
+import java.time.LocalDate;
 
 public record StepTaskResponse(
         Long id,
@@ -15,6 +17,8 @@ public record StepTaskResponse(
         boolean irreversible,
         boolean required,
         boolean skippable,
+        LocalDate dueAt,
+        TaskRecurrence recurrence,
         Instant completedAt) {
 
     public static StepTaskResponse from(StepTask task, PlanStep step, boolean skippable) {
@@ -28,6 +32,8 @@ public record StepTaskResponse(
                 task.isIrreversible(),
                 !skippable,
                 skippable,
+                task.getDueAt(),
+                task.getRecurrence(),
                 task.getCompletedAt());
     }
 }

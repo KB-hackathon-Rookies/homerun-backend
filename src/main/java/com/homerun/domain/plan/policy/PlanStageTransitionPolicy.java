@@ -20,7 +20,7 @@ public class PlanStageTransitionPolicy {
             throw new BusinessException(ErrorCode.INVALID_STAGE_TRANSITION);
         }
         if (gate.stage() == PlanStage.HOME) {
-            plan.finish();
+            // 홈은 완료 시점이 없는 지속 관리 단계다. 현재 작업 묶음이 끝나도 계획을 닫지 않는다.
             return;
         }
         plan.advance();
