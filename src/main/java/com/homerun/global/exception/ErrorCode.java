@@ -50,6 +50,7 @@ public enum ErrorCode {
     INVALID_TRANSACTION_PERIOD(HttpStatus.BAD_REQUEST, "OPENBANKING_007", "거래내역 조회 기간이 올바르지 않습니다."),
     INVALID_OPEN_BANKING_BANK_CODE(HttpStatus.BAD_REQUEST, "OPENBANKING_008", "금융기관 코드는 숫자 3자리여야 합니다."),
     OPEN_BANKING_PAGINATION_ERROR(HttpStatus.BAD_GATEWAY, "OPENBANKING_009", "오픈뱅킹 페이지 응답이 올바르지 않습니다."),
+    OPEN_BANKING_FINANCIAL_SNAPSHOT_NOT_FOUND(HttpStatus.NOT_FOUND, "OPENBANKING_010", "저장된 금융정보 스냅샷이 없습니다."),
 
     CONSENT_TOKEN_INVALID(HttpStatus.UNAUTHORIZED, "TERMS_001", "유효하지 않은 동의 토큰입니다."),
     CONSENT_TOKEN_EXPIRED(HttpStatus.UNAUTHORIZED, "TERMS_002", "동의 토큰이 만료되었습니다."),
