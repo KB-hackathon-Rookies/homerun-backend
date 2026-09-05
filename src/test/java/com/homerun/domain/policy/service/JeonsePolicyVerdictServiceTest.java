@@ -29,6 +29,7 @@ import com.homerun.domain.policy.repository.PolicyRuleRepository;
 import com.homerun.domain.policy.repository.PolicyVerdictRepository;
 import com.homerun.domain.policy.repository.RejectionReasonRepository;
 import com.homerun.domain.policy.repository.VerdictBasisRepository;
+import com.homerun.domain.policy.type.HouseholdBasis;
 import com.homerun.domain.policy.type.PolicyRuleStatus;
 import com.homerun.domain.policy.type.PolicyVerdictResult;
 import com.homerun.domain.policy.type.RejectionReasonCategory;
@@ -152,7 +153,14 @@ class JeonsePolicyVerdictServiceTest {
         // POL-01-04. CLOCK 이 2026-09-04 고정이라, eligibleUntil 2026-09-14 이면 10일 남아야 한다.
         List<ConditionResult> pass = List.of(new ConditionResult("A", "라벨", "텍스트", true, null, null));
         List<ConditionResult> withDeadline = List.of(new ConditionResult(
-                "AGE_UPPER_BOUND", "연령 상한", "만 34세 이하", true, "FCT-174", null, LocalDate.of(2026, 9, 14)));
+                "AGE_UPPER_BOUND",
+                "연령 상한",
+                "만 34세 이하",
+                true,
+                "FCT-174",
+                null,
+                LocalDate.of(2026, 9, 14),
+                HouseholdBasis.SELF));
         when(engine.evaluate(any(), any(), any())).thenReturn(withDeadline, pass, pass);
 
         JeonsePolicyVerdictListResponse response = service.evaluate(MEMBER_ID, PLAN_ID);
