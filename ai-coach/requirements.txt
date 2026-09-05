@@ -1,0 +1,9 @@
+# AI 코치(RAG) 서비스 의존성. 버전은 호환 릴리스로 고정한다.
+fastapi==0.115.6
+uvicorn[standard]==0.34.0
+pydantic==2.10.4
+pydantic-settings==2.7.1
+openai==1.59.6
+chromadb==0.6.3
+PyJWT==2.10.1
+pypdf==5.1.0
