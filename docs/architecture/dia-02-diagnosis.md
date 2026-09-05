@@ -23,9 +23,12 @@
 | `POST` | `/api/v1/plans/{planId}/diagnosis/simulate` | 저장하지 않고 가정값 비교 |
 | `GET` | `/api/v1/plans/{planId}/diagnosis` | 최근 저장 결과 조회 |
 | `POST` | `/api/v1/plans/{planId}/first-base/complete` | 입력 검증·진단 저장·1루 완료를 원자적으로 처리 |
+| `GET` | `/api/v1/plans/{planId}/first-base/result` | 완료 당시 정책 판정·진단 시나리오 스냅샷 복원 |
 
-정책 카드에서 받은 `estimatedLoanAmount`와 사용자가 비교하려는 월 이자값을 각각
-`expectedLoanAmount`, `expectedMonthlyInterest`로 전달한다. 계산은 대출 승인을 뜻하지 않는다.
+개별 진단·시뮬레이션 API는 정책 카드에서 받은 `estimatedLoanAmount`와 비교하려는 월 이자값을
+`expectedLoanAmount`, `expectedMonthlyInterest`로 받는다. 반면 1루 최종 제출은 클라이언트가 이 값을
+보내지 않는다. 서버가 같은 트랜잭션에서 정책을 판정하고 각 정책의 최소·최대 금리 시나리오를 계산한다.
+정책 카드와 시나리오는 예상값이며 대출 승인을 뜻하지 않는다.
 
 ## 금융정보 경계
 
@@ -35,6 +38,8 @@
 - 오픈뱅킹 상환액과 아직 확인하지 않은 오픈뱅킹 소득은 경고를 남기며 `POSSIBLE`로 확정하지 않는다.
 - 최종 제출에서는 희망 보증금·월소득·순자산·가용현금 등 필수 판단 항목이 명시적 모름이면
   임의의 0원으로 계산하지 않고 `NEEDS_CONFIRMATION`을 반환한다.
+- 1루 완료 결과는 입력 revision별 JSON 스냅샷으로 저장한다. 이후 정책 규칙이 변경되어도 결과 조회가
+  자동 재판정하지 않으므로 사용자가 완료 당시에 본 값이 그대로 복원된다.
 
 ## 판정
 

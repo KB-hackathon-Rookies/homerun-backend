@@ -36,9 +36,15 @@
 `GET /api/v1/plans/{planId}/input/resume`는 저장된 입력과 다음 미완료 STEP을 반환한다.
 
 최종 확인 후 `POST /api/v1/plans/{planId}/first-base/complete`를 호출한다. 이 API는 입력 revision을
-검증한 뒤 DIA-02 결과 저장, `FIRST_DIAGNOSIS` 완료, 2루 잠금 해제를 하나의 트랜잭션으로 처리한다.
+검증한 뒤 대출 적용 전 DIA-02 기준 결과 저장, 서버 정책 판정, 정책별 최소·최대 금리 시나리오 생성,
+`FIRST_DIAGNOSIS` 완료, 2루 잠금 해제를 하나의 트랜잭션으로 처리한다. 최종 제출 요청은 비용과 월
+생활비만 받고 예상 대출액·월 이자는 받지 않는다.
 동일 revision 재요청은 최초 진단 결과를 반환하고 중복 저장하지 않는다. 필수 판단 항목을 `unknownFields`로
 저장한 경우에는 계산값을 지어내지 않고 `NEEDS_CONFIRMATION`과 확인할 필드 목록을 반환하며 1루를 완료하지 않는다.
+
+완료 후 `GET /api/v1/plans/{planId}/first-base/result`로 기준 진단, 정책 카드, 정책별 시나리오와 현재
+계획 진행 상태를 한 번에 복원한다. 정책 판정과 시나리오는 완료 당시 스냅샷을 사용하며 GET 요청에서
+재판정하거나 새 진단을 저장하지 않는다.
 
 ### 결과 카드
 
