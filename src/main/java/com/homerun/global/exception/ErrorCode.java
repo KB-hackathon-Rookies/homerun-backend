@@ -76,6 +76,11 @@ public enum ErrorCode {
     PLAN_TASK_SKIP_NOT_ALLOWED(HttpStatus.CONFLICT, "PLAN_016", "건너뛸 수 없는 할 일입니다."),
     INVALID_FINANCIAL_INCOME_CONFIRMATION(HttpStatus.CONFLICT, "PLAN_017", "확인할 수 있는 금융 소득 정보가 없습니다."),
 
+    DIAGNOSIS_INPUT_REQUIRED(HttpStatus.BAD_REQUEST, "DIA_001", "진단 계산에 필요한 계획 입력을 확인해 주세요."),
+    DIAGNOSIS_NOT_FOUND(HttpStatus.NOT_FOUND, "DIA_002", "저장된 진단 결과가 없습니다."),
+    DIAGNOSIS_CALCULATION_OVERFLOW(HttpStatus.BAD_REQUEST, "DIA_003", "진단 계산 금액이 허용 범위를 벗어났습니다."),
+    DIAGNOSIS_JEONSE_PLAN_REQUIRED(HttpStatus.BAD_REQUEST, "DIA_004", "전세 또는 반전세 계획에서만 1루 진단을 이용할 수 있습니다."),
+
     POLICY_JEONSE_PLAN_REQUIRED(HttpStatus.BAD_REQUEST, "POLICY_001", "전세 또는 반전세 계획에서만 정책 판정을 이용할 수 있습니다."),
 
     HOUSEHOLD_MEMBER_NOT_FOUND(HttpStatus.NOT_FOUND, "FAM_001", "가구원을 찾을 수 없습니다."),
