@@ -6,6 +6,7 @@ import com.homerun.domain.property.dto.response.PropertyVerification;
 import com.homerun.domain.property.entity.PropertyCheck;
 import com.homerun.domain.property.repository.PropertyCheckRepository;
 import com.homerun.domain.property.type.CheckResult;
+import com.homerun.domain.property.type.TrafficLight;
 import java.time.Clock;
 import java.time.Instant;
 import java.util.Comparator;
@@ -28,11 +29,17 @@ public class PropertyVerificationService {
 
     private final List<PropertyRiskRule> rules;
     private final PropertyCheckRepository checks;
+    private final PropertyTrafficLightResolver trafficLights;
     private final Clock clock;
 
-    public PropertyVerificationService(List<PropertyRiskRule> rules, PropertyCheckRepository checks, Clock clock) {
+    public PropertyVerificationService(
+            List<PropertyRiskRule> rules,
+            PropertyCheckRepository checks,
+            PropertyTrafficLightResolver trafficLights,
+            Clock clock) {
         this.rules = List.copyOf(rules);
         this.checks = checks;
+        this.trafficLights = trafficLights;
         this.clock = clock;
     }
 
@@ -74,7 +81,18 @@ public class PropertyVerificationService {
         List<CheckFinding> blocking =
                 findings.stream().filter(CheckFinding::blocking).toList();
 
-        return new PropertyVerification(worst(findings), blocking, findings);
+        // 이 경로는 매물을 아직 등록하지 않은 계약 전 화면도 쓴다. 상담 기록을 알 수 없으므로
+        // BLUE 로 올라가지 않는다 — GREEN 까지만 나온다.
+        TrafficLight light = trafficLights.resolve(resultByCode(findings), false);
+
+        return new PropertyVerification(worst(findings), light, blocking, findings);
+    }
+
+    /** 체크 코드 → 판정. 규칙이 아예 안 돈 항목은 null 이라 "아직 확인 안 함"으로 읽힌다. */
+    private java.util.function.Function<String, CheckResult> resultByCode(List<CheckFinding> findings) {
+        java.util.Map<String, CheckResult> byCode = findings.stream()
+                .collect(java.util.stream.Collectors.toMap(CheckFinding::checkCode, CheckFinding::result, (a, b) -> a));
+        return byCode::get;
     }
 
     /**
