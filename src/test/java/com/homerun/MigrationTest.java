@@ -186,6 +186,36 @@ class MigrationTest {
         assertThat(suspicious).isZero();
     }
 
+    @Test
+    @DisplayName("V31이 검수를 마친 최신 버전만 ACTIVE로 승격한다")
+    void should_activateOnlyReviewedVersions_whenV31IsApplied() {
+        Integer activeCount =
+                jdbc.queryForObject("SELECT count(*) FROM policy_rule WHERE status = 'ACTIVE'", Integer.class);
+        assertThat(activeCount).isEqualTo(8);
+
+        // 승격 대상이 아닌 버전은 여전히 DRAFT다 — 승격이 정확히 지정한 버전에만 적용됐는지 확인한다.
+        assertThat(ruleStatus("JEONSE-YOUTH-BEOTIMMOK", 1)).isEqualTo("DRAFT");
+        assertThat(ruleStatus("JEONSE-YOUTH-BEOTIMMOK", 3)).isEqualTo("ACTIVE");
+        assertThat(ruleStatus("JEONSE-GENERAL-BEOTIMMOK", 2)).isEqualTo("DRAFT");
+        assertThat(ruleStatus("JEONSE-GENERAL-BEOTIMMOK", 3)).isEqualTo("ACTIVE");
+        assertThat(ruleStatus("JEONSE-SEOUL-INTEREST-SUPPORT", 2)).isEqualTo("DRAFT");
+        assertThat(ruleStatus("JEONSE-SEOUL-INTEREST-SUPPORT", 3)).isEqualTo("ACTIVE");
+        assertThat(ruleStatus("RETURN-GUARANTEE-HUG", 1)).isEqualTo("ACTIVE");
+        assertThat(ruleStatus("RETURN-GUARANTEE-HF", 1)).isEqualTo("ACTIVE");
+        assertThat(ruleStatus("RETURN-GUARANTEE-SGI", 1)).isEqualTo("ACTIVE");
+        assertThat(ruleStatus("RETURN-GUARANTEE-FEE-SUPPORT", 1)).isEqualTo("ACTIVE");
+        assertThat(ruleStatus("YOUTH-FUTURE-SAVINGS", 1)).isEqualTo("ACTIVE");
+    }
+
+    private String ruleStatus(String policyCode, int version) {
+        return jdbc.queryForObject(
+                "SELECT status FROM policy_rule WHERE version = ?"
+                        + " AND policy_id = (SELECT id FROM policy WHERE code = ?)",
+                String.class,
+                version,
+                policyCode);
+    }
+
     private java.util.List<String> tableNames() {
         return jdbc.queryForList(
                 "SELECT table_name FROM information_schema.tables WHERE table_schema = 'public'", String.class);
