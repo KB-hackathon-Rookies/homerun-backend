@@ -154,6 +154,19 @@ class PlanServiceTest {
     }
 
     @Test
+    void should_notAdvanceAgain_when_recalculatedPreviousGateIsCompleted() {
+        givenPlanOwnedByMember();
+        completeGate("BENCH_ONBOARDING");
+        completeGate("FIRST_DIAGNOSIS");
+        steps.get(1).requireRecalculation();
+
+        completeGate("FIRST_DIAGNOSIS");
+
+        assertThat(plan.getStage()).isEqualTo(PlanStage.SECOND);
+        assertThat(steps.get(1).getStatus()).isEqualTo(PlanStepStatus.DONE);
+    }
+
+    @Test
     void should_keepPlanActiveAtHome_when_allGatesAreCompletedInOrder() {
         givenPlanOwnedByMember();
         CompletePlanStepRequest request = new CompletePlanStepRequest(Plan.CURRENT_RULE_VERSION);

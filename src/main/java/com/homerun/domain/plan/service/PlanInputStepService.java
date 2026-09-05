@@ -91,6 +91,10 @@ public class PlanInputStepService {
         PlanInputResponse saved = inputService.save(memberId, planId, merged);
         if (step == DiagnosisInputStep.REVIEW) {
             completionValidator.validate(planId, PlanGate.FIRST_DIAGNOSIS);
+        } else if (saved.revision() != currentRevision) {
+            checkpoints
+                    .findByPlanIdAndStepCode(planId, DiagnosisInputStep.REVIEW)
+                    .ifPresent(checkpoints::delete);
         }
 
         PlanInputStep savedCheckpoint = complete(planId, step);
@@ -163,7 +167,8 @@ public class PlanInputStepService {
                     case EMPLOYMENT_PERIOD -> answered(input, PlanInputUnknownField.EMPLOYMENT_MONTHS);
                     case FINANCIAL ->
                         answered(input, PlanInputUnknownField.MONTHLY_INCOME)
-                                && answered(input, PlanInputUnknownField.NET_ASSETS);
+                                && answered(input, PlanInputUnknownField.NET_ASSETS)
+                                && answered(input, PlanInputUnknownField.AVAILABLE_CASH);
                     case HOPE_DEPOSIT -> answered(input, PlanInputUnknownField.HOPE_DEPOSIT);
                     case REGION -> answered(input, PlanInputUnknownField.REGION_ID);
                     case REVIEW -> true;
@@ -394,7 +399,8 @@ public class PlanInputStepService {
             case EMPLOYMENT_PERIOD -> answered(input, PlanInputUnknownField.EMPLOYMENT_MONTHS);
             case FINANCIAL ->
                 answered(input, PlanInputUnknownField.MONTHLY_INCOME)
-                        && answered(input, PlanInputUnknownField.NET_ASSETS);
+                        && answered(input, PlanInputUnknownField.NET_ASSETS)
+                        && answered(input, PlanInputUnknownField.AVAILABLE_CASH);
             case HOPE_DEPOSIT -> answered(input, PlanInputUnknownField.HOPE_DEPOSIT);
             case REGION -> answered(input, PlanInputUnknownField.REGION_ID);
             case REVIEW -> false;

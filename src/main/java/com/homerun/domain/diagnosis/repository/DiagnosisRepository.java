@@ -6,4 +6,6 @@ import org.springframework.data.jpa.repository.JpaRepository;
 
 public interface DiagnosisRepository extends JpaRepository<Diagnosis, Long> {
     Optional<Diagnosis> findFirstByPlanIdAndCostEstimateIdIsNotNullOrderByCreatedAtDescIdDesc(Long planId);
+
+    Optional<Diagnosis> findByIdAndPlanId(Long id, Long planId);
 }

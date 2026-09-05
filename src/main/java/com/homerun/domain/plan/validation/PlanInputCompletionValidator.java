@@ -45,7 +45,8 @@ public class PlanInputCompletionValidator {
             requirement(PlanInputUnknownField.HOUSEHOLDER_STATUS, "householderStatus", PlanInput::getHouseholderStatus),
             requirement(PlanInputUnknownField.EMPLOYMENT_TYPE, "employmentType", PlanInput::getEmploymentType),
             requirement(PlanInputUnknownField.MONTHLY_INCOME, "monthlyIncome", PlanInput::getMonthlyIncome),
-            requirement(PlanInputUnknownField.NET_ASSETS, "netAssets", PlanInput::getNetAssets));
+            requirement(PlanInputUnknownField.NET_ASSETS, "netAssets", PlanInput::getNetAssets),
+            requirement(PlanInputUnknownField.AVAILABLE_CASH, "availableCash", PlanInput::getAvailableCash));
 
     private final PlanInputRepository inputRepository;
     private final PlanRepository planRepository;
