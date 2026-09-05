@@ -7,6 +7,7 @@ import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
 import jakarta.persistence.Table;
 import java.time.Instant;
+import java.time.LocalDate;
 
 /**
  * 매물 한 건.
@@ -66,6 +67,18 @@ public class Property {
     @Column(name = "landlord_tax_unpaid")
     private Boolean landlordTaxUnpaid;
 
+    @Column(name = "is_leasehold_registered")
+    private Boolean leaseholdRegistered;
+
+    @Column(name = "has_seizure_or_disposition_restriction")
+    private Boolean seizureOrDispositionRestricted;
+
+    @Column(name = "is_auction_in_progress")
+    private Boolean auctionInProgress;
+
+    @Column(name = "senior_debt_registered_at")
+    private LocalDate seniorDebtRegisteredAt;
+
     @Column(name = "is_selected", nullable = false)
     private boolean selected;
 
@@ -109,6 +122,17 @@ public class Property {
         property.landlordTaxUnpaid = landlordTaxUnpaid;
         property.analyzedAt = analyzedAt;
         return property;
+    }
+
+    public void recordRegistryRisks(
+            Boolean leaseholdRegistered,
+            Boolean seizureOrDispositionRestricted,
+            Boolean auctionInProgress,
+            LocalDate seniorDebtRegisteredAt) {
+        this.leaseholdRegistered = leaseholdRegistered;
+        this.seizureOrDispositionRestricted = seizureOrDispositionRestricted;
+        this.auctionInProgress = auctionInProgress;
+        this.seniorDebtRegisteredAt = seniorDebtRegisteredAt;
     }
 
     public void select() {
@@ -165,5 +189,21 @@ public class Property {
 
     public Instant getAnalyzedAt() {
         return analyzedAt;
+    }
+
+    public Boolean getLeaseholdRegistered() {
+        return leaseholdRegistered;
+    }
+
+    public Boolean getSeizureOrDispositionRestricted() {
+        return seizureOrDispositionRestricted;
+    }
+
+    public Boolean getAuctionInProgress() {
+        return auctionInProgress;
+    }
+
+    public LocalDate getSeniorDebtRegisteredAt() {
+        return seniorDebtRegisteredAt;
     }
 }

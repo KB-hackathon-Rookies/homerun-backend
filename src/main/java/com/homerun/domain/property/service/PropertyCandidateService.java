@@ -25,8 +25,6 @@ import org.springframework.transaction.annotation.Transactional;
 @Service
 public class PropertyCandidateService {
 
-    private static final long MAX_CANDIDATES = 3;
-
     private final PlanRepository plans;
     private final PropertyRepository properties;
     private final HouseAnalysisService houseAnalysisService;
@@ -49,10 +47,6 @@ public class PropertyCandidateService {
     public PropertyCandidateAnalysisResponse analyzeAndSave(
             Long memberId, Long planId, PropertyCandidateAnalysisRequest request) {
         Plan plan = ownedPlan(memberId, planId);
-        if (properties.countByPlanId(planId) >= MAX_CANDIDATES) {
-            throw new BusinessException(ErrorCode.PROPERTY_CANDIDATE_LIMIT);
-        }
-
         HouseAnalysisResponse analysis = houseAnalysisService.analyze(request.house());
         BuildingSafetyFactsResponse automatic = automaticFacts(analysis);
         Instant analyzedAt = Instant.now(clock);
@@ -73,6 +67,11 @@ public class PropertyCandidateService {
                 automatic.multiHousehold(),
                 request.landlordTaxUnpaid(),
                 analyzedAt));
+        property.recordRegistryRisks(
+                request.leaseholdRegistered(),
+                request.seizureOrDispositionRestricted(),
+                request.auctionInProgress(),
+                request.seniorDebtRegisteredAt());
 
         PropertyFacts facts = new PropertyFacts(
                 plan.getLeaseType(),
@@ -85,7 +84,11 @@ public class PropertyCandidateService {
                 automatic.violationBuilding(),
                 request.trustRegistered(),
                 automatic.multiHousehold(),
-                request.landlordTaxUnpaid());
+                request.landlordTaxUnpaid(),
+                request.leaseholdRegistered(),
+                request.seizureOrDispositionRestricted(),
+                request.auctionInProgress(),
+                request.seniorDebtRegisteredAt());
         PropertyVerification verification = verificationService.verifyAndRecord(property.getId(), facts);
         return new PropertyCandidateAnalysisResponse(property.getId(), false, analysis, automatic, verification);
     }
