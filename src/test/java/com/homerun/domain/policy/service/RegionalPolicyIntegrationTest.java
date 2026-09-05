@@ -141,6 +141,13 @@ class RegionalPolicyIntegrationTest {
 
     @Test
     void should_preserveDraftGateAndSeedUsableOptions() {
+        // #140이 이 정책 v3를 실제로 ACTIVE 승격해서, 게이트 자체를 확인하려면 이 테스트
+        // 안에서만 일부러 DRAFT로 되돌려 미승격 상태를 재현한다(트랜잭션 롤백되니 안전).
+        em.createNativeQuery(
+                        "UPDATE policy_rule SET status='DRAFT' WHERE version=3 AND policy_id=(SELECT id FROM policy WHERE code='JEONSE-GENERAL-BEOTIMMOK')")
+                .executeUpdate();
+        em.clear();
+
         assertThat(result("JEONSE-GENERAL-BEOTIMMOK").basis())
                 .extracting(b -> b.code())
                 .containsExactly("RULE_NOT_ACTIVE");

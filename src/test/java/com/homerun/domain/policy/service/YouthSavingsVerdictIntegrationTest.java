@@ -18,8 +18,8 @@ import org.springframework.context.annotation.Import;
 import org.springframework.transaction.annotation.Transactional;
 
 /**
- * V27(#116)이 심은 실제 YOUTH-FUTURE-SAVINGS 시드를 대상으로 한다. DRAFT는 안 건드리고
- * 검수를 마쳤다고 가정한 ACTIVE 버전을 트랜잭션 안에서만 따로 만든다.
+ * V27(#116)이 심은 실제 YOUTH-FUTURE-SAVINGS 시드를 대상으로 한다. version 1은 V31(#140)이
+ * 이미 ACTIVE로 승격했고, 조건을 더 추가한 버전은 트랜잭션 안에서만 따로 만든다.
  */
 @Import(TestcontainersConfiguration.class)
 @SpringBootTest
@@ -66,16 +66,16 @@ class YouthSavingsVerdictIntegrationTest {
     }
 
     @Test
-    void should_deserializeSeededDraftRuleJson_when_readFromRealPostgres() {
-        Long draftRuleId = ((Number) em.createNativeQuery(
-                                "SELECT id FROM policy_rule WHERE policy_id = :pid AND status = 'DRAFT' AND version = 1")
+    void should_deserializeSeededActiveRuleJson_when_readFromRealPostgres() {
+        Long activeRuleId = ((Number) em.createNativeQuery(
+                                "SELECT id FROM policy_rule WHERE policy_id = :pid AND status = 'ACTIVE' AND version = 1")
                         .setParameter("pid", policyId)
                         .getSingleResult())
                 .longValue();
 
-        PolicyRule draft = policyRuleRepository.findById(draftRuleId).orElseThrow();
+        PolicyRule active = policyRuleRepository.findById(activeRuleId).orElseThrow();
 
-        assertThat(draft.getRuleJson().conditions())
+        assertThat(active.getRuleJson().conditions())
                 .extracting(RuleCondition::code)
                 .containsExactly("AGE_RANGE", "INCOME_CAP_BY_EMPLOYMENT", "HOUSEHOLD_INCOME_RATIO", "EXCLUSION_CHECK");
     }
