@@ -1,16 +1,22 @@
 package com.homerun.domain.alternative.controller;
 
+import com.homerun.domain.alternative.dto.request.AlternativeRecalculationRequest;
+import com.homerun.domain.alternative.dto.response.AlternativeRecalculationResponse;
 import com.homerun.domain.alternative.dto.response.CausesResponse;
 import com.homerun.domain.alternative.dto.response.RetryQueueResponse;
 import com.homerun.domain.alternative.service.AlternativeCauseService;
+import com.homerun.domain.alternative.service.AlternativeRecalculationService;
 import com.homerun.domain.alternative.service.RetryQueueService;
 import com.homerun.global.response.ApiResponse;
 import com.homerun.global.security.principal.MemberPrincipal;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
+import jakarta.validation.Valid;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
@@ -21,10 +27,15 @@ public class AlternativeController {
 
     private final RetryQueueService retryQueueService;
     private final AlternativeCauseService alternativeCauseService;
+    private final AlternativeRecalculationService alternativeRecalculationService;
 
-    public AlternativeController(RetryQueueService retryQueueService, AlternativeCauseService alternativeCauseService) {
+    public AlternativeController(
+            RetryQueueService retryQueueService,
+            AlternativeCauseService alternativeCauseService,
+            AlternativeRecalculationService alternativeRecalculationService) {
         this.retryQueueService = retryQueueService;
         this.alternativeCauseService = alternativeCauseService;
+        this.alternativeRecalculationService = alternativeRecalculationService;
     }
 
     @GetMapping("/retry-queue")
@@ -43,5 +54,18 @@ public class AlternativeController {
     public ApiResponse<CausesResponse> causes(
             @AuthenticationPrincipal MemberPrincipal principal, @PathVariable Long planId) {
         return ApiResponse.success(alternativeCauseService.causes(principal.memberId(), planId));
+    }
+
+    @PostMapping("/recalculate")
+    @Operation(
+            summary = "대안 재계산",
+            description = "보증금·독립일을 바꿔 보고 지금 계획과 나란히 비교한다(ALT-01-02)."
+                    + " 계획을 고치지 않고 저장도 하지 않는다. 저축액은 월 생활비로 조정하고,"
+                    + " 지역은 정책을 다시 판정해 expectedLoanAmount 로 넘긴다.")
+    public ApiResponse<AlternativeRecalculationResponse> recalculate(
+            @AuthenticationPrincipal MemberPrincipal principal,
+            @PathVariable Long planId,
+            @Valid @RequestBody AlternativeRecalculationRequest request) {
+        return ApiResponse.success(alternativeRecalculationService.recalculate(principal.memberId(), planId, request));
     }
 }
