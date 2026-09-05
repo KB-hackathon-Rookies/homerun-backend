@@ -124,33 +124,41 @@
 
 | | |
 |---|---|
-| 도메인 패키지 | 15개 (`application` `auth` `consent` `contract` `dashboard` `document` `fact` `house` `member` `openbanking` `plan` `property` `region` `rent` `terms`) |
-| 컨트롤러 | 19개 |
-| 마이그레이션 | `V1` ~ `V19` |
-| 테스트 | 41개 클래스 |
-| 팩트 레지스트리 | 169건 |
+| 도메인 패키지 | 20개 (`alternative` `application` `asset` `auth` `consent` `contract` `dashboard` `diagnosis` `document` `fact` `house` `member` `openbanking` `plan` `policy` `property` `region` `rent` `terms` `verification`) |
+| 컨트롤러 | 34개 |
+| 마이그레이션 | `V1` ~ `V36` |
+| 테스트 | 84개 클래스 |
+| 팩트 레지스트리 | 210건 (`V2` 가 141건, 이후 마이그레이션이 69건) |
 
 **이제 "기존 코드를 따른다"가 실제로 적용된다.** 새 구조를 지어내기 전에 같은 일을 하는 도메인을 먼저 찾는다.
 
 구현된 API 묶음.
 
 ```text
-/api/v1/auth                              로그인·토큰·소셜
-/api/v1/auth/email                        이메일 인증 가입
-/api/v1/members/me                        회원 정보·탈퇴
-/api/v1/plans                             계획·단계·입력
-/api/v1/plans/{planId}/input              계획 입력 이력
-/api/v1/plans/{planId}/contract           계약 실행·매물 검증
-/api/v1/plans/{planId}/consents           가구원 동의
-/api/v1/plans/{planId}/applications       정책 신청
-/api/v1/plans/{planId}/documents          서류 보유·유효기간
-/api/v1/plans/{planId}/dashboard          대시보드
-/api/v1/documents                         서류 카탈로그·발급 안내·방문 계획
-/api/v1/policies/rent                     월세 정책 판정
-/api/v1/consents/{token}                  가구원 공개 링크
-/api/v1/houses · /buildings · /addresses  주택·건축물대장·주소
-/api/v1/real-estate/rent-transactions     실거래가
-/api/v1/open-banking                      금융 요약
+/api/v1/auth · /auth/email                 로그인·토큰·소셜·이메일 인증 가입
+/api/v1/members/me                         회원 정보·탈퇴
+/api/v1/plans                              계획·단계·입력
+/api/v1/plans/{planId}/input               계획 입력 이력·오픈뱅킹 동기화·프로필 프리필
+/api/v1/plans/{planId}/diagnosis           1루 진단 계산·시뮬레이션 (DIA-02)
+/api/v1/plans/{planId}/policies/jeonse     전세 정책·반환보증·보증료 지원 판정
+/api/v1/plans/{planId}/policies/youth-savings  청년미래적금 판정
+/api/v1/plans/{planId}/alternatives        재도전 큐·미충족 원인·대안 재계산 (ALT-01)
+/api/v1/plans/{planId}/assets              IRP·청약·적금 비교 (AST-01)
+/api/v1/plans/{planId}/verifications       추가 확인 조건 조회·재판정
+/api/v1/plans/{planId}/properties          매물 후보·검증
+/api/v1/plans/{planId}/contract            계약 실행
+/api/v1/plans/{planId}/consents            가구원 동의
+/api/v1/plans/{planId}/applications        정책 신청
+/api/v1/plans/{planId}/documents           서류 보유·유효기간
+/api/v1/plans/{planId}/tasks               할 일·대시보드
+/api/v1/policies/rent                      월세 정책 판정
+/api/v1/guarantee-agencies                 보증기관 비교 (POL-03-08)
+/api/v1/bank-loan-rates                    은행별 공시 평균금리 비교 (POL-03-07)
+/api/v1/documents · /contract-checklist    서류 카탈로그·발급 안내·계약 체크리스트
+/api/v1/consents/{token}                   가구원 공개 링크
+/api/v1/houses · /buildings · /addresses · /regions  주택·건축물대장·주소·지역
+/api/v1/real-estate/rent-transactions      실거래가
+/api/v1/open-banking                       금융 요약·스냅샷
 ```
 
 ---
