@@ -1,7 +1,10 @@
 package com.homerun.domain.settlement.controller;
 
+import com.homerun.domain.settlement.dto.request.GuaranteeFeeSupportAmountRequest;
 import com.homerun.domain.settlement.dto.request.TaxDeductionRequest;
+import com.homerun.domain.settlement.dto.response.GuaranteeFeeSupportAmountResponse;
 import com.homerun.domain.settlement.dto.response.TaxDeductionResponse;
+import com.homerun.domain.settlement.service.GuaranteeFeeSupportService;
 import com.homerun.domain.settlement.service.TaxDeductionService;
 import com.homerun.global.response.ApiResponse;
 import com.homerun.global.security.principal.MemberPrincipal;
@@ -21,9 +24,12 @@ import org.springframework.web.bind.annotation.RestController;
 public class SettlementController {
 
     private final TaxDeductionService taxDeductionService;
+    private final GuaranteeFeeSupportService guaranteeFeeSupportService;
 
-    public SettlementController(TaxDeductionService taxDeductionService) {
+    public SettlementController(
+            TaxDeductionService taxDeductionService, GuaranteeFeeSupportService guaranteeFeeSupportService) {
         this.taxDeductionService = taxDeductionService;
+        this.guaranteeFeeSupportService = guaranteeFeeSupportService;
     }
 
     @PostMapping("/tax-deduction")
@@ -36,5 +42,17 @@ public class SettlementController {
             @PathVariable Long planId,
             @Valid @RequestBody TaxDeductionRequest request) {
         return ApiResponse.success(taxDeductionService.forPlan(principal.memberId(), planId, request));
+    }
+
+    @PostMapping("/guarantee-fee-support")
+    @Operation(
+            summary = "보증료 지원 예상 금액",
+            description = "전세보증금 반환보증 보증료 지원액을 계산한다(BR-31). 청년·신혼은 전액, 청년 외는 90%,"
+                    + " 한도는 가입일 기준(2025-03-31 이후 40만 / 이전 30만). 자격 판정은 2루(GTE-01-04)에서 한다.")
+    public ApiResponse<GuaranteeFeeSupportAmountResponse> guaranteeFeeSupport(
+            @AuthenticationPrincipal MemberPrincipal principal,
+            @PathVariable Long planId,
+            @Valid @RequestBody GuaranteeFeeSupportAmountRequest request) {
+        return ApiResponse.success(guaranteeFeeSupportService.forPlan(principal.memberId(), planId, request));
     }
 }
