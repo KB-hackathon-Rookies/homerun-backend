@@ -354,9 +354,7 @@ public class PolicyRuleEngine {
             return needInfo(condition, null);
         }
         int maxAge = fact.get().requireNumber().intValueExact();
-        long adjustMonths = "military_months".equals(condition.adjustField()) && input.getMilitaryMonths() != null
-                ? Math.max(0, input.getMilitaryMonths())
-                : 0L;
+        long adjustMonths = militaryAdjustMonths(condition, input);
         LocalDate today = LocalDate.now(clock);
         LocalDate baseUntil = birthDate.plusYears(maxAge + 1L);
         LocalDate militaryAdjustedUntil = baseUntil.plusMonths(adjustMonths);
@@ -386,9 +384,7 @@ public class PolicyRuleEngine {
         }
         int minAge = minFact.get().requireNumber().intValueExact();
         int maxAge = maxFact.get().requireNumber().intValueExact();
-        long adjustMonths = "military_months".equals(condition.adjustField()) && input.getMilitaryMonths() != null
-                ? Math.max(0, input.getMilitaryMonths())
-                : 0L;
+        long adjustMonths = militaryAdjustMonths(condition, input);
         LocalDate today = LocalDate.now(clock);
         LocalDate minDate = birthDate.plusYears(minAge);
         LocalDate maxDate = birthDate.plusYears(maxAge + 1L).plusMonths(adjustMonths);
@@ -396,6 +392,21 @@ public class PolicyRuleEngine {
         boolean pass = !tooYoung && today.isBefore(maxDate);
         // 너무 어리면 하한 fact를, 그 외(충족·상한 초과)엔 상한 fact를 근거로 남긴다.
         return met(condition, pass, tooYoung ? minFact.get() : maxFact.get());
+    }
+
+    /**
+     * 병역 보정 개월수(BR-01). 중소·중견 재직 또는 창업지원 대상자만 인정한다 — 대기업·공공·기타·
+     * 미상은 0이다. 모든 병역 이행자에게 상한을 늘려 주면 잘못된 통과가 된다.
+     */
+    private long militaryAdjustMonths(RuleCondition condition, PlanInput input) {
+        if (input == null
+                || !"military_months".equals(condition.adjustField())
+                || input.getMilitaryMonths() == null
+                || input.getCompanySize() == null
+                || !input.getCompanySize().qualifiesForMilitaryAgeExtension()) {
+            return 0L;
+        }
+        return Math.max(0, input.getMilitaryMonths());
     }
 
     /**

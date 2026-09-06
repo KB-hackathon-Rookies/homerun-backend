@@ -7,5 +7,14 @@ public enum CompanySize {
     SMALL,
     PUBLIC,
     STARTUP,
-    OTHER
+    OTHER;
+
+    /**
+     * 병역 복무기간만큼 청년 버팀목 연령 상한을 늘려 주는 대상인가(BR-01). 중소·중견 재직 또는
+     * 창업지원(중진공·신보·기보)만 해당한다. 대기업·공무원·공기업·기타는 제외하고, 모르면 늘리지
+     * 않는다 — 근거 없이 상한을 늘리면 잘못된 통과가 된다.
+     */
+    public boolean qualifiesForMilitaryAgeExtension() {
+        return this == SMALL || this == MID_SIZE || this == STARTUP;
+    }
 }
