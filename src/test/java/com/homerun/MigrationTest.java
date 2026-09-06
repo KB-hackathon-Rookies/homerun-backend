@@ -295,6 +295,17 @@ class MigrationTest {
     }
 
     @Test
+    @DisplayName("V55가 은행 상담 거절 사유 분류 컬럼과 CHECK 제약을 추가한다")
+    void should_addBankConsultationRejection_whenV55IsApplied() {
+        assertThat(columnNames("bank_consultation"))
+                .contains("rejection_stage", "rejection_category", "rejection_note");
+        assertThat(constraintDefinition("ck_bank_consultation_rejection_stage"))
+                .contains("BANK", "GUARANTEE", "NOT_TOLD");
+        assertThat(constraintDefinition("ck_bank_consultation_rejection_category"))
+                .contains("SUBJECT_ISSUE", "PROPERTY_ISSUE", "GUARANTEE_ISSUE", "DOCUMENT_ISSUE", "LANDLORD_ISSUE");
+    }
+
+    @Test
     @DisplayName("V53이 최종 결정 revision과 2루 제출 스냅샷을 추가한다")
     void should_addSecondBaseSubmission_whenV53IsApplied() {
         assertThat(columnNames("property_decision")).contains("decision_revision");
