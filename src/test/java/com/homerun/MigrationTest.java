@@ -206,6 +206,16 @@ class MigrationTest {
     }
 
     @Test
+    @DisplayName("V65가 갱신·퇴거 결정 테이블과 제약을 추가한다")
+    void should_addLeaseEnd_whenV65IsApplied() {
+        assertThat(tableNames()).contains("lease_end");
+        assertThat(columnNames("lease_end"))
+                .contains("plan_id", "decision", "renewal_method", "claim_right_used", "notice_sent_at");
+        assertThat(constraintDefinition("ck_lease_end_decision")).contains("RENEW", "LEAVE", "UNDECIDED");
+        assertThat(constraintDefinition("ck_lease_end_renewal_method")).contains("CLAIM", "IMPLIED", "AGREED");
+    }
+
+    @Test
     @DisplayName("팩트 레지스트리에 전세대출 진단 기준까지 적용된다")
     void should_seed_config_effective_when_migrated() {
         Integer count = jdbc.queryForObject("SELECT count(*) FROM config_effective", Integer.class);
