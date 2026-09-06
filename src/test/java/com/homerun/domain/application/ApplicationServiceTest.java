@@ -187,6 +187,26 @@ class ApplicationServiceTest {
     }
 
     @Test
+    @DisplayName("거절 사유와 함께 안내문 또는 보완 서류 근거를 저장한다")
+    void should_store_rejection_evidence() {
+        ApplicationView created = create();
+
+        ApplicationView updated = service.update(
+                ownerId,
+                planId,
+                created.id(),
+                new UpdateRequest(
+                        ApplicationStatus.REJECTED,
+                        RejectStage.DOCUMENT,
+                        "MISSING_INCOME",
+                        null,
+                        null,
+                        "재직증명서와 소득금액증명원을 보완해 주세요."));
+
+        assertThat(updated.rejectionEvidence()).isEqualTo("재직증명서와 소득금액증명원을 보완해 주세요.");
+    }
+
+    @Test
     @DisplayName("보증기관에서 막히면 은행을 바꿔도 소용없다고 알린다")
     void should_warn_bank_change_is_useless_on_guarantee_rejection() {
         ApplicationView created = create();

@@ -112,6 +112,8 @@ public enum ErrorCode {
     BANK_CONSULTATION_NOT_FOUND(HttpStatus.NOT_FOUND, "PRP_005", "은행 상담 결과를 찾을 수 없습니다."),
     CONSULTATION_PROPERTY_MISMATCH(HttpStatus.BAD_REQUEST, "PRP_006", "선택한 상담 결과가 해당 매물의 것이 아닙니다."),
     PROPERTY_DECISION_NOT_FOUND(HttpStatus.NOT_FOUND, "PRP_007", "확정한 매물과 대출 조건이 없습니다."),
+    THIRD_BASE_EXECUTION_INCOMPLETE(HttpStatus.CONFLICT, "PRP_017", "잔금 지급과 전입신고를 완료한 뒤 3루를 마칠 수 있습니다."),
+    THIRD_BASE_REGISTRY_RECHECK_REQUIRED(HttpStatus.CONFLICT, "PRP_018", "잔금일 등기부 대조가 안전 상태여야 3루를 마칠 수 있습니다."),
 
     DOCUMENT_NOT_FOUND(HttpStatus.NOT_FOUND, "ISS_001", "존재하지 않는 서류입니다."),
     DOCUMENT_STATUS_NOT_SELECTABLE(HttpStatus.BAD_REQUEST, "ISS_002", "직접 지정할 수 없는 서류 상태입니다."),

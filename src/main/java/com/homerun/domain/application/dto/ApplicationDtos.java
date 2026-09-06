@@ -23,6 +23,7 @@ public final class ApplicationDtos {
      * @param status 옮길 상태
      * @param rejectStage 거절 시 어디서 막혔는지. REJECTED 일 때만 의미가 있다
      * @param rejectReasonCode 거절 사유 코드
+     * @param rejectionEvidence 거절 안내문·보완 서류 등 사용자가 다시 확인할 근거
      * @param approvedAmount 승인 금액(원)
      * @param approvedRate 승인 금리(%)
      */
@@ -32,7 +33,18 @@ public final class ApplicationDtos {
             RejectStage rejectStage,
             String rejectReasonCode,
             Long approvedAmount,
-            BigDecimal approvedRate) {}
+            BigDecimal approvedRate,
+            String rejectionEvidence) {
+
+        public UpdateRequest(
+                ApplicationStatus status,
+                RejectStage rejectStage,
+                String rejectReasonCode,
+                Long approvedAmount,
+                BigDecimal approvedRate) {
+            this(status, rejectStage, rejectReasonCode, approvedAmount, approvedRate, null);
+        }
+    }
 
     /**
      * 신청 한 건.
@@ -50,9 +62,40 @@ public final class ApplicationDtos {
             Instant resultAt,
             RejectStage rejectStage,
             String rejectReasonCode,
+            String rejectionEvidence,
             Long approvedAmount,
             BigDecimal approvedRate,
-            String nextAction) {}
+            String nextAction) {
+
+        public ApplicationView(
+                Long id,
+                Long planId,
+                Long policyId,
+                String channel,
+                ApplicationStatus status,
+                Instant submittedAt,
+                Instant resultAt,
+                RejectStage rejectStage,
+                String rejectReasonCode,
+                Long approvedAmount,
+                BigDecimal approvedRate,
+                String nextAction) {
+            this(
+                    id,
+                    planId,
+                    policyId,
+                    channel,
+                    status,
+                    submittedAt,
+                    resultAt,
+                    rejectStage,
+                    rejectReasonCode,
+                    null,
+                    approvedAmount,
+                    approvedRate,
+                    nextAction);
+        }
+    }
 
     /** 신청 목록. */
     @Schema(description = "신청 목록")
