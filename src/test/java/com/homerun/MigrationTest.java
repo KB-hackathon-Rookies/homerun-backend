@@ -186,7 +186,8 @@ class MigrationTest {
         Integer count = jdbc.queryForObject("SELECT count(*) FROM config_effective", Integer.class);
 
         // V33 이 은행별 금리 8건(FCT-201~208), V36 이 분리지급 연령 2건(FCT-209·210)을 더했다.
-        assertThat(count).isEqualTo(210);
+        // V51 이 대출보증 한도·비율 4건(FCT-211~214)을 더했다(BR-19).
+        assertThat(count).isEqualTo(214);
     }
 
     @Test
