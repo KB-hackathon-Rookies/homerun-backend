@@ -215,7 +215,8 @@ class MigrationTest {
         // V54 가 부대비용·중개보수·인지세·보증료율 24건(FCT-215~238)을 더했다(BR-08a·BR-21·BR-27).
         // V58 이 소득공제 계산 수치 3건(FCT-239~241)을 더했다(BR-29).
         // V59 가 보증료 지원 금액 수치 4건(FCT-242~245)을 더했다(BR-31).
-        assertThat(count).isEqualTo(245);
+        // V62 가 청년 버팀목 소득구간 금리·지방조정·우대 11건(FCT-246~256)을 더했다(#1).
+        assertThat(count).isEqualTo(256);
     }
 
     @Test
