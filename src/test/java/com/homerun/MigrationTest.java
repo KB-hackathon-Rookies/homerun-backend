@@ -194,7 +194,17 @@ class MigrationTest {
 
         // V33 이 은행별 금리 8건(FCT-201~208), V36 이 분리지급 연령 2건(FCT-209·210)을 더했다.
         // V51 이 대출보증 한도·비율 4건(FCT-211~214)을 더했다(BR-19).
-        assertThat(count).isEqualTo(214);
+        // V54 가 부대비용·중개보수·인지세·보증료율 24건(FCT-215~238)을 더했다(BR-08a·BR-21·BR-27).
+        assertThat(count).isEqualTo(238);
+    }
+
+    @Test
+    @DisplayName("V54가 부대비용 계산 수치를 계산 가능한 형태로 심는다")
+    void should_seed_ancillaryCostFacts_whenV54IsApplied() {
+        // 텍스트만 있던 FCT-097·098 과 달리 value_num 이 있어야 계산에 쓸 수 있다.
+        assertThat(numberOf("FCT-222")).isEqualByComparingTo("0.3"); // 중개보수 3구간 요율
+        assertThat(numberOf("FCT-229")).isEqualByComparingTo("75000"); // 인지세 3구간 고객부담
+        assertThat(numberOf("FCT-237")).isEqualByComparingTo("500000"); // 이사비 기본값
     }
 
     @Test
@@ -319,6 +329,11 @@ class MigrationTest {
     private String confidenceOf(String factCode) {
         return jdbc.queryForObject(
                 "SELECT confidence FROM config_effective WHERE fact_code = ?", String.class, factCode);
+    }
+
+    private java.math.BigDecimal numberOf(String factCode) {
+        return jdbc.queryForObject(
+                "SELECT value_num FROM config_effective WHERE fact_code = ?", java.math.BigDecimal.class, factCode);
     }
 
     private String constraintDefinition(String constraintName) {
