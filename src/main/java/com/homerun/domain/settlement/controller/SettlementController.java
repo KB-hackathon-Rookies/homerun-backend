@@ -7,11 +7,13 @@ import com.homerun.domain.settlement.dto.response.CashFlowSummaryResponse;
 import com.homerun.domain.settlement.dto.response.GuaranteeFeeSupportAmountResponse;
 import com.homerun.domain.settlement.dto.response.MonthlyMetricsResponse;
 import com.homerun.domain.settlement.dto.response.RateCutRightResponse;
+import com.homerun.domain.settlement.dto.response.ReturnGuaranteeGuideResponse;
 import com.homerun.domain.settlement.dto.response.TaxDeductionResponse;
 import com.homerun.domain.settlement.service.CashFlowSummaryService;
 import com.homerun.domain.settlement.service.GuaranteeFeeSupportService;
 import com.homerun.domain.settlement.service.MonthlyMetricsService;
 import com.homerun.domain.settlement.service.RateCutRightService;
+import com.homerun.domain.settlement.service.ReturnGuaranteeService;
 import com.homerun.domain.settlement.service.TaxDeductionService;
 import com.homerun.global.response.ApiResponse;
 import com.homerun.global.security.principal.MemberPrincipal;
@@ -36,18 +38,21 @@ public class SettlementController {
     private final MonthlyMetricsService monthlyMetricsService;
     private final CashFlowSummaryService cashFlowSummaryService;
     private final RateCutRightService rateCutRightService;
+    private final ReturnGuaranteeService returnGuaranteeService;
 
     public SettlementController(
             TaxDeductionService taxDeductionService,
             GuaranteeFeeSupportService guaranteeFeeSupportService,
             MonthlyMetricsService monthlyMetricsService,
             CashFlowSummaryService cashFlowSummaryService,
-            RateCutRightService rateCutRightService) {
+            RateCutRightService rateCutRightService,
+            ReturnGuaranteeService returnGuaranteeService) {
         this.taxDeductionService = taxDeductionService;
         this.guaranteeFeeSupportService = guaranteeFeeSupportService;
         this.monthlyMetricsService = monthlyMetricsService;
         this.cashFlowSummaryService = cashFlowSummaryService;
         this.rateCutRightService = rateCutRightService;
+        this.returnGuaranteeService = returnGuaranteeService;
     }
 
     @PostMapping("/tax-deduction")
@@ -104,5 +109,15 @@ public class SettlementController {
     public ApiResponse<RateCutRightResponse> rateCutRight(
             @AuthenticationPrincipal MemberPrincipal principal, @PathVariable Long planId) {
         return ApiResponse.success(rateCutRightService.forPlan(principal.memberId(), planId));
+    }
+
+    @GetMapping("/return-guarantee")
+    @Operation(
+            summary = "반환보증 가입 안내",
+            description = "실행 대출 담보에 따라 반환보증 가입 안내를 분기한다(FR-H1-01). HUG 안심전세는 이미 포함돼"
+                    + " 있어 숨기고, HF·SGI·채권양도 등은 가입 시기·경로·서류를 노출한다.")
+    public ApiResponse<ReturnGuaranteeGuideResponse> returnGuarantee(
+            @AuthenticationPrincipal MemberPrincipal principal, @PathVariable Long planId) {
+        return ApiResponse.success(returnGuaranteeService.forPlan(principal.memberId(), planId));
     }
 }
