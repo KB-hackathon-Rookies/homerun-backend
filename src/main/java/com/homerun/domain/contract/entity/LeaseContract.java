@@ -114,6 +114,29 @@ public class LeaseContract {
         this.monthlyRent = monthlyRent;
     }
 
+    /**
+     * 2루에서 확정한 매물·은행 상담값으로 3루 계약 초안을 만든다.
+     *
+     * <p>계약일·잔금일처럼 아직 정할 수 없는 값은 건드리지 않는다. 이 값들을 임의로 채우면
+     * 사용자에게 존재하지 않는 계약 일정이 보이기 때문이다.
+     */
+    public void prefillFromDecision(
+            Long propertyId,
+            LeaseType leaseType,
+            long deposit,
+            LoanProductKind loanProductKind,
+            ContractCollateralMethod collateralMethod,
+            HouseType houseType,
+            LocalDate bankConsultedAt) {
+        this.propertyId = propertyId;
+        this.leaseType = leaseType;
+        this.deposit = deposit;
+        this.loanProductKind = loanProductKind;
+        this.collateralMethod = collateralMethod;
+        this.houseType = houseType;
+        this.bankConsultedAt = bankConsultedAt;
+    }
+
     /** 계약 정보를 통째로 덮어쓴다. 입력 화면이 전체 폼을 그대로 보내는 구조다. */
     public void overwrite(
             Long propertyId,

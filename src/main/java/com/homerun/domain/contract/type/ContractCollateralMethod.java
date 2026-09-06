@@ -5,5 +5,6 @@ public enum ContractCollateralMethod {
     HF,
     SGI,
     CLAIM_TRANSFER,
+    OTHER,
     NONE
 }
