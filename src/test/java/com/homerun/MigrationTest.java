@@ -285,8 +285,8 @@ class MigrationTest {
     }
 
     @Test
-    @DisplayName("V51이 최종 결정 revision과 2루 제출 스냅샷을 추가한다")
-    void should_addSecondBaseSubmission_whenV51IsApplied() {
+    @DisplayName("V53이 최종 결정 revision과 2루 제출 스냅샷을 추가한다")
+    void should_addSecondBaseSubmission_whenV53IsApplied() {
         assertThat(columnNames("property_decision")).contains("decision_revision");
         assertThat(tableNames()).contains("second_base_submission");
         assertThat(columnNames("second_base_submission"))
