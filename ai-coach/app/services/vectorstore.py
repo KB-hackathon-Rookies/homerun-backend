@@ -17,6 +17,7 @@ class Hit:
 
     title: str
     source: str
+    source_url: str | None
     snippet: str
     distance: float
 
@@ -35,6 +36,23 @@ def get_collection():
 
 def upsert(ids: list[str], embeddings: list[list[float]], documents: list[str], metadatas: list[dict]) -> None:
     get_collection().upsert(ids=ids, embeddings=embeddings, documents=documents, metadatas=metadatas)
+
+
+def delete_source(source_path: str) -> None:
+    """재인제스트 전에 해당 파일의 이전 청크를 지운다.
+
+    문서가 짧아졌을 때 과거의 뒤쪽 청크가 남아 검색되는 일을 막는다.
+    """
+    get_collection().delete(where={"source_path": source_path})
+
+
+def reset_collection() -> None:
+    """전체 코퍼스를 다시 만들 때 기존 컬렉션을 원자적으로 새로 연다."""
+    client = _client()
+    collection_names = {getattr(collection, "name", str(collection)) for collection in client.list_collections()}
+    if settings.chroma_collection in collection_names:
+        client.delete_collection(settings.chroma_collection)
+    get_collection()
 
 
 def count() -> int:
@@ -60,6 +78,7 @@ def search(query_embedding: list[float], stage: str, top_k: int) -> list[Hit]:
             Hit(
                 title=str(metadata.get("title", "제목 없음")),
                 source=str(metadata.get("source", "출처 미상")),
+                source_url=str(metadata["source_url"]) if metadata.get("source_url") else None,
                 snippet=document or "",
                 distance=float(distance),
             )

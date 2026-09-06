@@ -20,6 +20,7 @@ class Source(BaseModel):
 
     title: str
     source: str
+    source_url: str | None = None
     snippet: str
 
 
