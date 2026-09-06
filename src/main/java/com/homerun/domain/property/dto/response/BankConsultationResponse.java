@@ -4,6 +4,8 @@ import com.homerun.domain.property.entity.BankConsultation;
 import com.homerun.domain.property.type.CollateralMethod;
 import com.homerun.domain.property.type.ConsultationResultStatus;
 import com.homerun.domain.property.type.ConsultedLoanProduct;
+import com.homerun.domain.property.type.RejectionCategory;
+import com.homerun.domain.property.type.RejectionStage;
 import java.math.BigDecimal;
 import java.time.Instant;
 import java.time.LocalDate;
@@ -22,6 +24,9 @@ public record BankConsultationResponse(
         BigDecimal quotedRate,
         LocalDate consultedAt,
         String memo,
+        RejectionStage rejectionStage,
+        RejectionCategory rejectionCategory,
+        String rejectionNote,
         Instant createdAt) {
 
     public static BankConsultationResponse from(BankConsultation consultation) {
@@ -39,6 +44,9 @@ public record BankConsultationResponse(
                 consultation.getQuotedRate(),
                 consultation.getConsultedAt(),
                 consultation.getMemo(),
+                consultation.getRejectionStage(),
+                consultation.getRejectionCategory(),
+                consultation.getRejectionNote(),
                 consultation.getCreatedAt());
     }
 }
