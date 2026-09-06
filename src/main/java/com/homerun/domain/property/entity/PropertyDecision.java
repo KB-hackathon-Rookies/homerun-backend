@@ -28,17 +28,28 @@ public class PropertyDecision {
     @Column(name = "decided_at", nullable = false)
     private Instant decidedAt;
 
+    @Column(name = "decision_revision", nullable = false)
+    private int revision;
+
     protected PropertyDecision() {}
 
     public PropertyDecision(Long planId, Long propertyId, Long consultationId, Instant decidedAt) {
         this.planId = planId;
-        decide(propertyId, consultationId, decidedAt);
-    }
-
-    public void decide(Long propertyId, Long consultationId, Instant decidedAt) {
         this.propertyId = propertyId;
         this.consultationId = consultationId;
         this.decidedAt = decidedAt;
+        this.revision = 1;
+    }
+
+    public boolean decide(Long propertyId, Long consultationId, Instant decidedAt) {
+        if (this.propertyId.equals(propertyId) && this.consultationId.equals(consultationId)) {
+            return false;
+        }
+        this.propertyId = propertyId;
+        this.consultationId = consultationId;
+        this.decidedAt = decidedAt;
+        revision++;
+        return true;
     }
 
     public Long getId() {
@@ -59,5 +70,9 @@ public class PropertyDecision {
 
     public Instant getDecidedAt() {
         return decidedAt;
+    }
+
+    public int getRevision() {
+        return revision;
     }
 }

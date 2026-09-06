@@ -96,22 +96,29 @@ public class PropertyDecisionService {
     @Transactional
     public PropertyDecisionResponse decide(Long memberId, Long planId, PropertyDecisionRequest request) {
         ownedPlan(memberId, planId);
-        ownedProperty(planId, request.propertyId());
+        Property property = ownedProperty(planId, request.propertyId());
         BankConsultation consultation = consultations
                 .findByIdAndPlanIdAndPropertyId(request.consultationId(), planId, request.propertyId())
                 .orElseThrow(() -> new BusinessException(ErrorCode.CONSULTATION_PROPERTY_MISMATCH));
         if (!consultation.isSelectable()) {
             throw new BusinessException(ErrorCode.BANK_CONSULTATION_NOT_SELECTABLE);
         }
+        PropertyDecision previous = decisions.findByPlanId(planId).orElse(null);
+        if (previous != null
+                && previous.getPropertyId().equals(request.propertyId())
+                && previous.getConsultationId().equals(request.consultationId())) {
+            return response(previous, property, consultation);
+        }
         properties.clearSelection(planId);
-        Property property = ownedProperty(planId, request.propertyId());
+        property = ownedProperty(planId, request.propertyId());
         property.select();
         Instant decidedAt = Instant.now(clock);
-        PropertyDecision decision = decisions
-                .findByPlanId(planId)
-                .orElseGet(
-                        () -> new PropertyDecision(planId, request.propertyId(), request.consultationId(), decidedAt));
-        decision.decide(request.propertyId(), request.consultationId(), decidedAt);
+        PropertyDecision decision = previous == null
+                ? new PropertyDecision(planId, request.propertyId(), request.consultationId(), decidedAt)
+                : previous;
+        if (previous != null) {
+            decision.decide(request.propertyId(), request.consultationId(), decidedAt);
+        }
         return response(decisions.save(decision), property, consultation);
     }
 
