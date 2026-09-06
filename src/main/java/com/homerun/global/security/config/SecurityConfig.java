@@ -83,6 +83,8 @@ public class SecurityConfig {
                         .permitAll()
                         .requestMatchers(HttpMethod.POST, "/api/v1/auth/email/**")
                         .permitAll()
+                        .requestMatchers(HttpMethod.POST, "/api/v1/auth/phone/**")
+                        .permitAll()
                         .anyRequest()
                         .authenticated())
                 .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class)

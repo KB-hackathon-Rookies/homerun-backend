@@ -15,10 +15,13 @@ import com.homerun.domain.auth.service.EmailVerificationService;
 import com.homerun.domain.auth.type.AuthProvider;
 import com.homerun.domain.member.entity.Member;
 import com.homerun.domain.member.repository.MemberRepository;
+import com.homerun.domain.region.repository.RegionRepository;
 import com.homerun.domain.terms.service.TermsService;
 import com.homerun.global.exception.BusinessException;
 import com.homerun.global.exception.ErrorCode;
 import com.homerun.global.external.mail.VerificationEmailSender;
+import com.homerun.global.external.sms.SmsSender;
+import java.time.LocalDate;
 import java.util.Set;
 import java.util.concurrent.TimeUnit;
 import org.junit.jupiter.api.BeforeEach;
@@ -34,7 +37,6 @@ import org.springframework.http.MediaType;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
-import tools.jackson.databind.JsonNode;
 import tools.jackson.databind.ObjectMapper;
 
 @Import(TestcontainersConfiguration.class)
@@ -43,7 +45,8 @@ import tools.jackson.databind.ObjectMapper;
         properties = {
             "app.jwt.secret=email-signup-integration-test-secret-over-32-bytes",
             "app.email-verification.secret=email-verification-test-secret-over-32-bytes",
-            "app.email-verification.from=test@homerun.local"
+            "app.email-verification.from=test@homerun.local",
+            "app.phone-verification.secret=phone-verification-test-secret-over-32-bytes"
         })
 class EmailSignupIntegrationTest {
 
@@ -65,8 +68,14 @@ class EmailSignupIntegrationTest {
     @Autowired
     private StringRedisTemplate redisTemplate;
 
+    @Autowired
+    private RegionRepository regionRepository;
+
     @MockitoBean
     private VerificationEmailSender emailSender;
+
+    @MockitoBean
+    private SmsSender smsSender;
 
     @MockitoBean
     private TermsService termsService;
@@ -78,39 +87,35 @@ class EmailSignupIntegrationTest {
         if (keys != null && !keys.isEmpty()) {
             redisTemplate.delete(keys);
         }
+        Set<String> phoneKeys = redisTemplate.keys("auth:phone:*");
+        if (phoneKeys != null && !phoneKeys.isEmpty()) {
+            redisTemplate.delete(phoneKeys);
+        }
     }
 
     @Test
-    @DisplayName("Redis 이메일 인증을 마치면 로컬 회원가입과 로그인이 가능하다")
-    void should_signupAndLogin_when_redisEmailVerificationSucceeds() throws Exception {
+    @DisplayName("이메일·휴대전화 인증을 마치면 본인 정보와 함께 회원가입·로그인이 가능하다")
+    void should_signupAndLogin_when_emailAndPhoneVerificationSucceed() throws Exception {
         String email = "NewUser@Example.com";
+        String rawPhone = "010-1234-5678";
+        String password = "Password123!";
+        Long regionId = regionRepository.findAll().get(0).getId();
 
-        mockMvc.perform(post("/api/v1/auth/email/verification/send")
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content("{\"email\":\"" + email + "\"}"))
-                .andExpect(status().isOk());
-
-        ArgumentCaptor<String> codeCaptor = ArgumentCaptor.forClass(String.class);
-        verify(emailSender).sendVerificationCode(eq("newuser@example.com"), codeCaptor.capture(), anyLong());
-        String code = codeCaptor.getValue();
-        assertThat(code).matches("\\d{6}");
-
-        String confirmBody = mockMvc.perform(post("/api/v1/auth/email/verification/confirm")
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content("{\"email\":\"" + email + "\",\"code\":\"" + code + "\"}"))
-                .andExpect(status().isOk())
-                .andReturn()
-                .getResponse()
-                .getContentAsString();
-        JsonNode confirmJson = objectMapper.readTree(confirmBody);
-        String verificationToken =
-                confirmJson.path("data").path("verificationToken").asText();
-        assertThat(verificationToken).isNotBlank();
+        String emailToken = completeEmailVerification(email);
+        String phoneToken = completePhoneVerification(rawPhone);
 
         mockMvc.perform(post("/api/v1/auth/email/signup")
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content(objectMapper.writeValueAsString(
-                                new SignupBody(email, "password123", "홈런", verificationToken))))
+                        .content(objectMapper.writeValueAsString(new SignupBody(
+                                email,
+                                password,
+                                "홍길동",
+                                LocalDate.of(1998, 4, 11),
+                                rawPhone,
+                                regionId,
+                                "테헤란로 123, 101동 101호",
+                                emailToken,
+                                phoneToken))))
                 .andExpect(status().isOk())
                 .andExpect(cookie().exists("refresh_token"))
                 .andExpect(jsonPath("$.data.member.provider").value("LOCAL"))
@@ -120,12 +125,17 @@ class EmailSignupIntegrationTest {
                 .findByProviderAndProviderUserIdAndDeletedAtIsNull(AuthProvider.LOCAL, "newuser@example.com")
                 .orElseThrow();
         assertThat(saved.getEmailVerifiedAt()).isNotNull();
-        assertThat(passwordEncoder.matches("password123", saved.getPasswordHash()))
-                .isTrue();
+        assertThat(saved.getName()).isEqualTo("홍길동");
+        assertThat(saved.getBirthDate()).isEqualTo(LocalDate.of(1998, 4, 11));
+        assertThat(saved.getPhone()).isEqualTo("01012345678"); // 정규화되어 저장
+        assertThat(saved.getPhoneVerifiedAt()).isNotNull();
+        assertThat(saved.getResidenceRegionId()).isEqualTo(regionId);
+        assertThat(saved.getDetailAddress()).isEqualTo("테헤란로 123, 101동 101호");
+        assertThat(passwordEncoder.matches(password, saved.getPasswordHash())).isTrue();
 
         mockMvc.perform(post("/api/v1/auth/email/login")
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content("{\"email\":\"newuser@example.com\",\"password\":\"password123\"}"))
+                        .content("{\"email\":\"newuser@example.com\",\"password\":\"" + password + "\"}"))
                 .andExpect(status().isOk())
                 .andExpect(cookie().exists("refresh_token"))
                 .andExpect(jsonPath("$.data.member.id").value(saved.getId()));
@@ -135,6 +145,70 @@ class EmailSignupIntegrationTest {
                         .content("{\"email\":\"newuser@example.com\",\"password\":\"wrong-password\"}"))
                 .andExpect(status().isUnauthorized())
                 .andExpect(jsonPath("$.code").value("AUTH_022"));
+    }
+
+    @Test
+    @DisplayName("휴대전화 인증 토큰이 없으면 회원가입이 거부된다")
+    void should_rejectSignup_when_phoneTokenMissing() throws Exception {
+        String email = "nophone@example.com";
+        Long regionId = regionRepository.findAll().get(0).getId();
+        String emailToken = completeEmailVerification(email);
+
+        mockMvc.perform(post("/api/v1/auth/email/signup")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(new SignupBody(
+                                email,
+                                "Password123!",
+                                "홍길동",
+                                LocalDate.of(1998, 4, 11),
+                                "010-2222-3333",
+                                regionId,
+                                null,
+                                emailToken,
+                                "  "))))
+                .andExpect(status().isBadRequest());
+    }
+
+    private String completeEmailVerification(String email) throws Exception {
+        mockMvc.perform(post("/api/v1/auth/email/verification/send")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"email\":\"" + email + "\"}"))
+                .andExpect(status().isOk());
+        ArgumentCaptor<String> codeCaptor = ArgumentCaptor.forClass(String.class);
+        verify(emailSender).sendVerificationCode(eq(email.toLowerCase()), codeCaptor.capture(), anyLong());
+        String confirmBody = mockMvc.perform(post("/api/v1/auth/email/verification/confirm")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"email\":\"" + email + "\",\"code\":\"" + codeCaptor.getValue() + "\"}"))
+                .andExpect(status().isOk())
+                .andReturn()
+                .getResponse()
+                .getContentAsString();
+        return objectMapper
+                .readTree(confirmBody)
+                .path("data")
+                .path("verificationToken")
+                .asText();
+    }
+
+    private String completePhoneVerification(String rawPhone) throws Exception {
+        mockMvc.perform(post("/api/v1/auth/phone/verification/send")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"phone\":\"" + rawPhone + "\"}"))
+                .andExpect(status().isOk());
+        ArgumentCaptor<String> codeCaptor = ArgumentCaptor.forClass(String.class);
+        verify(smsSender).sendVerificationCode(eq("01012345678"), codeCaptor.capture(), anyLong());
+        String confirmBody = mockMvc.perform(post("/api/v1/auth/phone/verification/confirm")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"phone\":\"" + rawPhone + "\",\"code\":\"" + codeCaptor.getValue() + "\"}"))
+                .andExpect(status().isOk())
+                .andReturn()
+                .getResponse()
+                .getContentAsString();
+        return objectMapper
+                .readTree(confirmBody)
+                .path("data")
+                .path("verificationToken")
+                .asText();
     }
 
     @Test
@@ -216,5 +290,14 @@ class EmailSignupIntegrationTest {
         return java.util.HexFormat.of().formatHex(digest);
     }
 
-    private record SignupBody(String email, String password, String name, String verificationToken) {}
+    private record SignupBody(
+            String email,
+            String password,
+            String name,
+            LocalDate birthDate,
+            String phone,
+            Long regionId,
+            String detailAddress,
+            String emailVerificationToken,
+            String phoneVerificationToken) {}
 }
