@@ -93,6 +93,17 @@ app:
     max-sends-per-window: 5
     max-attempts: 5
 
+fcm:
+  # 기본은 무동작(NoOpFcmSender). 실제 전송하려면 true 로 켜고 서비스계정 JSON 을 준다.
+  enabled: ${FCM_ENABLED:false}
+  # 서비스계정 JSON 원본, base64 인코딩 JSON, 또는 파일 경로 중 하나.
+  credentials: ${FIREBASE_CREDENTIALS:}
+
+notification:
+  # 마감 스캔 실행 시각(KST). 기본 매일 09:00.
+  deadline:
+    cron: ${NOTIFICATION_DEADLINE_CRON:0 0 9 * * *}
+
 management:
   endpoints:
     web:

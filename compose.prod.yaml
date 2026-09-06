@@ -83,6 +83,11 @@ services:
       OPEN_BANKING_REDIRECT_URI: ${OPEN_BANKING_REDIRECT_URI:?Set OPEN_BANKING_REDIRECT_URI in .env}
       OPEN_BANKING_SCOPE: ${OPEN_BANKING_SCOPE:-login inquiry}
       OPEN_BANKING_TOKEN_ENCRYPTION_KEY: ${OPEN_BANKING_TOKEN_ENCRYPTION_KEY:?Set OPEN_BANKING_TOKEN_ENCRYPTION_KEY in .env}
+      FCM_ENABLED: ${FCM_ENABLED:-false}
+      # 서비스계정 JSON 을 base64 한 줄로 준다(파일 배치 불필요, 서버 .env 에 그대로 둔다).
+      # FirebaseConfig 가 base64/원본 JSON/파일 경로를 모두 해석한다.
+      FIREBASE_CREDENTIALS: ${FIREBASE_CREDENTIALS:-}
+      NOTIFICATION_DEADLINE_CRON: ${NOTIFICATION_DEADLINE_CRON:-0 0 9 * * *}
     ports:
       - '${APP_PORT:-8080}:8080'
     healthcheck:
@@ -92,6 +97,31 @@ services:
       retries: 10
       start_period: 60s
 
+  # AI 코치 RAG 서비스(FastAPI + ChromaDB). Spring 과 같은 JWT_SECRET(HS256)을 공유해
+  # 프론트가 8000 으로 직접 호출한다. ChromaDB 는 임베디드 persistent 모드(별도 서버 없음).
+  ai-coach:
+    image: ${AI_COACH_IMAGE:-homerun-ai-coach:local}
+    build: ./ai-coach
+    restart: unless-stopped
+    environment:
+      OPENAI_API_KEY: ${OPENAI_API_KEY:?Set OPENAI_API_KEY in .env}
+      OPENAI_CHAT_MODEL: ${OPENAI_CHAT_MODEL:-gpt-4o-mini}
+      OPENAI_EMBEDDING_MODEL: ${OPENAI_EMBEDDING_MODEL:-text-embedding-3-small}
+      # Spring 과 반드시 동일한 값이어야 토큰 검증이 통과한다.
+      JWT_SECRET: ${JWT_SECRET:?Set JWT_SECRET in .env}
+      CHROMA_DIR: ${CHROMA_DIR:-/data/chroma}
+    ports:
+      - '${AI_COACH_PORT:-8000}:8000'
+    volumes:
+      - chroma-data:/data/chroma
+    healthcheck:
+      test: ['CMD-SHELL', 'python -c "import urllib.request,sys; sys.exit(0) if urllib.request.urlopen(''http://localhost:8000/health'').status==200 else sys.exit(1)"']
+      interval: 15s
+      timeout: 5s
+      retries: 10
+      start_period: 20s
+
 volumes:
   postgres-data:
   redis-data:
+  chroma-data:
