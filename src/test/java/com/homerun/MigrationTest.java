@@ -188,6 +188,17 @@ class MigrationTest {
     }
 
     @Test
+    @DisplayName("V60이 실행 대출 계좌 테이블과 제약을 추가한다")
+    void should_addLoanAccount_whenV60IsApplied() {
+        assertThat(tableNames()).contains("loan_account");
+        assertThat(columnNames("loan_account"))
+                .contains("plan_id", "product", "guarantee", "principal", "rate", "repayment_type", "extension_count");
+        assertThat(constraintDefinition("ck_loan_account_repayment"))
+                .contains("MATURITY_LUMP_SUM", "EQUAL_INSTALLMENT");
+        assertThat(constraintDefinition("uq_loan_account_plan")).contains("plan_id");
+    }
+
+    @Test
     @DisplayName("팩트 레지스트리에 전세대출 진단 기준까지 적용된다")
     void should_seed_config_effective_when_migrated() {
         Integer count = jdbc.queryForObject("SELECT count(*) FROM config_effective", Integer.class);
