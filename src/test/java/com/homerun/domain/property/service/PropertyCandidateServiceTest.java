@@ -80,6 +80,32 @@ class PropertyCandidateServiceTest {
     }
 
     @Test
+    void should_flagNonResidential_when_ledgerMainPurposeIsNeighborhoodFacility() {
+        // 근생빌라는 겉보기에 빌라와 같지만 모든 전세 상품이 불가다(FCT-120, BR-09).
+        when(houses.analyze(any())).thenReturn(houseAnalysisNonResidential());
+        stubSave(82L);
+        when(verifications.verifyAndRecord(any(), any()))
+                .thenReturn(new PropertyVerification(CheckResult.PASS, List.of(), List.of()));
+
+        var result = service.analyzeAndSave(MEMBER_ID, PLAN_ID, request());
+
+        assertThat(result.automaticFacts().nonResidential()).isTrue();
+    }
+
+    @Test
+    void should_confirmResidential_when_ledgerShowsApartment() {
+        // 주거용이 확인되면 FALSE 다. null(모름)과 구분돼야 근생 확인 안내가 안 뜬다.
+        when(houses.analyze(any())).thenReturn(houseAnalysis());
+        stubSave(83L);
+        when(verifications.verifyAndRecord(any(), any()))
+                .thenReturn(new PropertyVerification(CheckResult.PASS, List.of(), List.of()));
+
+        var result = service.analyzeAndSave(MEMBER_ID, PLAN_ID, request());
+
+        assertThat(result.automaticFacts().nonResidential()).isFalse();
+    }
+
+    @Test
     void should_saveCandidate_when_planIsUnderTheFivePropertyCap() {
         // #179 이전에는 상한이 없었다. 이제 5건 미만이면 저장되고 5건이면 막힌다(FR-P1-03).
         when(properties.countByPlanId(PLAN_ID)).thenReturn(4L);
@@ -210,6 +236,19 @@ class PropertyCandidateServiceTest {
                 HousingType.APARTMENT,
                 new BuildingLedgerResponse(titles, prices),
                 new RentTransactions(true, 1, 1, null, List.of(Map.of("excluUseAr", area, "jibun", "123-4"))),
+                List.of());
+    }
+
+    /** 주용도가 제2종 근린생활시설인 대장. 오피스텔로 자동판별은 되지만(기타용도) 근생이 잡혀야 한다. */
+    private HouseAnalysisResponse houseAnalysisNonResidential() {
+        var titles = new BuildingRegisterResponse(
+                "00", "OK", 1, List.of(Map.of("mainPurpsCdNm", "제2종근린생활시설", "etcPurps", "오피스텔", "violBldYn", "N")));
+        var prices = new BuildingRegisterResponse("00", "OK", 0, List.of());
+        return new HouseAnalysisResponse(
+                houseRequest(),
+                HousingType.OFFICETEL,
+                new BuildingLedgerResponse(titles, prices),
+                new RentTransactions(true, 0, 0, null, List.of()),
                 List.of());
     }
 
