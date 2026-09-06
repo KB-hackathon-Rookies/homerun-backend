@@ -19,6 +19,8 @@ class PropertyTrafficLightResolverTest {
     /** 등기부 3항목이 전부 통과한 상태. 여기서 하나씩 바꿔가며 전이를 본다. */
     private Map<String, CheckResult> registryAllPass() {
         Map<String, CheckResult> checks = new HashMap<>();
+        checks.put("VIOLATION_BUILDING", CheckResult.PASS);
+        checks.put("NON_RESIDENTIAL", CheckResult.PASS);
         checks.put("OWNER_MATCH", CheckResult.PASS);
         checks.put("TRUST_REGISTRATION", CheckResult.PASS);
         checks.put("REGISTRY_RESTRICTION", CheckResult.PASS);
@@ -107,9 +109,9 @@ class PropertyTrafficLightResolverTest {
     }
 
     @Test
-    void should_hideLoanProducts_onlyForRed() {
+    void should_showLoanProducts_onlyAfterRegistryPasses() {
         assertThat(TrafficLight.RED.showsLoanProducts()).isFalse();
-        assertThat(TrafficLight.YELLOW.showsLoanProducts()).isTrue();
+        assertThat(TrafficLight.YELLOW.showsLoanProducts()).isFalse();
         assertThat(TrafficLight.GREEN.showsLoanProducts()).isTrue();
         assertThat(TrafficLight.BLUE.showsLoanProducts()).isTrue();
     }

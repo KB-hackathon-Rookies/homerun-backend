@@ -1,18 +1,25 @@
 package com.homerun.domain.property.controller;
 
 import com.homerun.domain.property.dto.request.BankConsultationRequest;
+import com.homerun.domain.property.dto.request.PropertyBuildingStepRequest;
 import com.homerun.domain.property.dto.request.PropertyCandidateAnalysisRequest;
 import com.homerun.domain.property.dto.request.PropertyComparisonRequest;
 import com.homerun.domain.property.dto.request.PropertyDecisionRequest;
+import com.homerun.domain.property.dto.request.PropertyRegistryStepRequest;
+import com.homerun.domain.property.dto.request.PropertyViolationStepRequest;
 import com.homerun.domain.property.dto.response.BankConsultationResponse;
 import com.homerun.domain.property.dto.response.PropertyCandidateAnalysisResponse;
 import com.homerun.domain.property.dto.response.PropertyCandidateResponse;
+import com.homerun.domain.property.dto.response.PropertyCardResponse;
 import com.homerun.domain.property.dto.response.PropertyComparisonResponse;
 import com.homerun.domain.property.dto.response.PropertyDecisionResponse;
 import com.homerun.domain.property.dto.response.PropertyPolicyVerdictListResponse;
+import com.homerun.domain.property.dto.response.PropertyStepSaveResponse;
+import com.homerun.domain.property.dto.response.PropertyWorkflowResponse;
 import com.homerun.domain.property.service.PropertyCandidateService;
 import com.homerun.domain.property.service.PropertyDecisionService;
 import com.homerun.domain.property.service.PropertyPolicyVerdictService;
+import com.homerun.domain.property.service.PropertyWorkflowService;
 import com.homerun.global.response.ApiResponse;
 import com.homerun.global.security.principal.MemberPrincipal;
 import io.swagger.v3.oas.annotations.Operation;
@@ -36,14 +43,17 @@ public class PropertyCandidateController {
     private final PropertyCandidateService service;
     private final PropertyDecisionService decisionService;
     private final PropertyPolicyVerdictService policyVerdictService;
+    private final PropertyWorkflowService workflowService;
 
     public PropertyCandidateController(
             PropertyCandidateService service,
             PropertyDecisionService decisionService,
-            PropertyPolicyVerdictService policyVerdictService) {
+            PropertyPolicyVerdictService policyVerdictService,
+            PropertyWorkflowService workflowService) {
         this.service = service;
         this.decisionService = decisionService;
         this.policyVerdictService = policyVerdictService;
+        this.workflowService = workflowService;
     }
 
     @PostMapping("/{propertyId}/policy-verdicts")
@@ -54,6 +64,7 @@ public class PropertyCandidateController {
             @AuthenticationPrincipal MemberPrincipal principal,
             @PathVariable Long planId,
             @PathVariable Long propertyId) {
+        workflowService.requireLoanProductsReady(principal.memberId(), planId, propertyId);
         return ApiResponse.success(policyVerdictService.evaluate(principal.memberId(), planId, propertyId));
     }
 
@@ -64,6 +75,54 @@ public class PropertyCandidateController {
             @PathVariable Long planId,
             @PathVariable Long propertyId) {
         return ApiResponse.success(policyVerdictService.get(principal.memberId(), planId, propertyId));
+    }
+
+    @GetMapping("/{propertyId}/resume")
+    @Operation(summary = "매물 진단 이어하기", description = "마지막으로 저장한 STEP과 revision을 반환합니다.")
+    public ApiResponse<PropertyWorkflowResponse> resume(
+            @AuthenticationPrincipal MemberPrincipal principal,
+            @PathVariable Long planId,
+            @PathVariable Long propertyId) {
+        return ApiResponse.success(workflowService.resume(principal.memberId(), planId, propertyId));
+    }
+
+    @PutMapping("/{propertyId}/steps/building")
+    @Operation(summary = "STEP 2 주택유형·전용면적 저장", description = "자동조회가 실패하거나 사용자가 정정할 때 사용합니다.")
+    public ApiResponse<PropertyStepSaveResponse> saveBuilding(
+            @AuthenticationPrincipal MemberPrincipal principal,
+            @PathVariable Long planId,
+            @PathVariable Long propertyId,
+            @Valid @RequestBody PropertyBuildingStepRequest request) {
+        return ApiResponse.success(workflowService.saveBuilding(principal.memberId(), planId, propertyId, request));
+    }
+
+    @PutMapping("/{propertyId}/steps/violation")
+    @Operation(summary = "STEP 3 위반건축물 확인 저장", description = "정부24 건축물대장을 직접 확인한 결과를 저장합니다.")
+    public ApiResponse<PropertyStepSaveResponse> saveViolation(
+            @AuthenticationPrincipal MemberPrincipal principal,
+            @PathVariable Long planId,
+            @PathVariable Long propertyId,
+            @Valid @RequestBody PropertyViolationStepRequest request) {
+        return ApiResponse.success(workflowService.saveViolation(principal.memberId(), planId, propertyId, request));
+    }
+
+    @PutMapping("/{propertyId}/steps/registry")
+    @Operation(summary = "STEP 4 등기부·공시가격 확인 저장", description = "모름 값도 저장하며 RED·YELLOW·GREEN을 다시 판정합니다.")
+    public ApiResponse<PropertyStepSaveResponse> saveRegistry(
+            @AuthenticationPrincipal MemberPrincipal principal,
+            @PathVariable Long planId,
+            @PathVariable Long propertyId,
+            @Valid @RequestBody PropertyRegistryStepRequest request) {
+        return ApiResponse.success(workflowService.saveRegistry(principal.memberId(), planId, propertyId, request));
+    }
+
+    @GetMapping("/{propertyId}/card")
+    @Operation(summary = "매물 통합 카드 조회", description = "진행 STEP·신호등·검증·상품·상담을 매물 하나 기준으로 반환합니다.")
+    public ApiResponse<PropertyCardResponse> card(
+            @AuthenticationPrincipal MemberPrincipal principal,
+            @PathVariable Long planId,
+            @PathVariable Long propertyId) {
+        return ApiResponse.success(workflowService.card(principal.memberId(), planId, propertyId));
     }
 
     @PostMapping("/analysis")
@@ -83,7 +142,7 @@ public class PropertyCandidateController {
     }
 
     @PostMapping("/compare")
-    @Operation(summary = "매물 후보 비교", description = "등록 개수에는 제한이 없으며 한 번에 2~3개를 요청 순서대로 비교합니다.")
+    @Operation(summary = "매물 후보 비교", description = "최대 5개까지 등록할 수 있고 한 번에 2~3개를 요청 순서대로 비교합니다.")
     public ApiResponse<PropertyComparisonResponse> compare(
             @AuthenticationPrincipal MemberPrincipal principal,
             @PathVariable Long planId,

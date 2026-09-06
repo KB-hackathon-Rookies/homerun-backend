@@ -30,6 +30,6 @@ public enum TrafficLight {
 
     /** 대출 상품 목록을 보여줘도 되는가. RED 면 상품을 아예 노출하지 않는다(FR-P4-02). */
     public boolean showsLoanProducts() {
-        return this != RED;
+        return this == GREEN || this == BLUE;
     }
 }

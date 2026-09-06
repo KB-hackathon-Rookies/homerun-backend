@@ -35,8 +35,8 @@ public class PropertyTrafficLightResolver {
      * <p>근저당 채권최고액은 넣지 않는다. "과다" 임계값이 아직 미결(O-11)이라 확인했는지 여부를
      * 판단할 근거가 없다.
      */
-    private static final Set<String> REGISTRY_CHECKS =
-            Set.of("OWNER_MATCH", "TRUST_REGISTRATION", "REGISTRY_RESTRICTION");
+    private static final Set<String> REQUIRED_CHECKS = Set.of(
+            "VIOLATION_BUILDING", "NON_RESIDENTIAL", "OWNER_MATCH", "TRUST_REGISTRATION", "REGISTRY_RESTRICTION");
 
     private final PropertyCheckRepository checks;
     private final BankConsultationRepository consultations;
@@ -71,7 +71,7 @@ public class PropertyTrafficLightResolver {
             return TrafficLight.RED;
         }
         // 안 본 항목(null)과 "모르겠어요"(UNKNOWN)는 같은 뜻이다 — 둘 다 아직 확인이 필요하다.
-        if (REGISTRY_CHECKS.stream().anyMatch(unconfirmed(checkResultOf))) {
+        if (REQUIRED_CHECKS.stream().anyMatch(unconfirmed(checkResultOf))) {
             return TrafficLight.YELLOW;
         }
         return consulted ? TrafficLight.BLUE : TrafficLight.GREEN;

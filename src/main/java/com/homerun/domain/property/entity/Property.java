@@ -1,6 +1,12 @@
 package com.homerun.domain.property.entity;
 
+import com.homerun.domain.plan.type.HouseType;
 import com.homerun.domain.property.type.DataSource;
+import com.homerun.domain.property.type.OfficialPriceSource;
+import com.homerun.domain.property.type.PropertyDiagnosisStep;
+import com.homerun.domain.property.type.PropertyWorkflowStatus;
+import com.homerun.global.exception.BusinessException;
+import com.homerun.global.exception.ErrorCode;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;
@@ -53,6 +59,13 @@ public class Property {
     @Column(name = "official_price")
     private Long officialPrice;
 
+    @Column(name = "official_price_year")
+    private Integer officialPriceYear;
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "official_price_source", length = 40)
+    private OfficialPriceSource officialPriceSource;
+
     @Column(name = "senior_debt")
     private Long seniorDebt;
 
@@ -67,6 +80,9 @@ public class Property {
 
     @Column(name = "is_multi_household")
     private Boolean multiHousehold;
+
+    @Column(name = "is_non_residential")
+    private Boolean nonResidential;
 
     @Column(name = "landlord_tax_unpaid")
     private Boolean landlordTaxUnpaid;
@@ -111,6 +127,17 @@ public class Property {
 
     @Column(name = "analyzed_at")
     private Instant analyzedAt;
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "workflow_step", nullable = false, length = 20)
+    private PropertyDiagnosisStep workflowStep = PropertyDiagnosisStep.BUILDING;
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "workflow_status", nullable = false, length = 30)
+    private PropertyWorkflowStatus workflowStatus = PropertyWorkflowStatus.IN_PROGRESS;
+
+    @Column(name = "workflow_revision", nullable = false)
+    private int workflowRevision = 1;
 
     protected Property() {}
 
@@ -169,6 +196,93 @@ public class Property {
         this.areaSource = exclusiveArea == null ? null : areaSource;
         this.houseTypeSource = houseTypeSource;
         this.priceMatched = priceMatched;
+    }
+
+    public void startWorkflow(boolean buildingDetailsReady, boolean blocked) {
+        workflowStep = buildingDetailsReady ? PropertyDiagnosisStep.VIOLATION : PropertyDiagnosisStep.BUILDING;
+        workflowStatus = blocked ? PropertyWorkflowStatus.BLOCKED : PropertyWorkflowStatus.IN_PROGRESS;
+    }
+
+    public void recordAutomaticSafety(Boolean multiHousehold, Boolean nonResidential) {
+        this.multiHousehold = multiHousehold;
+        this.nonResidential = nonResidential;
+    }
+
+    public void completeBuildingStep(int expectedRevision, HouseType type, BigDecimal area) {
+        verifyWorkflow(expectedRevision, PropertyDiagnosisStep.BUILDING);
+        houseType = type.name();
+        houseTypeSource = DataSource.MANUAL;
+        exclusiveArea = area;
+        areaSource = DataSource.MANUAL;
+        workflowStep = PropertyDiagnosisStep.VIOLATION;
+        workflowStatus = PropertyWorkflowStatus.IN_PROGRESS;
+        workflowRevision++;
+    }
+
+    public void completeViolationStep(int expectedRevision, boolean violation) {
+        verifyWorkflow(expectedRevision, PropertyDiagnosisStep.VIOLATION);
+        violationBuilding = violation;
+        workflowStatus = violation ? PropertyWorkflowStatus.BLOCKED : PropertyWorkflowStatus.IN_PROGRESS;
+        if (!violation) {
+            workflowStep = PropertyDiagnosisStep.REGISTRY;
+        }
+        workflowRevision++;
+    }
+
+    public void completeRegistryStep(
+            int expectedRevision,
+            Long officialPrice,
+            Integer officialPriceYear,
+            OfficialPriceSource officialPriceSource,
+            Long seniorDebt,
+            Boolean ownerMatches,
+            Boolean trustRegistered,
+            Boolean leaseholdRegistered,
+            Boolean seizureOrDispositionRestricted,
+            Boolean auctionInProgress,
+            LocalDate seniorDebtRegisteredAt,
+            Boolean landlordTaxUnpaid) {
+        verifyWorkflow(expectedRevision, PropertyDiagnosisStep.REGISTRY);
+        this.officialPrice = officialPrice;
+        this.officialPriceYear = officialPriceYear;
+        this.officialPriceSource = officialPriceSource;
+        this.seniorDebt = seniorDebt;
+        this.ownerMatches = ownerMatches;
+        this.trustRegistered = trustRegistered;
+        this.leaseholdRegistered = leaseholdRegistered;
+        this.seizureOrDispositionRestricted = seizureOrDispositionRestricted;
+        this.auctionInProgress = auctionInProgress;
+        this.seniorDebtRegisteredAt = seniorDebtRegisteredAt;
+        this.landlordTaxUnpaid = landlordTaxUnpaid;
+        workflowRevision++;
+    }
+
+    public void finishRegistry(PropertyWorkflowStatus status) {
+        workflowStatus = status;
+        if (status == PropertyWorkflowStatus.READY_FOR_CONSULTATION) {
+            workflowStep = PropertyDiagnosisStep.COMPLETE;
+        }
+    }
+
+    public void blockAt(PropertyDiagnosisStep step) {
+        workflowStep = step;
+        workflowStatus = PropertyWorkflowStatus.BLOCKED;
+    }
+
+    public void markConsulted() {
+        if (workflowStatus == PropertyWorkflowStatus.READY_FOR_CONSULTATION) {
+            workflowStatus = PropertyWorkflowStatus.CONSULTED;
+            workflowRevision++;
+        }
+    }
+
+    private void verifyWorkflow(int expectedRevision, PropertyDiagnosisStep expectedStep) {
+        if (workflowRevision != expectedRevision) {
+            throw new BusinessException(ErrorCode.PROPERTY_WORKFLOW_REVISION_MISMATCH);
+        }
+        if (workflowStatus == PropertyWorkflowStatus.BLOCKED || workflowStep != expectedStep) {
+            throw new BusinessException(ErrorCode.PROPERTY_WORKFLOW_STEP_INVALID);
+        }
     }
 
     public String getJibun() {
@@ -246,12 +360,60 @@ public class Property {
         return officialPrice;
     }
 
+    public Integer getOfficialPriceYear() {
+        return officialPriceYear;
+    }
+
+    public OfficialPriceSource getOfficialPriceSource() {
+        return officialPriceSource;
+    }
+
     public Boolean getViolationBuilding() {
         return violationBuilding;
     }
 
     public Boolean getMultiHousehold() {
         return multiHousehold;
+    }
+
+    public Boolean getNonResidential() {
+        return nonResidential;
+    }
+
+    public String getLegalDistrictCode() {
+        return legalDistrictCode;
+    }
+
+    public Long getMarketPrice() {
+        return marketPrice;
+    }
+
+    public Long getSeniorDebt() {
+        return seniorDebt;
+    }
+
+    public Boolean getOwnerMatches() {
+        return ownerMatches;
+    }
+
+    public Boolean getTrustRegistered() {
+        return trustRegistered;
+    }
+
+    public Boolean getLandlordTaxUnpaid() {
+        return landlordTaxUnpaid;
+    }
+
+    public PropertyDiagnosisStep getWorkflowStep() {
+        return workflowStep;
+    }
+
+    public PropertyWorkflowStatus getWorkflowStatus() {
+        return workflowStatus;
+    }
+
+    public int getWorkflowRevision() {
+        return workflowRevision;
     }
 
     public boolean isSelected() {
