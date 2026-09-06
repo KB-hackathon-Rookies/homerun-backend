@@ -1,6 +1,6 @@
 package com.homerun.domain.house.dto.request;
 
-import com.homerun.global.external.realestate.HousingType;
+import com.homerun.domain.plan.type.HouseType;
 import io.swagger.v3.oas.annotations.media.Schema;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Pattern;
@@ -27,8 +27,8 @@ public record HouseAnalysisRequest(
         @Schema(description = "주소 검색 결과의 건물명", example = "홈런아파트")
         String buildingName,
 
-        @Schema(description = "주택 유형. 생략하면 건축물대장에서 판별합니다.", nullable = true)
-        HousingType housingType,
+        @Schema(description = "주택 유형. 생략하면 건축물대장에서 판별합니다. 자동판별 실패(단독·다가구)면 직접 입력합니다.", nullable = true)
+        HouseType houseType,
 
         @Schema(description = "실거래 계약연월", example = "202608") @NotBlank @Pattern(regexp = "\\d{6}")
         String dealYearMonth) {}

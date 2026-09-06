@@ -3,6 +3,7 @@ package com.homerun.domain.house.service;
 import com.homerun.domain.house.dto.request.HouseAnalysisRequest;
 import com.homerun.domain.house.dto.response.HouseAnalysisResponse;
 import com.homerun.domain.house.dto.response.RentTransactions;
+import com.homerun.domain.plan.type.HouseType;
 import com.homerun.global.external.building.BuildingLedgerResponse;
 import com.homerun.global.external.building.BuildingLedgerService;
 import com.homerun.global.external.building.BuildingLotQuery;
@@ -15,6 +16,7 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Optional;
 import org.springframework.stereotype.Service;
 
 @Service
@@ -36,13 +38,14 @@ public class HouseAnalysisService {
                 request.mainLotNumber(),
                 normalizeSubLotNumber(request.subLotNumber()));
         BuildingLedgerResponse ledger = buildingLedgerService.findLedger(lotQuery);
-        HousingType housingType = request.housingType() != null ? request.housingType() : resolveHousingType(ledger);
+        HouseType houseType =
+                request.houseType() != null ? request.houseType() : HouseType.from(resolveHousingType(ledger));
         String sigunguCode = request.legalDistrictCode().substring(0, 5);
 
         List<String> buildingNames = buildingNames(request, ledger);
         List<String> warnings = new ArrayList<>();
-        RentTransactions rents = fetchAndMatch(housingType, sigunguCode, request, buildingNames, warnings);
-        return new HouseAnalysisResponse(request, housingType, ledger, rents, List.copyOf(warnings));
+        RentTransactions rents = fetchAndMatch(houseType, sigunguCode, request, buildingNames, warnings);
+        return new HouseAnalysisResponse(request, houseType, ledger, rents, List.copyOf(warnings));
     }
 
     private HousingType resolveHousingType(BuildingLedgerResponse ledger) {
@@ -72,14 +75,21 @@ public class HouseAnalysisService {
     }
 
     private RentTransactions fetchAndMatch(
-            HousingType housingType,
+            HouseType houseType,
             String sigunguCode,
             HouseAnalysisRequest request,
             List<String> buildingNames,
             List<String> warnings) {
+        // 단독·다가구는 유형별 실거래 API 가 없다(FR-P1-10). 억지로 조회하지 않고 면적을 직접
+        // 입력받도록 넘긴다 — 없는 API 를 부르는 것보다 못 찾았다고 말하는 편이 정직하다.
+        Optional<HousingType> queryable = houseType.toHousingType();
+        if (queryable.isEmpty()) {
+            warnings.add("이 주택 유형은 유형별 실거래가 조회가 제공되지 않아 전용면적을 직접 입력해야 합니다.");
+            return new RentTransactions(false, 0, 0, null, List.of());
+        }
         try {
             RealEstateTransactionResponse source =
-                    transactionClient.findAllTransactions(housingType, sigunguCode, request.dealYearMonth());
+                    transactionClient.findAllTransactions(queryable.get(), sigunguCode, request.dealYearMonth());
             return matchTransactions(source, request, buildingNames);
         } catch (RealEstateTransactionUpstreamException exception) {
             warnings.add("전월세 실거래가를 조회하지 못했습니다: " + exception.getMessage());
