@@ -84,14 +84,16 @@ public record JeonseLoanCardResponse(
     }
 
     public static JeonseLoanCardResponse bankConsultation() {
+        // 2루에서는 은행을 특정하지 않는다(FR-D3-05·BR-05). 은행명은 2-6 상담 결과 입력
+        // 후에만 붙는다 — 여기서 특정 은행을 박으면 사용자가 그 은행만 가야 하는 것으로 읽는다.
         return new JeonseLoanCardResponse(
-                "KB-JEONSE-CONSULTATION",
-                "국민은행 전세대출 상담",
+                "GENERAL-JEONSE-LOAN",
+                "일반 전세대출",
                 CardType.CONSULTATION,
                 null,
                 null,
                 null,
                 null,
-                "은행 전세대출도 상담할 수 있어요. 이용 가능 여부와 한도·금리는 담보 방식과 개인 조건에 따라 은행에서 확인해 주세요.");
+                "은행 전세대출도 이용할 수 있어요. 한도·금리는 담보 방식(HF·HUG·SGI)과 개인 조건에 따라 달라지니 은행에서 상담받아보세요.");
     }
 }

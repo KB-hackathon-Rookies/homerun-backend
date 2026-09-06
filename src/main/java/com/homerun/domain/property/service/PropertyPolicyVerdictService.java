@@ -41,8 +41,8 @@ import org.springframework.transaction.annotation.Transactional;
 @Service
 public class PropertyPolicyVerdictService {
 
-    /** 2루에서 매물마다 판정할 전세 상품. 은행(국민은행)은 policy 행이 없고 BR-05 가 "조건 판정
-     * 없이 항상 매칭"이라 여기 없다. */
+    /** 2루에서 매물마다 판정할 전세 상품. 일반 전세대출은 policy 행이 없고 BR-05 가 "조건 판정
+     * 없이 항상 매칭"이라 여기 없다. 2루에서는 은행을 특정하지 않는다(FR-D3-05). */
     private static final List<String> JEONSE_POLICY_CODES =
             List.of("JEONSE-YOUTH-BEOTIMMOK", "JEONSE-GENERAL-BEOTIMMOK", "JEONSE-SEOUL-INTEREST-SUPPORT");
 
