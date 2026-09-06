@@ -4,6 +4,7 @@ import com.homerun.domain.property.entity.Property;
 import java.util.List;
 import java.util.Optional;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Lock;
 import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
@@ -17,6 +18,10 @@ public interface PropertyRepository extends JpaRepository<Property, Long> {
     List<Property> findAllByPlanIdOrderByIdAsc(Long planId);
 
     Optional<Property> findByIdAndPlanId(Long id, Long planId);
+
+    @Lock(jakarta.persistence.LockModeType.PESSIMISTIC_WRITE)
+    @Query("SELECT p FROM Property p WHERE p.id = :id AND p.planId = :planId")
+    Optional<Property> findByIdAndPlanIdForUpdate(@Param("id") Long id, @Param("planId") Long planId);
 
     @Modifying(clearAutomatically = true, flushAutomatically = true)
     @Query("UPDATE Property p SET p.selected = false WHERE p.planId = :planId AND p.selected = true")

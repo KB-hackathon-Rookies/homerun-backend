@@ -10,9 +10,11 @@ import com.homerun.domain.property.dto.response.BuildingSafetyFactsResponse;
 import com.homerun.domain.property.dto.response.PropertyCandidateAnalysisResponse;
 import com.homerun.domain.property.dto.response.PropertyCandidateResponse;
 import com.homerun.domain.property.dto.response.PropertyVerification;
+import com.homerun.domain.property.dto.response.PropertyWorkflowResponse;
 import com.homerun.domain.property.entity.Property;
 import com.homerun.domain.property.repository.PropertyRepository;
 import com.homerun.domain.property.type.DataSource;
+import com.homerun.domain.property.type.TrafficLight;
 import com.homerun.global.exception.BusinessException;
 import com.homerun.global.exception.ErrorCode;
 import java.math.BigDecimal;
@@ -53,6 +55,7 @@ public class PropertyCandidateService {
         this.clock = clock;
     }
 
+    @Transactional
     public PropertyCandidateAnalysisResponse analyzeAndSave(
             Long memberId, Long planId, PropertyCandidateAnalysisRequest request) {
         Plan plan = ownedPlan(memberId, planId);
@@ -94,6 +97,7 @@ public class PropertyCandidateService {
                 matchedArea != null ? DataSource.AUTO : DataSource.MANUAL,
                 request.house().houseType() == null ? DataSource.AUTO : DataSource.MANUAL,
                 priceMatched);
+        property.recordAutomaticSafety(automatic.multiHousehold(), automatic.nonResidential());
         property.recordRegistryRisks(
                 request.leaseholdRegistered(),
                 request.seizureOrDispositionRestricted(),
@@ -118,7 +122,9 @@ public class PropertyCandidateService {
                 request.seniorDebtRegisteredAt(),
                 automatic.nonResidential());
         PropertyVerification verification = verificationService.verifyAndRecord(property.getId(), facts);
-        return new PropertyCandidateAnalysisResponse(property.getId(), false, analysis, automatic, verification);
+        property.startWorkflow(area != null, verification.trafficLight() == TrafficLight.RED);
+        return new PropertyCandidateAnalysisResponse(
+                property.getId(), false, analysis, automatic, verification, PropertyWorkflowResponse.from(property));
     }
 
     @Transactional(readOnly = true)
@@ -127,6 +133,7 @@ public class PropertyCandidateService {
         return properties.findAllByPlanIdOrderByIdAsc(planId).stream()
                 .map(property ->
                         PropertyCandidateResponse.from(property, trafficLights.forProperty(planId, property.getId())))
+                .sorted(java.util.Comparator.comparingInt(response -> trafficPriority(response.trafficLight())))
                 .toList();
     }
 
@@ -152,7 +159,9 @@ public class PropertyCandidateService {
 
     private BuildingSafetyFactsResponse automaticFacts(HouseAnalysisResponse analysis) {
         List<Map<String, String>> titles = analysis.buildingLedger().titles().items();
-        Boolean violation = booleanValue(titles, "violBldYn", "violationBuildingYn");
+        // 공개 건축물대장 표제부 API에는 위반건축물 여부가 안정적으로 제공되지 않는다.
+        // 정부24 열람 후 STEP 3에서 사람이 확인하기 전까지 null로 둔다.
+        Boolean violation = null;
         String description = titles.stream()
                 .flatMap(item -> item.values().stream())
                 .filter(java.util.Objects::nonNull)
@@ -167,6 +176,15 @@ public class PropertyCandidateService {
                 ? Boolean.TRUE
                 : description.matches(".*(다세대|연립|아파트|오피스텔|다가구|단독주택).*") ? Boolean.FALSE : null;
         return new BuildingSafetyFactsResponse(violation, multiHousehold, nonResidential);
+    }
+
+    private int trafficPriority(TrafficLight light) {
+        return switch (light) {
+            case BLUE -> 0;
+            case GREEN -> 1;
+            case YELLOW -> 2;
+            case RED -> 3;
+        };
     }
 
     /**
@@ -185,23 +203,6 @@ public class PropertyCandidateService {
                 return new BigDecimal(raw.trim());
             } catch (NumberFormatException ignored) {
                 return null;
-            }
-        }
-        return null;
-    }
-
-    private Boolean booleanValue(List<Map<String, String>> rows, String... keys) {
-        for (Map<String, String> row : rows) {
-            for (String key : keys) {
-                String value = row.get(key);
-                if (value == null || value.isBlank()) {
-                    continue;
-                }
-                return switch (value.trim().toUpperCase(Locale.ROOT)) {
-                    case "Y", "YES", "TRUE", "1" -> Boolean.TRUE;
-                    case "N", "NO", "FALSE", "0" -> Boolean.FALSE;
-                    default -> null;
-                };
             }
         }
         return null;

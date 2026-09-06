@@ -67,8 +67,11 @@ public class PropertyDecisionService {
     public BankConsultationResponse addConsultation(
             Long memberId, Long planId, Long propertyId, BankConsultationRequest request) {
         ownedPlan(memberId, planId);
-        ownedProperty(planId, propertyId);
-        return BankConsultationResponse.from(consultations.save(new BankConsultation(planId, propertyId, request)));
+        Property property = ownedProperty(planId, propertyId);
+        BankConsultationResponse response =
+                BankConsultationResponse.from(consultations.save(new BankConsultation(planId, propertyId, request)));
+        property.markConsulted();
+        return response;
     }
 
     @Transactional(readOnly = true)

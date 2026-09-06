@@ -9,4 +9,5 @@ public record PropertyCandidateAnalysisResponse(
         boolean selected,
         HouseAnalysisResponse houseAnalysis,
         BuildingSafetyFactsResponse automaticFacts,
-        PropertyVerification verification) {}
+        PropertyVerification verification,
+        PropertyWorkflowResponse workflow) {}
