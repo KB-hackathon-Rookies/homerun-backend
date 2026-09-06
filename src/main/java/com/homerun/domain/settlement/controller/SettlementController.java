@@ -6,12 +6,14 @@ import com.homerun.domain.settlement.dto.request.TaxDeductionRequest;
 import com.homerun.domain.settlement.dto.response.CashFlowSummaryResponse;
 import com.homerun.domain.settlement.dto.response.GuaranteeFeeSupportAmountResponse;
 import com.homerun.domain.settlement.dto.response.MonthlyMetricsResponse;
+import com.homerun.domain.settlement.dto.response.PostAssetReviewResponse;
 import com.homerun.domain.settlement.dto.response.RateCutRightResponse;
 import com.homerun.domain.settlement.dto.response.ReturnGuaranteeGuideResponse;
 import com.homerun.domain.settlement.dto.response.TaxDeductionResponse;
 import com.homerun.domain.settlement.service.CashFlowSummaryService;
 import com.homerun.domain.settlement.service.GuaranteeFeeSupportService;
 import com.homerun.domain.settlement.service.MonthlyMetricsService;
+import com.homerun.domain.settlement.service.PostAssetReviewService;
 import com.homerun.domain.settlement.service.RateCutRightService;
 import com.homerun.domain.settlement.service.ReturnGuaranteeService;
 import com.homerun.domain.settlement.service.TaxDeductionService;
@@ -39,6 +41,7 @@ public class SettlementController {
     private final CashFlowSummaryService cashFlowSummaryService;
     private final RateCutRightService rateCutRightService;
     private final ReturnGuaranteeService returnGuaranteeService;
+    private final PostAssetReviewService postAssetReviewService;
 
     public SettlementController(
             TaxDeductionService taxDeductionService,
@@ -46,13 +49,15 @@ public class SettlementController {
             MonthlyMetricsService monthlyMetricsService,
             CashFlowSummaryService cashFlowSummaryService,
             RateCutRightService rateCutRightService,
-            ReturnGuaranteeService returnGuaranteeService) {
+            ReturnGuaranteeService returnGuaranteeService,
+            PostAssetReviewService postAssetReviewService) {
         this.taxDeductionService = taxDeductionService;
         this.guaranteeFeeSupportService = guaranteeFeeSupportService;
         this.monthlyMetricsService = monthlyMetricsService;
         this.cashFlowSummaryService = cashFlowSummaryService;
         this.rateCutRightService = rateCutRightService;
         this.returnGuaranteeService = returnGuaranteeService;
+        this.postAssetReviewService = postAssetReviewService;
     }
 
     @PostMapping("/tax-deduction")
@@ -119,5 +124,15 @@ public class SettlementController {
     public ApiResponse<ReturnGuaranteeGuideResponse> returnGuarantee(
             @AuthenticationPrincipal MemberPrincipal principal, @PathVariable Long planId) {
         return ApiResponse.success(returnGuaranteeService.forPlan(principal.memberId(), planId));
+    }
+
+    @GetMapping("/post-asset-review")
+    @Operation(
+            summary = "사후자산심사 안내",
+            description = "기금(버팀목)대출만 사후자산심사를 노출한다(FR-H3-01). 빠뜨리기 쉬운 자산 항목과 주의"
+                    + "(입주 후 자산 증가 무관·가산금리 비가역)를 안내한다. 은행 자체 대출은 생략한다.")
+    public ApiResponse<PostAssetReviewResponse> postAssetReview(
+            @AuthenticationPrincipal MemberPrincipal principal, @PathVariable Long planId) {
+        return ApiResponse.success(postAssetReviewService.forPlan(principal.memberId(), planId));
     }
 }
