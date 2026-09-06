@@ -79,6 +79,9 @@ public class PlanTaskService {
         validateTransition(task, request.status());
         step.start();
         applyStatus(task, request.status());
+        // 각 할 일 상태 변경 자체가 자동 저장 지점이다. 사용자가 중간에 나가도 마지막으로
+        // 시작하거나 완료한 할 일을 계획의 재진입 위치로 남긴다.
+        plan.updateLastLocation(task.getTaskCode());
 
         boolean allTasksSettled = tasks.stream()
                 .filter(candidate -> candidate.getPlanStepId().equals(step.getId()))
