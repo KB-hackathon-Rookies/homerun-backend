@@ -7,6 +7,7 @@ import com.homerun.domain.plan.repository.PlanRepository;
 import com.homerun.domain.property.dto.request.PropertyCandidateAnalysisRequest;
 import com.homerun.domain.property.dto.request.PropertyFacts;
 import com.homerun.domain.property.dto.response.BuildingSafetyFactsResponse;
+import com.homerun.domain.property.dto.response.LandlordConsentGuideResponse;
 import com.homerun.domain.property.dto.response.PropertyCandidateAnalysisResponse;
 import com.homerun.domain.property.dto.response.PropertyCandidateResponse;
 import com.homerun.domain.property.dto.response.PropertyVerification;
@@ -14,6 +15,7 @@ import com.homerun.domain.property.dto.response.PropertyWorkflowResponse;
 import com.homerun.domain.property.entity.Property;
 import com.homerun.domain.property.repository.PropertyRepository;
 import com.homerun.domain.property.type.DataSource;
+import com.homerun.domain.property.type.LandlordConsent;
 import com.homerun.domain.property.type.TrafficLight;
 import com.homerun.global.exception.BusinessException;
 import com.homerun.global.exception.ErrorCode;
@@ -38,6 +40,7 @@ public class PropertyCandidateService {
     private final HouseAnalysisService houseAnalysisService;
     private final PropertyVerificationService verificationService;
     private final PropertyTrafficLightResolver trafficLights;
+    private final LandlordConsentAdvisor landlordConsentAdvisor;
     private final Clock clock;
 
     public PropertyCandidateService(
@@ -46,12 +49,14 @@ public class PropertyCandidateService {
             HouseAnalysisService houseAnalysisService,
             PropertyVerificationService verificationService,
             PropertyTrafficLightResolver trafficLights,
+            LandlordConsentAdvisor landlordConsentAdvisor,
             Clock clock) {
         this.plans = plans;
         this.properties = properties;
         this.houseAnalysisService = houseAnalysisService;
         this.verificationService = verificationService;
         this.trafficLights = trafficLights;
+        this.landlordConsentAdvisor = landlordConsentAdvisor;
         this.clock = clock;
     }
 
@@ -103,6 +108,7 @@ public class PropertyCandidateService {
                 request.seizureOrDispositionRestricted(),
                 request.auctionInProgress(),
                 request.seniorDebtRegisteredAt());
+        property.recordLandlordConsent(request.effectiveLandlordConsent());
 
         PropertyFacts facts = new PropertyFacts(
                 plan.getLeaseType(),
@@ -135,6 +141,30 @@ public class PropertyCandidateService {
                         PropertyCandidateResponse.from(property, trafficLights.forProperty(planId, property.getId())))
                 .sorted(java.util.Comparator.comparingInt(response -> trafficPriority(response.trafficLight())))
                 .toList();
+    }
+
+    /**
+     * 임대인 협조 여부를 저장하고 상태별 안내를 돌려준다(FR-P1-07·08). REFUSED 여도 신호등을
+     * 바꾸지 않는다 — 여기서는 상태만 저장하고 설득 스크립트를 안내한다.
+     */
+    @Transactional
+    public LandlordConsentGuideResponse updateLandlordConsent(
+            Long memberId, Long planId, Long propertyId, LandlordConsent consent) {
+        ownedPlan(memberId, planId);
+        Property property = properties
+                .findByIdAndPlanId(propertyId, planId)
+                .orElseThrow(() -> new BusinessException(ErrorCode.PROPERTY_NOT_IN_PLAN));
+        property.recordLandlordConsent(consent);
+        return landlordConsentAdvisor.guide(consent);
+    }
+
+    @Transactional(readOnly = true)
+    public LandlordConsentGuideResponse landlordConsentGuide(Long memberId, Long planId, Long propertyId) {
+        ownedPlan(memberId, planId);
+        Property property = properties
+                .findByIdAndPlanId(propertyId, planId)
+                .orElseThrow(() -> new BusinessException(ErrorCode.PROPERTY_NOT_IN_PLAN));
+        return landlordConsentAdvisor.guide(property.getLandlordConsent());
     }
 
     @Transactional

@@ -181,6 +181,13 @@ class MigrationTest {
     }
 
     @Test
+    @DisplayName("V52가 임대인 협조 컬럼과 CHECK 제약을 추가한다")
+    void should_add_landlordConsentColumn_whenV52IsApplied() {
+        assertThat(columnNames("property")).contains("landlord_consent");
+        assertThat(constraintDefinition("ck_property_landlord_consent")).contains("CONFIRMED", "NOT_ASKED", "REFUSED");
+    }
+
+    @Test
     @DisplayName("팩트 레지스트리에 전세대출 진단 기준까지 적용된다")
     void should_seed_config_effective_when_migrated() {
         Integer count = jdbc.queryForObject("SELECT count(*) FROM config_effective", Integer.class);

@@ -53,6 +53,7 @@ class PropertyCandidateServiceTest {
             houses,
             verifications,
             trafficLights,
+            new LandlordConsentAdvisor(),
             Clock.fixed(Instant.parse("2026-09-04T00:00:00Z"), ZoneOffset.UTC));
 
     @BeforeEach
@@ -247,6 +248,44 @@ class PropertyCandidateServiceTest {
         verify(properties).clearSelection(PLAN_ID);
     }
 
+    @Test
+    void should_defaultLandlordConsentToNotAsked_when_analyzing() {
+        // 등록 시 협조 여부를 안 넣으면 통과가 아니라 NOT_ASKED(아직 안 물어봄)로 둔다.
+        when(houses.analyze(any())).thenReturn(houseAnalysis());
+        stubSave(90L);
+        when(verifications.verifyAndRecord(any(), any()))
+                .thenReturn(new PropertyVerification(CheckResult.PASS, List.of(), List.of()));
+
+        service.analyzeAndSave(MEMBER_ID, PLAN_ID, request());
+
+        assertThat(savedProperty().getLandlordConsent())
+                .isEqualTo(com.homerun.domain.property.type.LandlordConsent.NOT_ASKED);
+    }
+
+    @Test
+    void should_persistConsentAndReturnPersuasionScripts_when_refused() {
+        Property property = candidate(5L);
+        when(properties.findByIdAndPlanId(5L, PLAN_ID)).thenReturn(Optional.of(property));
+
+        var guide = service.updateLandlordConsent(
+                MEMBER_ID, PLAN_ID, 5L, com.homerun.domain.property.type.LandlordConsent.REFUSED);
+
+        assertThat(property.getLandlordConsent()).isEqualTo(com.homerun.domain.property.type.LandlordConsent.REFUSED);
+        assertThat(guide.scripts()).isNotEmpty();
+        assertThat(guide.suggestOtherProperty()).isTrue();
+    }
+
+    @Test
+    void should_notReRunVerification_when_landlordRefuses() {
+        // REFUSED 는 신호등을 건드리지 않는다(BR-10). 협조 저장은 판정을 다시 돌리지 않는다.
+        Property property = candidate(6L);
+        when(properties.findByIdAndPlanId(6L, PLAN_ID)).thenReturn(Optional.of(property));
+
+        service.updateLandlordConsent(MEMBER_ID, PLAN_ID, 6L, com.homerun.domain.property.type.LandlordConsent.REFUSED);
+
+        verify(verifications, never()).verifyAndRecord(any(), any());
+    }
+
     private PropertyCandidateAnalysisRequest request() {
         return new PropertyCandidateAnalysisRequest(houseRequest(), 200_000_000L, null, null, 0L, true, false, false);
     }
@@ -258,7 +297,21 @@ class PropertyCandidateServiceTest {
 
     private PropertyCandidateAnalysisRequest requestWithArea(java.math.BigDecimal area) {
         return new PropertyCandidateAnalysisRequest(
-                houseRequest(), 200_000_000L, null, null, 0L, true, false, false, null, null, null, null, "401호", area);
+                houseRequest(),
+                200_000_000L,
+                null,
+                null,
+                0L,
+                true,
+                false,
+                false,
+                null,
+                null,
+                null,
+                null,
+                "401호",
+                area,
+                null);
     }
 
     /** 실거래 매칭이 하나 있는 응답. excluUseAr 는 국토부 실거래가 응답의 전용면적 키다. */
