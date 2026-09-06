@@ -1,7 +1,9 @@
 package com.homerun.domain.policy.controller;
 
+import com.homerun.domain.policy.dto.response.CollateralLoanLimitListResponse;
 import com.homerun.domain.policy.dto.response.JeonsePolicyVerdictListResponse;
 import com.homerun.domain.policy.dto.response.PreferentialRateChangeResponse;
+import com.homerun.domain.policy.service.CollateralLoanLimitService;
 import com.homerun.domain.policy.service.JeonsePolicyVerdictService;
 import com.homerun.domain.policy.service.PreferentialRateChangeService;
 import com.homerun.global.response.ApiResponse;
@@ -23,11 +25,25 @@ public class JeonsePolicyVerdictController {
 
     private final JeonsePolicyVerdictService service;
     private final PreferentialRateChangeService preferentialRateChangeService;
+    private final CollateralLoanLimitService collateralLoanLimitService;
 
     public JeonsePolicyVerdictController(
-            JeonsePolicyVerdictService service, PreferentialRateChangeService preferentialRateChangeService) {
+            JeonsePolicyVerdictService service,
+            PreferentialRateChangeService preferentialRateChangeService,
+            CollateralLoanLimitService collateralLoanLimitService) {
         this.service = service;
         this.preferentialRateChangeService = preferentialRateChangeService;
+        this.collateralLoanLimitService = collateralLoanLimitService;
+    }
+
+    @GetMapping("/collateral-loan-limits")
+    @Operation(
+            summary = "일반 전세대출 담보별 한도",
+            description = "HF·HUG·SGI 담보 방식별 대출 한도를 모두 계산한다(BR-19). 은행이 담보를 정하므로"
+                    + " 세 값을 범위로 보여주고, 담보는 2-6 상담 결과로 확정된다. 만 34세 이하·신혼은 HUG 90%가 반영된다.")
+    public ApiResponse<CollateralLoanLimitListResponse> collateralLoanLimits(
+            @AuthenticationPrincipal MemberPrincipal principal, @PathVariable Long planId) {
+        return ApiResponse.success(collateralLoanLimitService.forPlan(principal.memberId(), planId));
     }
 
     @PostMapping("/evaluate")
