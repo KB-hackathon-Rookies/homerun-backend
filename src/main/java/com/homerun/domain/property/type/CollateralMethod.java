@@ -6,5 +6,6 @@ public enum CollateralMethod {
     HF,
     SGI,
     CLAIM_TRANSFER,
-    OTHER
+    OTHER,
+    UNKNOWN
 }

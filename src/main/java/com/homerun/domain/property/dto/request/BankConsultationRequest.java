@@ -1,6 +1,8 @@
 package com.homerun.domain.property.dto.request;
 
 import com.homerun.domain.property.type.CollateralMethod;
+import com.homerun.domain.property.type.ConsultationResultStatus;
+import com.homerun.domain.property.type.ConsultedLoanProduct;
 import io.swagger.v3.oas.annotations.media.Schema;
 import jakarta.validation.constraints.DecimalMin;
 import jakarta.validation.constraints.NotBlank;
@@ -15,6 +17,8 @@ public record BankConsultationRequest(
         String branchName,
         Long policyId,
         Long guaranteeAgencyId,
+        @NotNull ConsultationResultStatus resultStatus,
+        @NotNull ConsultedLoanProduct loanProduct,
         @NotNull CollateralMethod collateralMethod,
         @PositiveOrZero Long approvedLimit,
 

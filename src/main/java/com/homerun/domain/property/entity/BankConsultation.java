@@ -2,6 +2,8 @@ package com.homerun.domain.property.entity;
 
 import com.homerun.domain.property.dto.request.BankConsultationRequest;
 import com.homerun.domain.property.type.CollateralMethod;
+import com.homerun.domain.property.type.ConsultationResultStatus;
+import com.homerun.domain.property.type.ConsultedLoanProduct;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;
@@ -41,6 +43,14 @@ public class BankConsultation {
     private Long guaranteeAgencyId;
 
     @Enumerated(EnumType.STRING)
+    @Column(name = "result_status", nullable = false, length = 30)
+    private ConsultationResultStatus resultStatus;
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "loan_product", nullable = false, length = 30)
+    private ConsultedLoanProduct loanProduct;
+
+    @Enumerated(EnumType.STRING)
     @Column(name = "collateral_method", nullable = false, length = 30)
     private CollateralMethod collateralMethod;
 
@@ -68,6 +78,8 @@ public class BankConsultation {
         this.branchName = request.branchName();
         this.policyId = request.policyId();
         this.guaranteeAgencyId = request.guaranteeAgencyId();
+        this.resultStatus = request.resultStatus();
+        this.loanProduct = request.loanProduct();
         this.collateralMethod = request.collateralMethod();
         this.approvedLimit = request.approvedLimit();
         this.quotedRate = request.quotedRate();
@@ -103,6 +115,14 @@ public class BankConsultation {
         return guaranteeAgencyId;
     }
 
+    public ConsultationResultStatus getResultStatus() {
+        return resultStatus;
+    }
+
+    public ConsultedLoanProduct getLoanProduct() {
+        return loanProduct;
+    }
+
     public CollateralMethod getCollateralMethod() {
         return collateralMethod;
     }
@@ -125,5 +145,9 @@ public class BankConsultation {
 
     public Instant getCreatedAt() {
         return createdAt;
+    }
+
+    public boolean isSelectable() {
+        return resultStatus == ConsultationResultStatus.POSSIBLE;
     }
 }

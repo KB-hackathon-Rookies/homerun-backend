@@ -267,6 +267,15 @@ class MigrationTest {
                         "is_non_residential");
     }
 
+    @Test
+    @DisplayName("V50이 은행 상담 답변 상태와 상품 분류를 추가한다")
+    void should_extendBankConsultationResult_whenV50IsApplied() {
+        assertThat(columnNames("bank_consultation")).contains("result_status", "loan_product");
+        assertThat(constraintDefinition("ck_bank_consultation_result_status"))
+                .contains("POSSIBLE", "DOCUMENT_REVIEW_REQUIRED", "NOT_HEARD");
+        assertThat(constraintDefinition("ck_bank_consultation_method")).contains("UNKNOWN");
+    }
+
     private String ruleStatus(String policyCode, int version) {
         return jdbc.queryForObject(
                 "SELECT status FROM policy_rule WHERE version = ?"
