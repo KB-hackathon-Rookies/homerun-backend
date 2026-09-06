@@ -254,6 +254,19 @@ class MigrationTest {
         assertThat(columnNames("first_base_submission")).contains("result_snapshot");
     }
 
+    @Test
+    @DisplayName("V49가 매물 STEP과 공시가격 출처를 추가한다")
+    void should_addPropertyWorkflow_whenV49IsApplied() {
+        assertThat(columnNames("property"))
+                .contains(
+                        "workflow_step",
+                        "workflow_status",
+                        "workflow_revision",
+                        "official_price_year",
+                        "official_price_source",
+                        "is_non_residential");
+    }
+
     private String ruleStatus(String policyCode, int version) {
         return jdbc.queryForObject(
                 "SELECT status FROM policy_rule WHERE version = ?"

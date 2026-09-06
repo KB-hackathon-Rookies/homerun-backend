@@ -74,7 +74,7 @@ class PropertyCandidateServiceTest {
         var result = service.analyzeAndSave(MEMBER_ID, PLAN_ID, request());
 
         assertThat(result.propertyId()).isEqualTo(77L);
-        assertThat(result.automaticFacts().violationBuilding()).isFalse();
+        assertThat(result.automaticFacts().violationBuilding()).isNull();
         assertThat(result.automaticFacts().multiHousehold()).isFalse();
         verify(verifications).verifyAndRecord(any(), any());
     }
@@ -193,6 +193,27 @@ class PropertyCandidateServiceTest {
         Property saved = savedProperty();
         assertThat(saved.getExclusiveArea()).isNull();
         assertThat(saved.getAreaSource()).isNull();
+    }
+
+    @Test
+    void should_orderCandidates_blueGreenYellowRed() {
+        Property red = candidate(1L);
+        Property yellow = candidate(2L);
+        Property green = candidate(3L);
+        Property blue = candidate(4L);
+        when(properties.findAllByPlanIdOrderByIdAsc(PLAN_ID)).thenReturn(List.of(red, yellow, green, blue));
+        when(trafficLights.forProperty(PLAN_ID, 1L)).thenReturn(com.homerun.domain.property.type.TrafficLight.RED);
+        when(trafficLights.forProperty(PLAN_ID, 2L)).thenReturn(com.homerun.domain.property.type.TrafficLight.YELLOW);
+        when(trafficLights.forProperty(PLAN_ID, 3L)).thenReturn(com.homerun.domain.property.type.TrafficLight.GREEN);
+        when(trafficLights.forProperty(PLAN_ID, 4L)).thenReturn(com.homerun.domain.property.type.TrafficLight.BLUE);
+
+        assertThat(service.getCandidates(MEMBER_ID, PLAN_ID))
+                .extracting(response -> response.trafficLight())
+                .containsExactly(
+                        com.homerun.domain.property.type.TrafficLight.BLUE,
+                        com.homerun.domain.property.type.TrafficLight.GREEN,
+                        com.homerun.domain.property.type.TrafficLight.YELLOW,
+                        com.homerun.domain.property.type.TrafficLight.RED);
     }
 
     /** save() 가 받은 엔티티를 그대로 돌려주도록 스텁한다 — 서비스가 무엇을 채웠는지 보려는 것이다. */
