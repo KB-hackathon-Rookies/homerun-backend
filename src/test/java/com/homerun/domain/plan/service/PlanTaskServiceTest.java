@@ -101,6 +101,7 @@ class PlanTaskServiceTest {
         assertThat(task.getStatus()).isEqualTo(StepTaskStatus.DOING);
         assertThat(steps.get(0).getStatus()).isEqualTo(PlanStepStatus.DOING);
         assertThat(plan.getStage()).isEqualTo(PlanStage.BENCH);
+        assertThat(plan.getLastLocationCode()).isEqualTo("AGREE_TERMS");
         assertThat(response.progressPercent()).isZero();
     }
 
