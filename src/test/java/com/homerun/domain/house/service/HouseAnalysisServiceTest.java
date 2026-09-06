@@ -8,6 +8,7 @@ import static org.mockito.Mockito.when;
 
 import com.homerun.domain.house.dto.request.HouseAnalysisRequest;
 import com.homerun.domain.house.dto.response.HouseAnalysisResponse;
+import com.homerun.domain.plan.type.HouseType;
 import com.homerun.global.external.building.BuildingLedgerResponse;
 import com.homerun.global.external.building.BuildingLedgerService;
 import com.homerun.global.external.building.BuildingRegisterResponse;
@@ -47,7 +48,7 @@ class HouseAnalysisServiceTest {
         HouseAnalysisResponse result = service.analyze(new HouseAnalysisRequest(
                 "1168010100", false, "123", "4", "서울특별시 강남구 테헤란로 123", "서울특별시 강남구 역삼동 123-4", "홈런아파트", null, "202608"));
 
-        assertThat(result.resolvedHousingType()).isEqualTo(HousingType.APARTMENT);
+        assertThat(result.resolvedHouseType()).isEqualTo(HouseType.APARTMENT);
         assertThat(result.rents().matchedCount()).isEqualTo(1);
         assertThat(result.warnings()).isEmpty();
     }
@@ -67,6 +68,34 @@ class HouseAnalysisServiceTest {
         assertThat(result.rents().available()).isFalse();
         assertThat(result.buildingLedger().titles().totalCount()).isEqualTo(1);
         assertThat(result.warnings()).singleElement().asString().contains("등록되지 않은 서비스키");
+    }
+
+    @Test
+    void acceptsManualHouseType_andSkipsRentQuery_forTypesWithoutTransactionApi() {
+        // FR-P1-09. 단독주택은 건축물대장 자동판별이 안 되고 유형별 실거래 API 도 없다.
+        // 사용자가 유형을 직접 주면, 자동판별을 건너뛰고(예외 없이) 실거래 조회도 안 한다.
+        BuildingLedgerResponse ledger = new BuildingLedgerResponse(
+                new BuildingRegisterResponse("00", "OK", 1, List.of(Map.of("mainPurpsCdNm", "단독주택"))),
+                new BuildingRegisterResponse("00", "OK", 0, List.of()));
+        when(buildingLedgerService.findLedger(any())).thenReturn(ledger);
+
+        HouseAnalysisResponse result = service.analyze(new HouseAnalysisRequest(
+                "1168010100",
+                false,
+                "123",
+                "4",
+                "서울특별시 관악구 신림로 1",
+                "서울특별시 관악구 신림동 123-4",
+                "홈런빌",
+                HouseType.DETACHED,
+                "202608"));
+
+        assertThat(result.resolvedHouseType()).isEqualTo(HouseType.DETACHED);
+        assertThat(result.rents().available()).isFalse();
+        assertThat(result.rents().matchedCount()).isZero();
+        assertThat(result.warnings()).anySatisfy(w -> assertThat(w).contains("직접 입력"));
+        // 실거래 API 를 부르지 않는다 — 없는 유형별 엔드포인트를 호출하지 않는다.
+        org.mockito.Mockito.verifyNoInteractions(transactionClient);
     }
 
     private RealEstateTransactionResponse response(List<Map<String, String>> items) {

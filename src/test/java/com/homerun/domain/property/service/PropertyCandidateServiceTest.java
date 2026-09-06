@@ -14,6 +14,7 @@ import com.homerun.domain.house.dto.response.RentTransactions;
 import com.homerun.domain.house.service.HouseAnalysisService;
 import com.homerun.domain.plan.entity.Plan;
 import com.homerun.domain.plan.repository.PlanRepository;
+import com.homerun.domain.plan.type.HouseType;
 import com.homerun.domain.plan.type.LeaseType;
 import com.homerun.domain.property.dto.request.PropertyCandidateAnalysisRequest;
 import com.homerun.domain.property.dto.response.PropertyVerification;
@@ -25,7 +26,6 @@ import com.homerun.global.exception.BusinessException;
 import com.homerun.global.exception.ErrorCode;
 import com.homerun.global.external.building.BuildingLedgerResponse;
 import com.homerun.global.external.building.BuildingRegisterResponse;
-import com.homerun.global.external.realestate.HousingType;
 import java.time.Clock;
 import java.time.Instant;
 import java.time.ZoneOffset;
@@ -247,7 +247,7 @@ class PropertyCandidateServiceTest {
         var prices = new BuildingRegisterResponse("00", "OK", 0, List.of());
         return new HouseAnalysisResponse(
                 houseRequest(),
-                HousingType.APARTMENT,
+                HouseType.APARTMENT,
                 new BuildingLedgerResponse(titles, prices),
                 new RentTransactions(true, 1, 1, null, List.of(Map.of("excluUseAr", area, "jibun", "123-4"))),
                 List.of());
@@ -260,7 +260,7 @@ class PropertyCandidateServiceTest {
         var prices = new BuildingRegisterResponse("00", "OK", 0, List.of());
         return new HouseAnalysisResponse(
                 houseRequest(),
-                HousingType.OFFICETEL,
+                HouseType.OFFICETEL,
                 new BuildingLedgerResponse(titles, prices),
                 new RentTransactions(true, 0, 0, null, List.of()),
                 List.of());
@@ -273,7 +273,7 @@ class PropertyCandidateServiceTest {
         var prices = new BuildingRegisterResponse("00", "OK", 0, List.of());
         return new HouseAnalysisResponse(
                 houseRequest(),
-                HousingType.ROW_HOUSE,
+                HouseType.VILLA,
                 new BuildingLedgerResponse(titles, prices),
                 new RentTransactions(true, 0, 0, null, List.of()),
                 List.of());
@@ -285,7 +285,7 @@ class PropertyCandidateServiceTest {
         var prices = new BuildingRegisterResponse("00", "OK", 0, List.of());
         return new HouseAnalysisResponse(
                 houseRequest(),
-                HousingType.APARTMENT,
+                HouseType.APARTMENT,
                 new BuildingLedgerResponse(titles, prices),
                 new RentTransactions(true, 0, 0, null, List.of()),
                 List.of());
