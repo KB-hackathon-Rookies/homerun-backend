@@ -2,6 +2,7 @@ package com.homerun.domain.property.entity;
 
 import com.homerun.domain.plan.type.HouseType;
 import com.homerun.domain.property.type.DataSource;
+import com.homerun.domain.property.type.LandlordConsent;
 import com.homerun.domain.property.type.OfficialPriceSource;
 import com.homerun.domain.property.type.PropertyDiagnosisStep;
 import com.homerun.domain.property.type.PropertyWorkflowStatus;
@@ -86,6 +87,11 @@ public class Property {
 
     @Column(name = "landlord_tax_unpaid")
     private Boolean landlordTaxUnpaid;
+
+    /** 임대인 전세대출 협조 여부(FR-P1-07). REFUSED 여도 RED 아님. */
+    @jakarta.persistence.Enumerated(jakarta.persistence.EnumType.STRING)
+    @Column(name = "landlord_consent", length = 20)
+    private LandlordConsent landlordConsent;
 
     @Column(name = "is_leasehold_registered")
     private Boolean leaseholdRegistered;
@@ -307,6 +313,14 @@ public class Property {
 
     public Boolean getPriceMatched() {
         return priceMatched;
+    }
+
+    public LandlordConsent getLandlordConsent() {
+        return landlordConsent;
+    }
+
+    public void recordLandlordConsent(LandlordConsent landlordConsent) {
+        this.landlordConsent = landlordConsent;
     }
 
     public void recordRegistryRisks(

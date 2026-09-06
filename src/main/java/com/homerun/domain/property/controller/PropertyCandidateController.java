@@ -1,6 +1,7 @@
 package com.homerun.domain.property.controller;
 
 import com.homerun.domain.property.dto.request.BankConsultationRequest;
+import com.homerun.domain.property.dto.request.LandlordConsentRequest;
 import com.homerun.domain.property.dto.request.PropertyBuildingStepRequest;
 import com.homerun.domain.property.dto.request.PropertyCandidateAnalysisRequest;
 import com.homerun.domain.property.dto.request.PropertyComparisonRequest;
@@ -8,6 +9,7 @@ import com.homerun.domain.property.dto.request.PropertyDecisionRequest;
 import com.homerun.domain.property.dto.request.PropertyRegistryStepRequest;
 import com.homerun.domain.property.dto.request.PropertyViolationStepRequest;
 import com.homerun.domain.property.dto.response.BankConsultationResponse;
+import com.homerun.domain.property.dto.response.LandlordConsentGuideResponse;
 import com.homerun.domain.property.dto.response.PropertyCandidateAnalysisResponse;
 import com.homerun.domain.property.dto.response.PropertyCandidateResponse;
 import com.homerun.domain.property.dto.response.PropertyCardResponse;
@@ -183,6 +185,29 @@ public class PropertyCandidateController {
     public ApiResponse<PropertyDecisionResponse> decision(
             @AuthenticationPrincipal MemberPrincipal principal, @PathVariable Long planId) {
         return ApiResponse.success(decisionService.getDecision(principal.memberId(), planId));
+    }
+
+    @PutMapping("/{propertyId}/landlord-consent")
+    @Operation(
+            summary = "임대인 협조 여부 저장",
+            description = "임대인의 전세대출 협조 여부를 저장하고 상태별 안내를 반환한다(FR-P1-07·08)."
+                    + " 거부(REFUSED)는 신호등을 RED 로 만들지 않는다 — 설득 스크립트를 함께 준다.")
+    public ApiResponse<LandlordConsentGuideResponse> saveLandlordConsent(
+            @AuthenticationPrincipal MemberPrincipal principal,
+            @PathVariable Long planId,
+            @PathVariable Long propertyId,
+            @Valid @RequestBody LandlordConsentRequest request) {
+        return ApiResponse.success(
+                service.updateLandlordConsent(principal.memberId(), planId, propertyId, request.consent()));
+    }
+
+    @GetMapping("/{propertyId}/landlord-consent")
+    @Operation(summary = "임대인 협조 상태별 안내 조회", description = "저장된 협조 상태에 맞는 경고·스크립트를 반환한다(FR-P1-08).")
+    public ApiResponse<LandlordConsentGuideResponse> landlordConsentGuide(
+            @AuthenticationPrincipal MemberPrincipal principal,
+            @PathVariable Long planId,
+            @PathVariable Long propertyId) {
+        return ApiResponse.success(service.landlordConsentGuide(principal.memberId(), planId, propertyId));
     }
 
     @PutMapping("/{propertyId}/selection")
