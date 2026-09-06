@@ -22,6 +22,7 @@ import com.homerun.domain.policy.model.RuleCondition;
 import com.homerun.domain.policy.model.RuleDocument;
 import com.homerun.domain.policy.type.PolicyVerdictResult;
 import com.homerun.domain.property.entity.Property;
+import com.homerun.domain.region.type.PolicyArea;
 import java.math.BigDecimal;
 import java.time.Clock;
 import java.time.Instant;
@@ -29,6 +30,7 @@ import java.time.LocalDate;
 import java.time.ZoneOffset;
 import java.util.List;
 import java.util.Set;
+import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.CsvSource;
@@ -844,6 +846,91 @@ class PolicyRuleEngineTest {
                                 PolicyVerdictResult.PASS)
                         .recommendedDepositLimit())
                 .isEqualTo(Long.MAX_VALUE);
+    }
+
+    // --- 청년 버팀목 확정금리 계산(#1) ---
+
+    private RateSpec computedRateSpec() {
+        return new RateSpec(
+                null,
+                null,
+                List.of(
+                        new RateSpec.IncomeBand("FCT-246", "FCT-247"),
+                        new RateSpec.IncomeBand("FCT-248", "FCT-249"),
+                        new RateSpec.IncomeBand("FCT-250", "FCT-251"),
+                        new RateSpec.IncomeBand("FCT-252", "FCT-253")),
+                "FCT-254",
+                "FCT-255",
+                "FCT-256");
+    }
+
+    @Test
+    @DisplayName("수도권·중소기업·월소득 245만이면 구간2 2.5% − 우대 0.3%p = 2.2%")
+    void should_computeYouthRate_withSmePreference() {
+        when(facts.require("FCT-246")).thenReturn(fact("FCT-246", "20000000"));
+        when(facts.require("FCT-247")).thenReturn(fact("FCT-247", "2.2"));
+        when(facts.require("FCT-248")).thenReturn(fact("FCT-248", "40000000"));
+        when(facts.require("FCT-249")).thenReturn(fact("FCT-249", "2.5"));
+        when(facts.require("FCT-255")).thenReturn(fact("FCT-255", "0.3"));
+        when(facts.require("FCT-256")).thenReturn(fact("FCT-256", "0.5"));
+
+        BigDecimal rate = engine.computedRate(computedRateSpec(), 2_450_000L, PolicyArea.CAPITAL, CompanySize.SMALL);
+
+        assertThat(rate).isEqualByComparingTo("2.2");
+    }
+
+    @Test
+    @DisplayName("지방·대기업·월소득 125만이면 구간1 2.2% − 지방 0.2%p − 우대 0 = 2.0%")
+    void should_computeYouthRate_withRegionalDiscountNoPreference() {
+        when(facts.require("FCT-246")).thenReturn(fact("FCT-246", "20000000"));
+        when(facts.require("FCT-247")).thenReturn(fact("FCT-247", "2.2"));
+        when(facts.require("FCT-254")).thenReturn(fact("FCT-254", "0.2"));
+        when(facts.require("FCT-256")).thenReturn(fact("FCT-256", "0.5"));
+
+        BigDecimal rate =
+                engine.computedRate(computedRateSpec(), 1_250_000L, PolicyArea.NON_CAPITAL, CompanySize.LARGE);
+
+        assertThat(rate).isEqualByComparingTo("2.0");
+    }
+
+    @Test
+    @DisplayName("우대 합산이 상한을 넘으면 상한(0.5%p)까지만 차감한다")
+    void should_capPreferenceAtLimit() {
+        when(facts.require("FCT-246")).thenReturn(fact("FCT-246", "20000000"));
+        when(facts.require("FCT-247")).thenReturn(fact("FCT-247", "2.2"));
+        when(facts.require("FCT-248")).thenReturn(fact("FCT-248", "40000000"));
+        when(facts.require("FCT-249")).thenReturn(fact("FCT-249", "2.5"));
+        when(facts.require("FCT-255")).thenReturn(fact("FCT-255", "0.7")); // 상한 초과 우대
+        when(facts.require("FCT-256")).thenReturn(fact("FCT-256", "0.5"));
+
+        BigDecimal rate = engine.computedRate(computedRateSpec(), 2_450_000L, PolicyArea.CAPITAL, CompanySize.SMALL);
+
+        assertThat(rate).isEqualByComparingTo("2.0"); // 2.5 − min(0.7, 0.5)
+    }
+
+    @Test
+    @DisplayName("소득을 모르면 금리를 지어내지 않고 null")
+    void should_returnNull_when_incomeMissing() {
+        assertThat(engine.computedRate(computedRateSpec(), null, PolicyArea.CAPITAL, CompanySize.SMALL))
+                .isNull();
+    }
+
+    @Test
+    @DisplayName("모든 소득구간을 초과하면(자격에서 이미 FAIL) 계산 불가라 null")
+    void should_returnNull_when_incomeAboveAllBands() {
+        when(facts.require("FCT-246")).thenReturn(fact("FCT-246", "20000000"));
+        when(facts.require("FCT-247")).thenReturn(fact("FCT-247", "2.2"));
+        when(facts.require("FCT-248")).thenReturn(fact("FCT-248", "40000000"));
+        when(facts.require("FCT-249")).thenReturn(fact("FCT-249", "2.5"));
+        when(facts.require("FCT-250")).thenReturn(fact("FCT-250", "60000000"));
+        when(facts.require("FCT-251")).thenReturn(fact("FCT-251", "2.9"));
+        when(facts.require("FCT-252")).thenReturn(fact("FCT-252", "75000000"));
+        when(facts.require("FCT-253")).thenReturn(fact("FCT-253", "3.3"));
+
+        // 월 700만 → 연 8,400만 > 7,500만(최고 구간)
+        BigDecimal rate = engine.computedRate(computedRateSpec(), 7_000_000L, PolicyArea.CAPITAL, CompanySize.SMALL);
+
+        assertThat(rate).isNull();
     }
 
     private RuleDocument estimateDocument() {

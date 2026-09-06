@@ -5,12 +5,14 @@ import com.homerun.domain.fact.exception.UnusableFactException;
 import com.homerun.domain.fact.model.Fact;
 import com.homerun.domain.fact.service.FactRegistry;
 import com.homerun.domain.plan.entity.PlanInput;
+import com.homerun.domain.plan.type.CompanySize;
 import com.homerun.domain.plan.type.EmploymentType;
 import com.homerun.domain.plan.type.FinancialValueSource;
 import com.homerun.domain.plan.type.MaritalStatus;
 import com.homerun.domain.policy.model.AgeEligibilityGap;
 import com.homerun.domain.policy.model.ConditionResult;
 import com.homerun.domain.policy.model.ExpectedEstimate;
+import com.homerun.domain.policy.model.RateSpec;
 import com.homerun.domain.policy.model.RuleCondition;
 import com.homerun.domain.policy.model.RuleDocument;
 import com.homerun.domain.policy.type.PolicyVerdictResult;
@@ -110,16 +112,9 @@ public class PolicyRuleEngine {
         }
         long estimatedLoan = Math.min(percent(hopeDeposit, ratio), loanCap);
         long ownFunds = Math.max(0, hopeDeposit - estimatedLoan);
-        BigDecimal rateMin = document.rate() == null
-                ? null
-                : resolveFact(document.rate().minFactCode()).map(Fact::number).orElse(null);
-        BigDecimal rateMax = document.rate() == null
-                ? null
-                : resolveFact(document.rate().maxFactCode()).map(Fact::number).orElse(null);
-        if (rateMin == null || rateMax == null || rateMin.signum() < 0 || rateMin.compareTo(rateMax) > 0) {
-            rateMin = null;
-            rateMax = null;
-        }
+        RateBounds rate = resolveRate(document.rate(), input);
+        BigDecimal rateMin = rate.min();
+        BigDecimal rateMax = rate.max();
 
         return new ExpectedEstimate(
                 recommendedDeposit(conditionResults, input, loanCap, ratio),
@@ -168,6 +163,94 @@ public class PolicyRuleEngine {
                 .multiply(rate)
                 .divide(new BigDecimal("1200"), 0, RoundingMode.HALF_UP)
                 .longValueExact();
+    }
+
+    /** 계산 모드면 소득구간표로 확정금리를, 아니면 min/max 팩트로 범위를 돌려준다. */
+    private RateBounds resolveRate(RateSpec rate, PlanInput input) {
+        if (rate == null) {
+            return RateBounds.NONE;
+        }
+        if (rate.isComputed()) {
+            BigDecimal computed = computedRate(
+                    rate, input.getMonthlyIncome(), regions.resolve(input.getRegionId()), input.getCompanySize());
+            return computed == null ? RateBounds.NONE : new RateBounds(computed, computed);
+        }
+        return rangeRate(rate);
+    }
+
+    /** min/max 팩트 범위. 값이 없거나 음수·역전이면 지어내지 않고 NONE. */
+    private RateBounds rangeRate(RateSpec rate) {
+        BigDecimal min = factNumber(rate.minFactCode());
+        BigDecimal max = factNumber(rate.maxFactCode());
+        if (min == null || max == null || min.signum() < 0 || min.compareTo(max) > 0) {
+            return RateBounds.NONE;
+        }
+        return new RateBounds(min, max);
+    }
+
+    /**
+     * 청년 버팀목 확정금리(POL-02, 2-8 확정표) = 소득구간 기본금리 − 지방 조정(비수도권 −0.2%p)
+     * − 우대(중소·중견·창업 재직 0.3%p, 합산 상한 0.5%p). 확정 단일 금리다.
+     *
+     * <p>소득·구간·우대 팩트가 하나라도 없으면 금리를 지어내지 않고 null 이다 — 금액은 estimate
+     * 가 따로 계산하므로 금리만 비게 된다(NFR-01-06).
+     */
+    BigDecimal computedRate(RateSpec rate, Long monthlyIncome, PolicyArea area, CompanySize companySize) {
+        if (monthlyIncome == null || monthlyIncome < 0) {
+            return null;
+        }
+        long annualIncome = Math.multiplyExact(monthlyIncome, 12L);
+        BigDecimal result = baseRateForIncome(rate.incomeBands(), annualIncome);
+        if (result == null) {
+            return null;
+        }
+        if (area == PolicyArea.NON_CAPITAL) {
+            BigDecimal discount = factNumber(rate.regionalDiscountFactCode());
+            if (discount == null) {
+                return null;
+            }
+            result = result.subtract(discount);
+        }
+        BigDecimal preference = BigDecimal.ZERO;
+        if (companySize != null && companySize.qualifiesForYouthEmploymentRatePreference()) {
+            BigDecimal sme = factNumber(rate.smePreferenceFactCode());
+            if (sme == null) {
+                return null;
+            }
+            preference = preference.add(sme);
+        }
+        BigDecimal cap = factNumber(rate.preferenceCapFactCode());
+        if (cap != null && preference.compareTo(cap) > 0) {
+            preference = cap;
+        }
+        return result.subtract(preference).max(BigDecimal.ZERO);
+    }
+
+    /** 연소득이 이하인 첫 구간의 기본금리. 최고 구간도 초과하면(자격에서 이미 FAIL) 계산 불가라 null. */
+    private BigDecimal baseRateForIncome(List<RateSpec.IncomeBand> bands, long annualIncome) {
+        if (bands == null) {
+            return null;
+        }
+        for (RateSpec.IncomeBand band : bands) {
+            BigDecimal ceiling = factNumber(band.ceilingFactCode());
+            BigDecimal bandRate = factNumber(band.rateFactCode());
+            if (ceiling == null || bandRate == null) {
+                return null;
+            }
+            if (BigDecimal.valueOf(annualIncome).compareTo(ceiling) <= 0) {
+                return bandRate;
+            }
+        }
+        return null;
+    }
+
+    private BigDecimal factNumber(String factCode) {
+        return resolveFact(factCode).map(Fact::number).orElse(null);
+    }
+
+    /** 금리 하한·상한. 계산 모드는 단일 값이라 둘이 같고, 못 구하면 NONE(둘 다 null). */
+    private record RateBounds(BigDecimal min, BigDecimal max) {
+        static final RateBounds NONE = new RateBounds(null, null);
     }
 
     private long percent(long amount, BigDecimal percent) {

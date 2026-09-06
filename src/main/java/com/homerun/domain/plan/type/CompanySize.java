@@ -17,4 +17,12 @@ public enum CompanySize {
     public boolean qualifiesForMilitaryAgeExtension() {
         return this == SMALL || this == MID_SIZE || this == STARTUP;
     }
+
+    /**
+     * 청년 버팀목 "중소·중견기업 취업(창업) 청년" 우대금리 0.3%p 대상인가(FCT-255). 병역 연령 보정과
+     * 같은 기업군(중소·중견·창업지원)이라 판단 기준이 같다. 대기업·공무원·공기업·기타는 제외한다.
+     */
+    public boolean qualifiesForYouthEmploymentRatePreference() {
+        return this == SMALL || this == MID_SIZE || this == STARTUP;
+    }
 }
