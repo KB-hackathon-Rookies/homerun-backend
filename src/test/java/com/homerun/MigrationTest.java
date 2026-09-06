@@ -284,6 +284,16 @@ class MigrationTest {
         assertThat(constraintDefinition("ck_bank_consultation_method")).contains("UNKNOWN");
     }
 
+    @Test
+    @DisplayName("V51이 최종 결정 revision과 2루 제출 스냅샷을 추가한다")
+    void should_addSecondBaseSubmission_whenV51IsApplied() {
+        assertThat(columnNames("property_decision")).contains("decision_revision");
+        assertThat(tableNames()).contains("second_base_submission");
+        assertThat(columnNames("second_base_submission"))
+                .contains("plan_id", "decision_revision", "result_snapshot", "created_at");
+        assertThat(constraintDefinition("uq_second_base_submission_revision")).contains("plan_id", "decision_revision");
+    }
+
     private String ruleStatus(String policyCode, int version) {
         return jdbc.queryForObject(
                 "SELECT status FROM policy_rule WHERE version = ?"

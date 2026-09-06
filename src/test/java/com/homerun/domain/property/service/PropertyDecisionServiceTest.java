@@ -207,6 +207,18 @@ class PropertyDecisionServiceTest {
                                 .isEqualTo(ErrorCode.BANK_CONSULTATION_NOT_SELECTABLE));
     }
 
+    @Test
+    void should_incrementDecisionRevision_onlyWhenSelectionChanges() {
+        PropertyDecision decision = new PropertyDecision(PLAN_ID, 1L, 7L, Instant.parse("2026-09-05T00:00:00Z"));
+
+        assertThat(decision.decide(1L, 7L, Instant.parse("2026-09-06T00:00:00Z")))
+                .isFalse();
+        assertThat(decision.getRevision()).isEqualTo(1);
+        assertThat(decision.decide(2L, 8L, Instant.parse("2026-09-06T00:00:00Z")))
+                .isTrue();
+        assertThat(decision.getRevision()).isEqualTo(2);
+    }
+
     private BankConsultationRequest consultationRequest() {
         return consultationRequest(144_000_000L, "2.200");
     }
