@@ -4,6 +4,8 @@ import com.homerun.domain.property.dto.request.BankConsultationRequest;
 import com.homerun.domain.property.type.CollateralMethod;
 import com.homerun.domain.property.type.ConsultationResultStatus;
 import com.homerun.domain.property.type.ConsultedLoanProduct;
+import com.homerun.domain.property.type.RejectionCategory;
+import com.homerun.domain.property.type.RejectionStage;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;
@@ -66,6 +68,19 @@ public class BankConsultation {
     @Column(columnDefinition = "text")
     private String memo;
 
+    /** 거절일 때만 채운다(BR-24). 어디서 막혔는가. */
+    @Enumerated(EnumType.STRING)
+    @Column(name = "rejection_stage", length = 20)
+    private RejectionStage rejectionStage;
+
+    /** 거절일 때만 채운다(BR-24). 무엇 때문에 막혔는가. */
+    @Enumerated(EnumType.STRING)
+    @Column(name = "rejection_category", length = 20)
+    private RejectionCategory rejectionCategory;
+
+    @Column(name = "rejection_note", columnDefinition = "text")
+    private String rejectionNote;
+
     @Column(name = "created_at", nullable = false, insertable = false, updatable = false)
     private Instant createdAt;
 
@@ -85,6 +100,9 @@ public class BankConsultation {
         this.quotedRate = request.quotedRate();
         this.consultedAt = request.consultedAt();
         this.memo = request.memo();
+        this.rejectionStage = request.rejectionStage();
+        this.rejectionCategory = request.rejectionCategory();
+        this.rejectionNote = request.rejectionNote();
     }
 
     public Long getId() {
@@ -149,5 +167,17 @@ public class BankConsultation {
 
     public boolean isSelectable() {
         return resultStatus == ConsultationResultStatus.POSSIBLE;
+    }
+
+    public com.homerun.domain.property.type.RejectionStage getRejectionStage() {
+        return rejectionStage;
+    }
+
+    public com.homerun.domain.property.type.RejectionCategory getRejectionCategory() {
+        return rejectionCategory;
+    }
+
+    public String getRejectionNote() {
+        return rejectionNote;
     }
 }

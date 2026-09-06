@@ -16,11 +16,13 @@ import com.homerun.domain.property.dto.response.PropertyCardResponse;
 import com.homerun.domain.property.dto.response.PropertyComparisonResponse;
 import com.homerun.domain.property.dto.response.PropertyDecisionResponse;
 import com.homerun.domain.property.dto.response.PropertyPolicyVerdictListResponse;
+import com.homerun.domain.property.dto.response.PropertyRejectionResponse;
 import com.homerun.domain.property.dto.response.PropertyStepSaveResponse;
 import com.homerun.domain.property.dto.response.PropertyWorkflowResponse;
 import com.homerun.domain.property.service.PropertyCandidateService;
 import com.homerun.domain.property.service.PropertyDecisionService;
 import com.homerun.domain.property.service.PropertyPolicyVerdictService;
+import com.homerun.domain.property.service.PropertyRejectionService;
 import com.homerun.domain.property.service.PropertyWorkflowService;
 import com.homerun.global.response.ApiResponse;
 import com.homerun.global.security.principal.MemberPrincipal;
@@ -46,16 +48,19 @@ public class PropertyCandidateController {
     private final PropertyDecisionService decisionService;
     private final PropertyPolicyVerdictService policyVerdictService;
     private final PropertyWorkflowService workflowService;
+    private final PropertyRejectionService rejectionService;
 
     public PropertyCandidateController(
             PropertyCandidateService service,
             PropertyDecisionService decisionService,
             PropertyPolicyVerdictService policyVerdictService,
-            PropertyWorkflowService workflowService) {
+            PropertyWorkflowService workflowService,
+            PropertyRejectionService rejectionService) {
         this.service = service;
         this.decisionService = decisionService;
         this.policyVerdictService = policyVerdictService;
         this.workflowService = workflowService;
+        this.rejectionService = rejectionService;
     }
 
     @PostMapping("/{propertyId}/policy-verdicts")
@@ -185,6 +190,18 @@ public class PropertyCandidateController {
     public ApiResponse<PropertyDecisionResponse> decision(
             @AuthenticationPrincipal MemberPrincipal principal, @PathVariable Long planId) {
         return ApiResponse.success(decisionService.getDecision(principal.memberId(), planId));
+    }
+
+    @GetMapping("/{propertyId}/rejection-guidance")
+    @Operation(
+            summary = "거절 대응 안내",
+            description = "이 매물의 은행 상담 거절 사유를 BR-24 5분류로 묶어 대안을 제시하고(FR-P8-01),"
+                    + " 같은 사유가 반복되면 매물 변경을 권한다(FR-P8-02). 사람·집 자체 문제면 다른 은행이 소용없음을 표시한다.")
+    public ApiResponse<PropertyRejectionResponse> rejectionGuidance(
+            @AuthenticationPrincipal MemberPrincipal principal,
+            @PathVariable Long planId,
+            @PathVariable Long propertyId) {
+        return ApiResponse.success(rejectionService.forProperty(principal.memberId(), planId, propertyId));
     }
 
     @PutMapping("/{propertyId}/landlord-consent")
