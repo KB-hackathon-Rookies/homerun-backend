@@ -4,6 +4,7 @@ import com.homerun.domain.house.dto.response.HouseAnalysisResponse;
 import com.homerun.domain.house.service.HouseAnalysisService;
 import com.homerun.domain.plan.entity.Plan;
 import com.homerun.domain.plan.repository.PlanRepository;
+import com.homerun.domain.plan.type.HouseType;
 import com.homerun.domain.property.dto.request.PropertyCandidateAnalysisRequest;
 import com.homerun.domain.property.dto.request.PropertyFacts;
 import com.homerun.domain.property.dto.response.BuildingSafetyFactsResponse;
@@ -71,7 +72,7 @@ public class PropertyCandidateService {
                 request.house().jibunAddress(),
                 request.house().roadAddress(),
                 request.house().buildingName(),
-                analysis.resolvedHousingType().name(),
+                HouseType.from(analysis.resolvedHousingType()).name(),
                 request.deposit(),
                 request.marketPrice(),
                 request.officialPrice(),
