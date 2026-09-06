@@ -1,19 +1,24 @@
 package com.homerun.domain.policy.controller;
 
+import com.homerun.domain.policy.dto.request.CostSimulationRequest;
 import com.homerun.domain.policy.dto.response.CollateralLoanLimitListResponse;
+import com.homerun.domain.policy.dto.response.CostSimulationResponse;
 import com.homerun.domain.policy.dto.response.JeonsePolicyVerdictListResponse;
 import com.homerun.domain.policy.dto.response.PreferentialRateChangeResponse;
 import com.homerun.domain.policy.service.CollateralLoanLimitService;
+import com.homerun.domain.policy.service.CostSimulationService;
 import com.homerun.domain.policy.service.JeonsePolicyVerdictService;
 import com.homerun.domain.policy.service.PreferentialRateChangeService;
 import com.homerun.global.response.ApiResponse;
 import com.homerun.global.security.principal.MemberPrincipal;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
+import jakarta.validation.Valid;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
@@ -26,14 +31,17 @@ public class JeonsePolicyVerdictController {
     private final JeonsePolicyVerdictService service;
     private final PreferentialRateChangeService preferentialRateChangeService;
     private final CollateralLoanLimitService collateralLoanLimitService;
+    private final CostSimulationService costSimulationService;
 
     public JeonsePolicyVerdictController(
             JeonsePolicyVerdictService service,
             PreferentialRateChangeService preferentialRateChangeService,
-            CollateralLoanLimitService collateralLoanLimitService) {
+            CollateralLoanLimitService collateralLoanLimitService,
+            CostSimulationService costSimulationService) {
         this.service = service;
         this.preferentialRateChangeService = preferentialRateChangeService;
         this.collateralLoanLimitService = collateralLoanLimitService;
+        this.costSimulationService = costSimulationService;
     }
 
     @GetMapping("/collateral-loan-limits")
@@ -44,6 +52,19 @@ public class JeonsePolicyVerdictController {
     public ApiResponse<CollateralLoanLimitListResponse> collateralLoanLimits(
             @AuthenticationPrincipal MemberPrincipal principal, @PathVariable Long planId) {
         return ApiResponse.success(collateralLoanLimitService.forPlan(principal.memberId(), planId));
+    }
+
+    @PostMapping("/cost-simulation")
+    @Operation(
+            summary = "부대비용·총비용 시뮬레이션",
+            description = "상품 카드의 대출금·금리·담보로 부대비용(BR-08a)과 1년차 총비용(BR-21)을 계산한다."
+                    + " 보증금은 계획에서 읽는다. 담보 미확정이면 보증료율을 중간값으로 추정하고 estimated=true 로 표시한다."
+                    + " 금리만 비교하면 순위가 뒤집히므로 카드·비교표는 총비용 기준으로 정렬한다.")
+    public ApiResponse<CostSimulationResponse> costSimulation(
+            @AuthenticationPrincipal MemberPrincipal principal,
+            @PathVariable Long planId,
+            @Valid @RequestBody CostSimulationRequest request) {
+        return ApiResponse.success(costSimulationService.simulate(principal.memberId(), planId, request));
     }
 
     @PostMapping("/evaluate")
