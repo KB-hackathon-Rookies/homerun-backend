@@ -3,7 +3,7 @@ package com.homerun.domain.auth.controller;
 import com.homerun.domain.auth.config.RefreshTokenCookieFactory;
 import com.homerun.domain.auth.dto.request.ConfirmEmailVerificationRequest;
 import com.homerun.domain.auth.dto.request.EmailLoginRequest;
-import com.homerun.domain.auth.dto.request.EmailSignupRequest;
+import com.homerun.domain.auth.dto.request.LocalSignupRequest;
 import com.homerun.domain.auth.dto.request.SendEmailVerificationRequest;
 import com.homerun.domain.auth.dto.response.EmailVerificationResponse;
 import com.homerun.domain.auth.dto.response.LoginResponse;
@@ -62,11 +62,9 @@ public class EmailAuthController {
     }
 
     @PostMapping("/signup")
-    @Operation(summary = "이메일 회원가입")
-    public ResponseEntity<ApiResponse<LoginResponse>> signup(@Valid @RequestBody EmailSignupRequest request) {
-        Member member = emailAuthService.signup(
-                request.email(), request.password(), request.name(), request.verificationToken());
-        return loginResponse(member);
+    @Operation(summary = "이메일 회원가입", description = "이메일·휴대전화 인증을 모두 마친 뒤 본인 정보와 함께 가입합니다.")
+    public ResponseEntity<ApiResponse<LoginResponse>> signup(@Valid @RequestBody LocalSignupRequest request) {
+        return loginResponse(emailAuthService.signup(request));
     }
 
     @PostMapping("/login")

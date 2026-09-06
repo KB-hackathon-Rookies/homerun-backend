@@ -38,6 +38,18 @@ public class Member {
     @Column(name = "birth_date")
     private LocalDate birthDate;
 
+    @Column(length = 20)
+    private String phone;
+
+    @Column(name = "phone_verified_at")
+    private Instant phoneVerifiedAt;
+
+    @Column(name = "residence_region_id")
+    private Long residenceRegionId;
+
+    @Column(name = "detail_address")
+    private String detailAddress;
+
     @Column(name = "military_months", nullable = false)
     private int militaryMonths;
 
@@ -78,6 +90,29 @@ public class Member {
         Member member = new Member(AuthProvider.LOCAL, email, email, name);
         member.passwordHash = passwordHash;
         member.emailVerifiedAt = Instant.now();
+        return member;
+    }
+
+    /**
+     * 프론트 회원가입(AU-04)이 받는 본인 정보까지 채워 로컬 회원을 만든다. 이메일·휴대전화 인증을
+     * 모두 통과한 뒤에만 호출되므로 두 인증 시각을 함께 기록한다.
+     */
+    public static Member createLocal(
+            String email,
+            String passwordHash,
+            String name,
+            LocalDate birthDate,
+            String phone,
+            Long residenceRegionId,
+            String detailAddress) {
+        Member member = new Member(AuthProvider.LOCAL, email, email, name);
+        member.passwordHash = passwordHash;
+        member.emailVerifiedAt = Instant.now();
+        member.birthDate = birthDate;
+        member.phone = phone;
+        member.phoneVerifiedAt = Instant.now();
+        member.residenceRegionId = residenceRegionId;
+        member.detailAddress = detailAddress;
         return member;
     }
 
@@ -149,5 +184,21 @@ public class Member {
 
     public Instant getDeletedAt() {
         return deletedAt;
+    }
+
+    public String getPhone() {
+        return phone;
+    }
+
+    public Instant getPhoneVerifiedAt() {
+        return phoneVerifiedAt;
+    }
+
+    public Long getResidenceRegionId() {
+        return residenceRegionId;
+    }
+
+    public String getDetailAddress() {
+        return detailAddress;
     }
 }
