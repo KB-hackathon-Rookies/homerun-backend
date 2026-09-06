@@ -126,7 +126,7 @@
 |---|---|
 | 도메인 패키지 | 20개 (`alternative` `application` `asset` `auth` `consent` `contract` `dashboard` `diagnosis` `document` `fact` `house` `member` `openbanking` `plan` `policy` `property` `region` `rent` `terms` `verification`) |
 | 컨트롤러 | 35개 |
-| 마이그레이션 | `V1` ~ `V50` |
+| 마이그레이션 | `V1` ~ `V53` |
 | 테스트 | 91개 클래스 |
 | 팩트 레지스트리 | 210건 (`V2` 가 141건, 이후 마이그레이션이 69건) |
 
