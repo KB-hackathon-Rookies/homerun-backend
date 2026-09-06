@@ -205,7 +205,11 @@ public class PropertyCandidateService {
         Boolean nonResidential = description.contains("근린생활")
                 ? Boolean.TRUE
                 : description.matches(".*(다세대|연립|아파트|오피스텔|다가구|단독주택).*") ? Boolean.FALSE : null;
-        return new BuildingSafetyFactsResponse(violation, multiHousehold, nonResidential);
+        return BuildingSafetyFactsResponse.of(
+                violation,
+                multiHousehold,
+                nonResidential,
+                analysis.resolvedHouseType().name());
     }
 
     private int trafficPriority(TrafficLight light) {

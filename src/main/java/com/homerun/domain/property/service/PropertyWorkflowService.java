@@ -128,8 +128,11 @@ public class PropertyWorkflowService {
         return new PropertyCardResponse(
                 PropertyCandidateResponse.from(property, light),
                 PropertyWorkflowResponse.from(property),
-                new BuildingSafetyFactsResponse(
-                        property.getViolationBuilding(), property.getMultiHousehold(), property.getNonResidential()),
+                BuildingSafetyFactsResponse.of(
+                        property.getViolationBuilding(),
+                        property.getMultiHousehold(),
+                        property.getNonResidential(),
+                        property.getHouseType()),
                 property.getOfficialPrice(),
                 property.getOfficialPriceYear(),
                 property.getOfficialPriceSource(),
