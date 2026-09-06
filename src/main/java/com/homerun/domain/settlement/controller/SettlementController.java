@@ -3,9 +3,11 @@ package com.homerun.domain.settlement.controller;
 import com.homerun.domain.settlement.dto.request.GuaranteeFeeSupportAmountRequest;
 import com.homerun.domain.settlement.dto.request.MonthlyMetricsRequest;
 import com.homerun.domain.settlement.dto.request.TaxDeductionRequest;
+import com.homerun.domain.settlement.dto.response.CashFlowSummaryResponse;
 import com.homerun.domain.settlement.dto.response.GuaranteeFeeSupportAmountResponse;
 import com.homerun.domain.settlement.dto.response.MonthlyMetricsResponse;
 import com.homerun.domain.settlement.dto.response.TaxDeductionResponse;
+import com.homerun.domain.settlement.service.CashFlowSummaryService;
 import com.homerun.domain.settlement.service.GuaranteeFeeSupportService;
 import com.homerun.domain.settlement.service.MonthlyMetricsService;
 import com.homerun.domain.settlement.service.TaxDeductionService;
@@ -15,6 +17,7 @@ import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
@@ -29,14 +32,17 @@ public class SettlementController {
     private final TaxDeductionService taxDeductionService;
     private final GuaranteeFeeSupportService guaranteeFeeSupportService;
     private final MonthlyMetricsService monthlyMetricsService;
+    private final CashFlowSummaryService cashFlowSummaryService;
 
     public SettlementController(
             TaxDeductionService taxDeductionService,
             GuaranteeFeeSupportService guaranteeFeeSupportService,
-            MonthlyMetricsService monthlyMetricsService) {
+            MonthlyMetricsService monthlyMetricsService,
+            CashFlowSummaryService cashFlowSummaryService) {
         this.taxDeductionService = taxDeductionService;
         this.guaranteeFeeSupportService = guaranteeFeeSupportService;
         this.monthlyMetricsService = monthlyMetricsService;
+        this.cashFlowSummaryService = cashFlowSummaryService;
     }
 
     @PostMapping("/tax-deduction")
@@ -73,5 +79,15 @@ public class SettlementController {
             @PathVariable Long planId,
             @Valid @RequestBody MonthlyMetricsRequest request) {
         return ApiResponse.success(monthlyMetricsService.forPlan(principal.memberId(), planId, request));
+    }
+
+    @GetMapping("/cash-flow")
+    @Operation(
+            summary = "현금흐름 종합",
+            description =
+                    "저장된 대출·고정지출·소득·생활비로 월간 지표(BR-28)를 계산한다. 대출이 등록돼 있어야 한다." + " RIR 컷오프는 공식 출처 미확보(O-3)라 판정하지 않는다.")
+    public ApiResponse<CashFlowSummaryResponse> cashFlow(
+            @AuthenticationPrincipal MemberPrincipal principal, @PathVariable Long planId) {
+        return ApiResponse.success(cashFlowSummaryService.forPlan(principal.memberId(), planId));
     }
 }
