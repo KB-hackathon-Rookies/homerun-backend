@@ -23,7 +23,7 @@ class JeonseLoanCardsTest {
                         "JEONSE-YOUTH-BEOTIMMOK",
                         "JEONSE-GENERAL-BEOTIMMOK",
                         "JEONSE-SEOUL-INTEREST-SUPPORT",
-                        "KB-JEONSE-CONSULTATION");
+                        "GENERAL-JEONSE-LOAN");
         assertThat(response.cards().get(1).ownFundsShortfall()).isEqualTo(26_000_000L);
         assertThat(response.results()).isEqualTo(results);
     }
@@ -41,6 +41,11 @@ class JeonseLoanCardsTest {
         assertThat(bank.type()).isEqualTo(JeonseLoanCardResponse.CardType.CONSULTATION);
         assertThat(bank.verdict()).isNull();
         assertThat(bank.estimate()).isNull();
+        // 2루에서는 은행을 특정하지 않는다(FR-D3-05·BR-05). 카드 이름·안내에 특정 은행명이
+        // 들어가면 사용자가 그 은행만 가야 하는 것으로 읽는다. 은행명은 2-6 상담 후에 붙는다.
+        assertThat(bank.name()).isEqualTo("일반 전세대출");
+        assertThat(bank.name()).doesNotContain("국민");
+        assertThat(bank.notice()).doesNotContain("국민");
     }
 
     @ParameterizedTest
@@ -133,7 +138,7 @@ class JeonseLoanCardsTest {
 
         assertThat(cards)
                 .extracting(JeonseLoanCardResponse::code)
-                .containsExactly("CHEAP", "EXPENSIVE", "KB-JEONSE-CONSULTATION");
+                .containsExactly("CHEAP", "EXPENSIVE", "GENERAL-JEONSE-LOAN");
         assertThat(cards.get(2).type()).isEqualTo(JeonseLoanCardResponse.CardType.CONSULTATION);
     }
 
