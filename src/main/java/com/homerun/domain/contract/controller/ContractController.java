@@ -3,8 +3,10 @@ package com.homerun.domain.contract.controller;
 import com.homerun.domain.contract.dto.ContractDtos.ContractGuide;
 import com.homerun.domain.contract.dto.ContractDtos.SaveRequest;
 import com.homerun.domain.contract.dto.request.RegistrySnapshotRequest;
+import com.homerun.domain.contract.dto.response.ContractEntryResponse;
 import com.homerun.domain.contract.dto.response.ContractScheduleResponse;
 import com.homerun.domain.contract.dto.response.RegistryComparisonResponse;
+import com.homerun.domain.contract.service.ContractEntryService;
 import com.homerun.domain.contract.service.ContractScheduleService;
 import com.homerun.domain.contract.service.ContractService;
 import com.homerun.domain.contract.service.RegistryComparisonService;
@@ -31,14 +33,26 @@ import org.springframework.web.bind.annotation.RestController;
 public class ContractController {
 
     private final ContractService service;
+    private final ContractEntryService entries;
     private final ContractScheduleService schedules;
     private final RegistryComparisonService registries;
 
     public ContractController(
-            ContractService service, ContractScheduleService schedules, RegistryComparisonService registries) {
+            ContractService service,
+            ContractEntryService entries,
+            ContractScheduleService schedules,
+            RegistryComparisonService registries) {
         this.service = service;
+        this.entries = entries;
         this.schedules = schedules;
         this.registries = registries;
+    }
+
+    @PostMapping("/prefill")
+    @Operation(summary = "2루 선택값으로 3루 계약 초안 생성", description = "확정 매물·상담 결과만 동기화하며 3루에서 입력한 날짜와 금액은 유지합니다.")
+    public ApiResponse<ContractEntryResponse> prefill(
+            @AuthenticationPrincipal MemberPrincipal principal, @PathVariable Long planId) {
+        return ApiResponse.success(entries.prefill(principal.memberId(), planId));
     }
 
     @GetMapping("/schedule")
