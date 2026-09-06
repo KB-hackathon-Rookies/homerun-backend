@@ -226,7 +226,8 @@ class MigrationTest {
         // V58 이 소득공제 계산 수치 3건(FCT-239~241)을 더했다(BR-29).
         // V59 가 보증료 지원 금액 수치 4건(FCT-242~245)을 더했다(BR-31).
         // V62 가 청년 버팀목 소득구간 금리·지방조정·우대 11건(FCT-246~256)을 더했다(#1).
-        assertThat(count).isEqualTo(256);
+        // V66 이 세대 무주택·중복대출·대상 주택 공식 근거 3건(FCT-257~259)을 더했다.
+        assertThat(count).isEqualTo(259);
     }
 
     @Test
@@ -257,9 +258,11 @@ class MigrationTest {
     @Test
     @DisplayName("판정에 쓸 수 없는 수치가 확정 상태로 들어가 있지 않다")
     void should_not_mark_unresolved_facts_as_confirmed() {
-        // FCT-004 순자산 기준, FCT-009 버팀목 한도. 값이 정해지기 전까지 CONFLICT 여야 한다.
-        assertThat(confidenceOf("FCT-004")).isEqualTo("CONFLICT");
-        assertThat(confidenceOf("FCT-009")).isEqualTo("CONFLICT");
+        // 모호했던 구 팩트는 운영 판정에서 은퇴시키고, 공식 원문을 다시 확인한 대체 팩트를 쓴다.
+        assertThat(confidenceOf("FCT-004")).isEqualTo("RETIRED");
+        assertThat(confidenceOf("FCT-009")).isEqualTo("RETIRED");
+        assertThat(confidenceOf("FCT-170")).isEqualTo("CONFIRMED");
+        assertThat(confidenceOf("FCT-171")).isEqualTo("CONFIRMED");
     }
 
     @Test
@@ -286,9 +289,11 @@ class MigrationTest {
 
         // 승격 대상이 아닌 버전은 여전히 DRAFT다 — 승격이 정확히 지정한 버전에만 적용됐는지 확인한다.
         assertThat(ruleStatus("JEONSE-YOUTH-BEOTIMMOK", 1)).isEqualTo("DRAFT");
-        assertThat(ruleStatus("JEONSE-YOUTH-BEOTIMMOK", 3)).isEqualTo("ACTIVE");
+        assertThat(ruleStatus("JEONSE-YOUTH-BEOTIMMOK", 3)).isEqualTo("RETIRED");
+        assertThat(ruleStatus("JEONSE-YOUTH-BEOTIMMOK", 11)).isEqualTo("ACTIVE");
         assertThat(ruleStatus("JEONSE-GENERAL-BEOTIMMOK", 2)).isEqualTo("DRAFT");
-        assertThat(ruleStatus("JEONSE-GENERAL-BEOTIMMOK", 3)).isEqualTo("ACTIVE");
+        assertThat(ruleStatus("JEONSE-GENERAL-BEOTIMMOK", 3)).isEqualTo("RETIRED");
+        assertThat(ruleStatus("JEONSE-GENERAL-BEOTIMMOK", 11)).isEqualTo("ACTIVE");
         assertThat(ruleStatus("JEONSE-SEOUL-INTEREST-SUPPORT", 2)).isEqualTo("DRAFT");
         assertThat(ruleStatus("JEONSE-SEOUL-INTEREST-SUPPORT", 3)).isEqualTo("ACTIVE");
         assertThat(ruleStatus("RETURN-GUARANTEE-HUG", 1)).isEqualTo("ACTIVE");

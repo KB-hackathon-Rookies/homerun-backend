@@ -127,6 +127,44 @@ class PolicyRuleEngineTest {
     }
 
     @Test
+    void should_failProhibitedLoanCheck_when_existingJeonseLoanIsKnown() {
+        when(facts.require("FCT-258")).thenReturn(fact("FCT-258", "0"));
+        RuleDocument document = prohibitedLoanDocument();
+        PlanInput input = input(null, null, null, null, null);
+        ReflectionTestUtils.setField(input, "existingJeonseLoan", true);
+
+        ConditionResult result = engine.evaluate(document, input).get(0);
+
+        assertThat(result.isMet()).isFalse();
+        assertThat(result.factCode()).isEqualTo("FCT-258");
+    }
+
+    @Test
+    void should_requireBankConfirmation_when_personalJeonseLoanIsAbsent() {
+        when(facts.require("FCT-258")).thenReturn(fact("FCT-258", "0"));
+        RuleDocument document = prohibitedLoanDocument();
+        PlanInput input = input(null, null, null, null, null);
+        ReflectionTestUtils.setField(input, "existingJeonseLoan", false);
+
+        ConditionResult result = engine.evaluate(document, input).get(0);
+
+        assertThat(result.isMet()).isNull();
+        assertThat(result.requiredText()).contains("세대원 기금대출");
+    }
+
+    private RuleDocument prohibitedLoanDocument() {
+        return new RuleDocument(
+                "AND",
+                List.of(new RuleCondition(
+                        "NO_DUPLICATE_LOAN",
+                        "has_existing_jeonse_loan",
+                        "prohibited_loan_check",
+                        false,
+                        "FCT-258",
+                        null)));
+    }
+
+    @Test
     void should_beMet_when_referenceOnlyFactExists() {
         when(facts.require("FCT-056")).thenReturn(fact("FCT-056", "126"));
         RuleDocument document = new RuleDocument(

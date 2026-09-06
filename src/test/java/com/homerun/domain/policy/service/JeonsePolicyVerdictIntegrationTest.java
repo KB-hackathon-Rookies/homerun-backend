@@ -130,8 +130,13 @@ class JeonsePolicyVerdictIntegrationTest {
                         """).setParameter("pid", planId).getResultList();
 
         assertThat(rows).hasSize(3);
-        // household_homeless=true, has_existing_jeonse_loan=false → 두 조건 다 충족 → PASS.
-        assertThat(rows).allSatisfy(row -> assertThat(row[1]).isEqualTo("PASS"));
+        // 개인 전세대출이 없다는 답만으로 세대원 기금대출·배우자 주담대까지 없다고 단정하지 않는다.
+        assertThat(rows)
+                .extracting(row -> row[0] + ":" + row[1])
+                .containsExactly(
+                        "JEONSE-GENERAL-BEOTIMMOK:NEED_INFO",
+                        "JEONSE-SEOUL-INTEREST-SUPPORT:PASS",
+                        "JEONSE-YOUTH-BEOTIMMOK:NEED_INFO");
 
         long basisCount =
                 ((Number) em.createNativeQuery("""
@@ -139,7 +144,7 @@ class JeonsePolicyVerdictIntegrationTest {
                         JOIN policy_verdict v ON v.id = b.verdict_id
                         WHERE v.plan_id = :pid
                         """).setParameter("pid", planId).getSingleResult()).longValue();
-        assertThat(basisCount).isEqualTo(6L); // 정책 3개 × 조건 2개
+        assertThat(basisCount).isGreaterThan(6L);
 
         // 재판정해도 (plan_id, policy_id, rule_id) 유니크 제약에 안 걸리고 같은 행을 덮어써야 한다.
         service.evaluate(memberId, planId);
@@ -251,7 +256,8 @@ class JeonsePolicyVerdictIntegrationTest {
                         """).setParameter("pid", planId).getSingleResult();
 
         assertThat(((Number) row[0]).longValue()).isEqualTo(expectedLoan);
-        assertThat(row[1]).isNotNull();
+        // 중복대출 확인 전에는 범위형 금리도 확정 금리 한 칸으로 저장하지 않는다.
+        assertThat(row[1]).isNull();
     }
 
     private void activatePriceRatioRule(String policyCode) {
