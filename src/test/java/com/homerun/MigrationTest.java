@@ -199,6 +199,13 @@ class MigrationTest {
     }
 
     @Test
+    @DisplayName("V61이 고정지출 autopay 컬럼과 category CHECK 를 추가한다")
+    void should_alignFixedExpense_whenV61IsApplied() {
+        assertThat(columnNames("fixed_expense")).contains("autopay");
+        assertThat(constraintDefinition("ck_fixed_expense_category")).contains("INTEREST", "MGMT", "OTHER");
+    }
+
+    @Test
     @DisplayName("팩트 레지스트리에 전세대출 진단 기준까지 적용된다")
     void should_seed_config_effective_when_migrated() {
         Integer count = jdbc.queryForObject("SELECT count(*) FROM config_effective", Integer.class);
