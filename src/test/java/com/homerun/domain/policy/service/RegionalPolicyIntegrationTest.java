@@ -52,7 +52,7 @@ class RegionalPolicyIntegrationTest {
     @BeforeEach
     void setUp() {
         userId = ((Number) em.createNativeQuery(
-                                "INSERT INTO app_user (auth_provider,provider_user_id,nickname) VALUES ('KAKAO','regional-'||nextval('app_user_id_seq'),'regional') RETURNING id")
+                                "INSERT INTO app_user (auth_provider,provider_user_id,name) VALUES ('KAKAO','regional-'||nextval('app_user_id_seq'),'regional') RETURNING id")
                         .getSingleResult())
                 .longValue();
         planId = ((Number)

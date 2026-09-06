@@ -70,32 +70,32 @@ class MemberManagementIntegrationTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.id").value(member.getId()))
                 .andExpect(jsonPath("$.data.provider").value("LOCAL"))
-                .andExpect(jsonPath("$.data.nickname").value("기존닉네임"));
+                .andExpect(jsonPath("$.data.name").value("기존닉네임"));
 
         mockMvc.perform(patch("/api/v1/members/me")
                         .header(HttpHeaders.AUTHORIZATION, bearer(accessToken))
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content("{\"nickname\":\"  새닉네임  \"}"))
+                        .content("{\"name\":\"  새닉네임  \"}"))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.data.nickname").value("새닉네임"));
+                .andExpect(jsonPath("$.data.name").value("새닉네임"));
 
         Member updated = memberRepository.findById(member.getId()).orElseThrow();
-        assertThat(updated.getNickname()).isEqualTo("새닉네임");
+        assertThat(updated.getName()).isEqualTo("새닉네임");
         assertThat(updated.getUpdatedAt()).isAfterOrEqualTo(member.getCreatedAt());
     }
 
     @Test
-    void should_returnFieldError_when_nicknameIsBlank() throws Exception {
+    void should_returnFieldError_when_nameIsBlank() throws Exception {
         Member member = saveLocalMember("validation@example.com", "기존닉네임");
         String accessToken = jwtTokenProvider.createAccessToken(member);
 
         mockMvc.perform(patch("/api/v1/members/me")
                         .header(HttpHeaders.AUTHORIZATION, bearer(accessToken))
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content("{\"nickname\":\"   \"}"))
+                        .content("{\"name\":\"   \"}"))
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.code").value("COMMON_001"))
-                .andExpect(jsonPath("$.fieldErrors[0].field").value("nickname"));
+                .andExpect(jsonPath("$.fieldErrors[0].field").value("name"));
     }
 
     @Test
@@ -152,9 +152,8 @@ class MemberManagementIntegrationTest {
                 .isEqualTo(registeredAgain.getId());
     }
 
-    private Member saveLocalMember(String email, String nickname) {
-        return memberRepository.saveAndFlush(
-                Member.createLocal(email, passwordEncoder.encode("password123"), nickname));
+    private Member saveLocalMember(String email, String name) {
+        return memberRepository.saveAndFlush(Member.createLocal(email, passwordEncoder.encode("password123"), name));
     }
 
     private String bearer(String accessToken) {

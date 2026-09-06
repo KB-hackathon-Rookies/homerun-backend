@@ -65,7 +65,7 @@ public class EmailAuthController {
     @Operation(summary = "이메일 회원가입")
     public ResponseEntity<ApiResponse<LoginResponse>> signup(@Valid @RequestBody EmailSignupRequest request) {
         Member member = emailAuthService.signup(
-                request.email(), request.password(), request.nickname(), request.verificationToken());
+                request.email(), request.password(), request.name(), request.verificationToken());
         return loginResponse(member);
     }
 

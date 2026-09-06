@@ -61,7 +61,7 @@ class ConsentServiceTest {
     /** plan 은 app_user 를 참조한다. 테스트가 쓸 최소한의 행만 직접 넣는다. */
     private Long newPlan() {
         Long userId = (Long) em.createNativeQuery("""
-                        INSERT INTO app_user (auth_provider, provider_user_id, nickname)
+                        INSERT INTO app_user (auth_provider, provider_user_id, name)
                         VALUES ('KAKAO', 'test-' || nextval('app_user_id_seq'), 'tester')
                         RETURNING id
                         """).getSingleResult();

@@ -31,7 +31,7 @@ public class MemberService {
     @Transactional
     public MemberProfileResponse updateMyProfile(Long memberId, UpdateMemberProfileRequest request) {
         Member member = findActiveMember(memberId);
-        member.updateNickname(request.nickname().trim());
+        member.updateName(request.name().trim());
         return MemberProfileResponse.from(member);
     }
 

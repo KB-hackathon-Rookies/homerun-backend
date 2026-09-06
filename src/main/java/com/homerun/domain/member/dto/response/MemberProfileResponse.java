@@ -9,7 +9,7 @@ public record MemberProfileResponse(
         @Schema(description = "회원 ID") Long id,
         @Schema(description = "가입 방식", example = "LOCAL") String provider,
         @Schema(description = "이메일", nullable = true) String email,
-        @Schema(description = "닉네임", nullable = true) String nickname,
+        @Schema(description = "이름", nullable = true) String name,
         @Schema(description = "가입 시각") Instant createdAt,
         @Schema(description = "마지막 수정 시각") Instant updatedAt) {
 
@@ -18,7 +18,7 @@ public record MemberProfileResponse(
                 member.getId(),
                 member.getProvider().name(),
                 member.getEmail(),
-                member.getNickname(),
+                member.getName(),
                 member.getCreatedAt(),
                 member.getUpdatedAt());
     }

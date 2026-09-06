@@ -36,7 +36,7 @@ class FinancialSnapshotPersistenceIntegrationTest {
     @BeforeEach
     void setUpMember() {
         memberId = ((Number) entityManager.createNativeQuery("""
-                        INSERT INTO app_user (auth_provider, provider_user_id, nickname)
+                        INSERT INTO app_user (auth_provider, provider_user_id, name)
                         VALUES ('KAKAO', 'snapshot-test-' || nextval('app_user_id_seq'), 'tester')
                         RETURNING id
                         """).getSingleResult()).longValue();

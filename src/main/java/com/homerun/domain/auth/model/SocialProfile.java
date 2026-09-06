@@ -1,3 +1,3 @@
 package com.homerun.domain.auth.model;
 
-public record SocialProfile(String providerId, String email, String nickname) {}
+public record SocialProfile(String providerId, String email, String name) {}

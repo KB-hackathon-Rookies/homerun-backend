@@ -216,5 +216,5 @@ class EmailSignupIntegrationTest {
         return java.util.HexFormat.of().formatHex(digest);
     }
 
-    private record SignupBody(String email, String password, String nickname, String verificationToken) {}
+    private record SignupBody(String email, String password, String name, String verificationToken) {}
 }
