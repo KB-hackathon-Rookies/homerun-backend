@@ -195,7 +195,8 @@ class MigrationTest {
         // V33 이 은행별 금리 8건(FCT-201~208), V36 이 분리지급 연령 2건(FCT-209·210)을 더했다.
         // V51 이 대출보증 한도·비율 4건(FCT-211~214)을 더했다(BR-19).
         // V54 가 부대비용·중개보수·인지세·보증료율 24건(FCT-215~238)을 더했다(BR-08a·BR-21·BR-27).
-        assertThat(count).isEqualTo(238);
+        // V58 이 소득공제 계산 수치 3건(FCT-239~241)을 더했다(BR-29).
+        assertThat(count).isEqualTo(241);
     }
 
     @Test
@@ -205,6 +206,14 @@ class MigrationTest {
         assertThat(numberOf("FCT-222")).isEqualByComparingTo("0.3"); // 중개보수 3구간 요율
         assertThat(numberOf("FCT-229")).isEqualByComparingTo("75000"); // 인지세 3구간 고객부담
         assertThat(numberOf("FCT-237")).isEqualByComparingTo("500000"); // 이사비 기본값
+    }
+
+    @Test
+    @DisplayName("V58이 소득공제 계산 수치를 계산 가능한 형태로 심는다")
+    void should_seed_taxDeductionFacts_whenV58IsApplied() {
+        assertThat(numberOf("FCT-239")).isEqualByComparingTo("40"); // 공제율
+        assertThat(numberOf("FCT-240")).isEqualByComparingTo("10000000"); // 상환액 상한
+        assertThat(numberOf("FCT-241")).isEqualByComparingTo("16.5"); // 간이세율
     }
 
     @Test
