@@ -91,6 +91,9 @@ class PropertyCandidateServiceTest {
         var result = service.analyzeAndSave(MEMBER_ID, PLAN_ID, request());
 
         assertThat(result.automaticFacts().nonResidential()).isTrue();
+        // 근생은 오피스텔로 판별돼도 CHECK 가 아니라 ILLEGAL 이 먼저다(BR-10a).
+        assertThat(result.automaticFacts().buildingVerdict())
+                .isEqualTo(com.homerun.domain.property.type.BuildingVerdict.ILLEGAL_BUILDING);
     }
 
     @Test
