@@ -43,6 +43,15 @@ public class ContractScheduleService {
         return build(contract);
     }
 
+    /**
+     * 계약 마일스톤만 계산한다. 알림 스케줄러가 "오늘이 마일스톤 당일인 계약"을 찾을 때
+     * 이 값을 단일 진실 소스로 재사용한다 — D-day 분기 규칙을 두 군데서 관리하지 않는다.
+     * 잔금일이 없으면 빈 목록이다.
+     */
+    public List<ContractScheduleResponse.Milestone> milestones(LeaseContract contract) {
+        return build(contract).milestones();
+    }
+
     ContractScheduleResponse build(LeaseContract contract) {
         LocalDate balance = contract.getBalanceDate();
         List<String> warnings = new ArrayList<>();
