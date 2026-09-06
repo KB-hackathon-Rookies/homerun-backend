@@ -142,7 +142,7 @@ public class PropertyCandidateController {
     }
 
     @PostMapping("/compare")
-    @Operation(summary = "매물 후보 비교", description = "최대 5개까지 등록할 수 있고 한 번에 2~3개를 요청 순서대로 비교합니다.")
+    @Operation(summary = "매물 후보 비교", description = "최대 5개까지 등록할 수 있고 한 번에 2~3개를 매물·상담 요약과 함께 비교합니다.")
     public ApiResponse<PropertyComparisonResponse> compare(
             @AuthenticationPrincipal MemberPrincipal principal,
             @PathVariable Long planId,
@@ -151,7 +151,7 @@ public class PropertyCandidateController {
     }
 
     @PostMapping("/{propertyId}/consultations")
-    @Operation(summary = "은행 상담 결과 등록", description = "같은 매물에 여러 은행·담보 방식의 상담 결과를 저장할 수 있습니다.")
+    @Operation(summary = "은행 상담 결과 등록", description = "GREEN 이상 매물에 복수 은행 결과를 저장합니다. 모든 답변은 UNKNOWN/NOT_HEARD를 지원합니다.")
     public ApiResponse<BankConsultationResponse> addConsultation(
             @AuthenticationPrincipal MemberPrincipal principal,
             @PathVariable Long planId,
@@ -170,7 +170,7 @@ public class PropertyCandidateController {
     }
 
     @PutMapping("/decision")
-    @Operation(summary = "최종 매물·대출 조건 확정", description = "매물과 그 매물에 속한 은행 상담 결과를 함께 선택합니다.")
+    @Operation(summary = "최종 매물·대출 조건 확정", description = "매물과 그 매물에 속한 대출 가능(POSSIBLE) 상담 결과를 함께 선택합니다.")
     public ApiResponse<PropertyDecisionResponse> decide(
             @AuthenticationPrincipal MemberPrincipal principal,
             @PathVariable Long planId,

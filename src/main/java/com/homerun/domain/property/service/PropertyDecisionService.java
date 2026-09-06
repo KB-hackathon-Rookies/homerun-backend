@@ -8,6 +8,7 @@ import com.homerun.domain.property.dto.request.PropertyDecisionRequest;
 import com.homerun.domain.property.dto.response.BankConsultationResponse;
 import com.homerun.domain.property.dto.response.PropertyCandidateResponse;
 import com.homerun.domain.property.dto.response.PropertyComparisonResponse;
+import com.homerun.domain.property.dto.response.PropertyConsultationSummaryResponse;
 import com.homerun.domain.property.dto.response.PropertyDecisionResponse;
 import com.homerun.domain.property.entity.BankConsultation;
 import com.homerun.domain.property.entity.Property;
@@ -19,6 +20,7 @@ import com.homerun.global.exception.BusinessException;
 import com.homerun.global.exception.ErrorCode;
 import java.time.Clock;
 import java.time.Instant;
+import java.util.Comparator;
 import java.util.HashSet;
 import java.util.List;
 import org.springframework.stereotype.Service;
@@ -55,12 +57,17 @@ public class PropertyDecisionService {
         if (new HashSet<>(request.propertyIds()).size() != request.propertyIds().size()) {
             throw new BusinessException(ErrorCode.PROPERTY_COMPARISON_DUPLICATE);
         }
-        List<PropertyCandidateResponse> compared = request.propertyIds().stream()
+        List<Property> comparedProperties = request.propertyIds().stream()
                 .map(propertyId -> ownedProperty(planId, propertyId))
+                .toList();
+        List<PropertyCandidateResponse> compared = comparedProperties.stream()
                 .map(property ->
                         PropertyCandidateResponse.from(property, trafficLights.forProperty(planId, property.getId())))
                 .toList();
-        return new PropertyComparisonResponse(compared);
+        List<PropertyConsultationSummaryResponse> summaries = comparedProperties.stream()
+                .map(property -> consultationSummary(planId, property.getId()))
+                .toList();
+        return new PropertyComparisonResponse(compared, summaries);
     }
 
     @Transactional
@@ -68,6 +75,9 @@ public class PropertyDecisionService {
             Long memberId, Long planId, Long propertyId, BankConsultationRequest request) {
         ownedPlan(memberId, planId);
         Property property = ownedProperty(planId, propertyId);
+        if (!trafficLights.forProperty(planId, propertyId).showsLoanProducts()) {
+            throw new BusinessException(ErrorCode.PROPERTY_CONSULTATION_NOT_READY);
+        }
         BankConsultationResponse response =
                 BankConsultationResponse.from(consultations.save(new BankConsultation(planId, propertyId, request)));
         property.markConsulted();
@@ -86,11 +96,15 @@ public class PropertyDecisionService {
     @Transactional
     public PropertyDecisionResponse decide(Long memberId, Long planId, PropertyDecisionRequest request) {
         ownedPlan(memberId, planId);
-        Property property = ownedProperty(planId, request.propertyId());
+        ownedProperty(planId, request.propertyId());
         BankConsultation consultation = consultations
                 .findByIdAndPlanIdAndPropertyId(request.consultationId(), planId, request.propertyId())
                 .orElseThrow(() -> new BusinessException(ErrorCode.CONSULTATION_PROPERTY_MISMATCH));
+        if (!consultation.isSelectable()) {
+            throw new BusinessException(ErrorCode.BANK_CONSULTATION_NOT_SELECTABLE);
+        }
         properties.clearSelection(planId);
+        Property property = ownedProperty(planId, request.propertyId());
         property.select();
         Instant decidedAt = Instant.now(clock);
         PropertyDecision decision = decisions
@@ -121,6 +135,21 @@ public class PropertyDecisionService {
                 PropertyCandidateResponse.from(
                         property, trafficLights.forProperty(decision.getPlanId(), property.getId())),
                 BankConsultationResponse.from(consultation));
+    }
+
+    private PropertyConsultationSummaryResponse consultationSummary(Long planId, Long propertyId) {
+        List<BankConsultation> saved =
+                consultations.findAllByPlanIdAndPropertyIdOrderByConsultedAtDescIdDesc(planId, propertyId);
+        BankConsultationResponse latest = saved.isEmpty() ? null : BankConsultationResponse.from(saved.get(0));
+        BankConsultationResponse best = saved.stream()
+                .filter(BankConsultation::isSelectable)
+                .filter(consultation -> consultation.getApprovedLimit() != null)
+                .max(Comparator.comparing(BankConsultation::getApprovedLimit)
+                        .thenComparing(
+                                BankConsultation::getQuotedRate, Comparator.nullsFirst(Comparator.reverseOrder())))
+                .map(BankConsultationResponse::from)
+                .orElse(null);
+        return new PropertyConsultationSummaryResponse(propertyId, saved.size(), latest, best);
     }
 
     private Plan ownedPlan(Long memberId, Long planId) {

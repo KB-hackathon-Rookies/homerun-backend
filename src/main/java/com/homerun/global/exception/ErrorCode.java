@@ -104,6 +104,8 @@ public enum ErrorCode {
     PROPERTY_WORKFLOW_REVISION_MISMATCH(HttpStatus.CONFLICT, "PRP_009", "다른 요청에서 매물 확인 단계가 변경되었습니다."),
     PROPERTY_WORKFLOW_STEP_INVALID(HttpStatus.CONFLICT, "PRP_010", "현재 매물 확인 단계에서는 저장할 수 없습니다."),
     PROPERTY_LOAN_PRODUCTS_NOT_READY(HttpStatus.CONFLICT, "PRP_011", "필수 매물 확인을 마친 후 대출 상품을 판정할 수 있습니다."),
+    PROPERTY_CONSULTATION_NOT_READY(HttpStatus.CONFLICT, "PRP_012", "GREEN 상태의 매물만 은행 상담 결과를 저장할 수 있습니다."),
+    BANK_CONSULTATION_NOT_SELECTABLE(HttpStatus.CONFLICT, "PRP_013", "대출 가능 답변을 받은 상담 결과만 최종 선택할 수 있습니다."),
     BANK_CONSULTATION_NOT_FOUND(HttpStatus.NOT_FOUND, "PRP_005", "은행 상담 결과를 찾을 수 없습니다."),
     CONSULTATION_PROPERTY_MISMATCH(HttpStatus.BAD_REQUEST, "PRP_006", "선택한 상담 결과가 해당 매물의 것이 아닙니다."),
     PROPERTY_DECISION_NOT_FOUND(HttpStatus.NOT_FOUND, "PRP_007", "확정한 매물과 대출 조건이 없습니다."),
