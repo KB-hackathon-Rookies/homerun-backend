@@ -9,10 +9,12 @@ import java.util.List;
 
 public record ContractScheduleResponse(
         LocalDate balanceDate,
+        LocalDate applicationDeadline,
         LoanProductKind loanProductKind,
         ContractCollateralMethod collateralMethod,
         ApplicationMethod applicationMethod,
         HouseType houseType,
+        boolean compressedSchedule,
         List<Milestone> milestones,
         List<String> warnings) {
 

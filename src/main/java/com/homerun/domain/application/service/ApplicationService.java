@@ -92,7 +92,7 @@ public class ApplicationService {
             if (request.rejectStage() == null) {
                 throw new BusinessException(ErrorCode.REJECT_STAGE_REQUIRED);
             }
-            application.recordRejection(request.rejectStage(), request.rejectReasonCode());
+            application.recordRejection(request.rejectStage(), request.rejectReasonCode(), request.rejectionEvidence());
         } else if (request.status() == ApplicationStatus.APPROVED) {
             application.recordApproval(request.approvedAmount(), request.approvedRate());
         }
@@ -122,6 +122,7 @@ public class ApplicationService {
                 application.resultAt(),
                 application.rejectStage(),
                 application.rejectReasonCode(),
+                application.rejectionEvidence(),
                 application.approvedAmount(),
                 application.approvedRate(),
                 RejectGuidance.forStage(application.rejectStage()));

@@ -3,13 +3,16 @@ package com.homerun.domain.contract.controller;
 import com.homerun.domain.contract.dto.ContractDtos.ContractGuide;
 import com.homerun.domain.contract.dto.ContractDtos.SaveRequest;
 import com.homerun.domain.contract.dto.request.RegistrySnapshotRequest;
+import com.homerun.domain.contract.dto.request.ThirdBaseCompleteRequest;
 import com.homerun.domain.contract.dto.response.ContractEntryResponse;
 import com.homerun.domain.contract.dto.response.ContractScheduleResponse;
 import com.homerun.domain.contract.dto.response.RegistryComparisonResponse;
+import com.homerun.domain.contract.dto.response.ThirdBaseCompleteResponse;
 import com.homerun.domain.contract.service.ContractEntryService;
 import com.homerun.domain.contract.service.ContractScheduleService;
 import com.homerun.domain.contract.service.ContractService;
 import com.homerun.domain.contract.service.RegistryComparisonService;
+import com.homerun.domain.contract.service.ThirdBaseCompletionService;
 import com.homerun.domain.property.dto.request.PropertyFacts;
 import com.homerun.domain.property.dto.response.PropertyVerification;
 import com.homerun.global.response.ApiResponse;
@@ -34,16 +37,19 @@ public class ContractController {
 
     private final ContractService service;
     private final ContractEntryService entries;
+    private final ThirdBaseCompletionService completions;
     private final ContractScheduleService schedules;
     private final RegistryComparisonService registries;
 
     public ContractController(
             ContractService service,
             ContractEntryService entries,
+            ThirdBaseCompletionService completions,
             ContractScheduleService schedules,
             RegistryComparisonService registries) {
         this.service = service;
         this.entries = entries;
+        this.completions = completions;
         this.schedules = schedules;
         this.registries = registries;
     }
@@ -53,6 +59,15 @@ public class ContractController {
     public ApiResponse<ContractEntryResponse> prefill(
             @AuthenticationPrincipal MemberPrincipal principal, @PathVariable Long planId) {
         return ApiResponse.success(entries.prefill(principal.memberId(), planId));
+    }
+
+    @PostMapping("/complete")
+    @Operation(summary = "3루 완료", description = "잔금 지급·전입신고·잔금일 등기부 안전 대조를 확인하고 HOME 단계로 넘깁니다.")
+    public ApiResponse<ThirdBaseCompleteResponse> complete(
+            @AuthenticationPrincipal MemberPrincipal principal,
+            @PathVariable Long planId,
+            @Valid @RequestBody ThirdBaseCompleteRequest request) {
+        return ApiResponse.success(completions.complete(principal.memberId(), planId, request));
     }
 
     @GetMapping("/schedule")

@@ -47,6 +47,9 @@ public class PolicyApplication {
     @Column(name = "reject_reason_code")
     private String rejectReasonCode;
 
+    @Column(name = "rejection_evidence", columnDefinition = "text")
+    private String rejectionEvidence;
+
     @Column(name = "approved_amount")
     private Long approvedAmount;
 
@@ -97,6 +100,10 @@ public class PolicyApplication {
         return rejectReasonCode;
     }
 
+    public String rejectionEvidence() {
+        return rejectionEvidence;
+    }
+
     public Long approvedAmount() {
         return approvedAmount;
     }
@@ -129,6 +136,7 @@ public class PolicyApplication {
     private void clearOutcome() {
         this.rejectStage = null;
         this.rejectReasonCode = null;
+        this.rejectionEvidence = null;
         this.approvedAmount = null;
         this.approvedRate = null;
     }
@@ -143,11 +151,13 @@ public class PolicyApplication {
         this.approvedRate = rate;
         this.rejectStage = null;
         this.rejectReasonCode = null;
+        this.rejectionEvidence = null;
     }
 
-    public void recordRejection(RejectStage stage, String reasonCode) {
+    public void recordRejection(RejectStage stage, String reasonCode, String evidence) {
         this.rejectStage = stage;
         this.rejectReasonCode = reasonCode;
+        this.rejectionEvidence = evidence;
         this.approvedAmount = null;
         this.approvedRate = null;
     }
