@@ -40,7 +40,7 @@ class AssetComparisonIntegrationTest {
     @BeforeEach
     void setUp() {
         memberId = ((Number) em.createNativeQuery("""
-                        INSERT INTO app_user (auth_provider, provider_user_id, nickname)
+                        INSERT INTO app_user (auth_provider, provider_user_id, name)
                         VALUES ('KAKAO', 'asset-test-' || nextval('app_user_id_seq'), 'tester')
                         RETURNING id
                         """).getSingleResult()).longValue();

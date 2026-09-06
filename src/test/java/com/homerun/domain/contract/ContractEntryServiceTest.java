@@ -98,7 +98,7 @@ class ContractEntryServiceTest {
 
     private Long newMember() {
         return (Long) em.createNativeQuery("""
-                        INSERT INTO app_user (auth_provider, provider_user_id, nickname)
+                        INSERT INTO app_user (auth_provider, provider_user_id, name)
                         VALUES ('KAKAO', 'contract-entry-' || nextval('app_user_id_seq'), 'tester')
                         RETURNING id
                         """).getSingleResult();

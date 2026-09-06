@@ -57,7 +57,7 @@ class ApplicationServiceTest {
     @BeforeEach
     void setUpPlan() {
         ownerId = (Long) em.createNativeQuery("""
-                        INSERT INTO app_user (auth_provider, provider_user_id, nickname)
+                        INSERT INTO app_user (auth_provider, provider_user_id, name)
                         VALUES ('KAKAO', 'test-' || nextval('app_user_id_seq'), 'tester')
                         RETURNING id
                         """).getSingleResult();

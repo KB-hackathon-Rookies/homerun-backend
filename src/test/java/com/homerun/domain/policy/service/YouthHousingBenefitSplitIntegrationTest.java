@@ -171,7 +171,7 @@ class YouthHousingBenefitSplitIntegrationTest {
     /** plan_input 을 직접 넣고 다시 읽는다 — 새 컬럼이 실제로 왕복하는지까지 본다. */
     private PlanInput input(LocalDate birthDate, Boolean parentOnHousingBenefit) {
         Long memberId = ((Number) em.createNativeQuery("""
-                        INSERT INTO app_user (auth_provider, provider_user_id, nickname)
+                        INSERT INTO app_user (auth_provider, provider_user_id, name)
                         VALUES ('KAKAO', 'split-' || nextval('app_user_id_seq'), 'tester')
                         RETURNING id
                         """).getSingleResult()).longValue();

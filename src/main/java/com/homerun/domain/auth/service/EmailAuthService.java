@@ -27,7 +27,7 @@ public class EmailAuthService {
     }
 
     @Transactional
-    public Member signup(String rawEmail, String password, String nickname, String verificationToken) {
+    public Member signup(String rawEmail, String password, String name, String verificationToken) {
         String email = verificationService.normalize(rawEmail);
         if (memberRepository.existsByEmailIgnoreCaseAndDeletedAtIsNull(email)) {
             throw new BusinessException(ErrorCode.EMAIL_ALREADY_REGISTERED);
@@ -35,7 +35,7 @@ public class EmailAuthService {
         verificationService.consumeVerifiedToken(email, verificationToken);
         try {
             return memberRepository.saveAndFlush(
-                    Member.createLocal(email, passwordEncoder.encode(password), nickname.trim()));
+                    Member.createLocal(email, passwordEncoder.encode(password), name.trim()));
         } catch (DataIntegrityViolationException exception) {
             throw new BusinessException(ErrorCode.EMAIL_ALREADY_REGISTERED, exception);
         }

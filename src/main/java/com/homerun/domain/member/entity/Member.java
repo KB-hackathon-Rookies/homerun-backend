@@ -33,7 +33,7 @@ public class Member {
     private String email;
 
     @Column(length = 50)
-    private String nickname;
+    private String name;
 
     @Column(name = "birth_date")
     private LocalDate birthDate;
@@ -61,29 +61,29 @@ public class Member {
 
     protected Member() {}
 
-    private Member(AuthProvider provider, String providerId, String email, String nickname) {
+    private Member(AuthProvider provider, String providerId, String email, String name) {
         this.provider = provider;
         this.providerUserId = providerId;
         this.email = email;
-        this.nickname = nickname;
+        this.name = name;
         this.createdAt = Instant.now();
         this.updatedAt = this.createdAt;
     }
 
-    public static Member create(AuthProvider provider, String providerId, String email, String nickname) {
-        return new Member(provider, providerId, email, nickname);
+    public static Member create(AuthProvider provider, String providerId, String email, String name) {
+        return new Member(provider, providerId, email, name);
     }
 
-    public static Member createLocal(String email, String passwordHash, String nickname) {
-        Member member = new Member(AuthProvider.LOCAL, email, email, nickname);
+    public static Member createLocal(String email, String passwordHash, String name) {
+        Member member = new Member(AuthProvider.LOCAL, email, email, name);
         member.passwordHash = passwordHash;
         member.emailVerifiedAt = Instant.now();
         return member;
     }
 
-    public void updateNickname(String nickname) {
+    public void updateName(String name) {
         requireActive();
-        this.nickname = nickname;
+        this.name = name;
         this.updatedAt = Instant.now();
     }
 
@@ -127,8 +127,8 @@ public class Member {
         return email;
     }
 
-    public String getNickname() {
-        return nickname;
+    public String getName() {
+        return name;
     }
 
     public String getPasswordHash() {

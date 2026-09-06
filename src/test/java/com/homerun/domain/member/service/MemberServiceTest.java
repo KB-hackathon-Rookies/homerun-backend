@@ -50,18 +50,18 @@ class MemberServiceTest {
 
         assertThat(response.id()).isEqualTo(MEMBER_ID);
         assertThat(response.provider()).isEqualTo("KAKAO");
-        assertThat(response.nickname()).isEqualTo("기존닉네임");
+        assertThat(response.name()).isEqualTo("기존닉네임");
     }
 
     @Test
-    void should_trimAndUpdateNickname_when_requestIsValid() {
+    void should_trimAndUpdateName_when_requestIsValid() {
         when(memberRepository.findById(MEMBER_ID)).thenReturn(Optional.of(member));
 
         MemberProfileResponse response =
                 memberService.updateMyProfile(MEMBER_ID, new UpdateMemberProfileRequest("  새닉네임  "));
 
-        assertThat(response.nickname()).isEqualTo("새닉네임");
-        assertThat(member.getNickname()).isEqualTo("새닉네임");
+        assertThat(response.name()).isEqualTo("새닉네임");
+        assertThat(member.getName()).isEqualTo("새닉네임");
     }
 
     @Test

@@ -56,7 +56,7 @@ public class OAuthLoginService {
         Member member = memberRepository
                 .findByProviderAndProviderUserIdAndDeletedAtIsNull(provider, profile.providerId())
                 .orElseGet(() -> memberRepository.save(
-                        Member.create(provider, profile.providerId(), profile.email(), profile.nickname())));
+                        Member.create(provider, profile.providerId(), profile.email(), profile.name())));
         return member;
     }
 
