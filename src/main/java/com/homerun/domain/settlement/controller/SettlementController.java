@@ -10,6 +10,7 @@ import com.homerun.domain.settlement.dto.response.MonthlyMetricsResponse;
 import com.homerun.domain.settlement.dto.response.PostAssetReviewResponse;
 import com.homerun.domain.settlement.dto.response.RateCutRightResponse;
 import com.homerun.domain.settlement.dto.response.ReturnGuaranteeGuideResponse;
+import com.homerun.domain.settlement.dto.response.SettlementDashboardResponse;
 import com.homerun.domain.settlement.dto.response.TaxDeductionResponse;
 import com.homerun.domain.settlement.service.CashFlowSummaryService;
 import com.homerun.domain.settlement.service.DelinquencyRiskService;
@@ -18,6 +19,7 @@ import com.homerun.domain.settlement.service.MonthlyMetricsService;
 import com.homerun.domain.settlement.service.PostAssetReviewService;
 import com.homerun.domain.settlement.service.RateCutRightService;
 import com.homerun.domain.settlement.service.ReturnGuaranteeService;
+import com.homerun.domain.settlement.service.SettlementDashboardService;
 import com.homerun.domain.settlement.service.TaxDeductionService;
 import com.homerun.global.response.ApiResponse;
 import com.homerun.global.security.principal.MemberPrincipal;
@@ -45,6 +47,7 @@ public class SettlementController {
     private final ReturnGuaranteeService returnGuaranteeService;
     private final PostAssetReviewService postAssetReviewService;
     private final DelinquencyRiskService delinquencyRiskService;
+    private final SettlementDashboardService dashboardService;
 
     public SettlementController(
             TaxDeductionService taxDeductionService,
@@ -54,7 +57,8 @@ public class SettlementController {
             RateCutRightService rateCutRightService,
             ReturnGuaranteeService returnGuaranteeService,
             PostAssetReviewService postAssetReviewService,
-            DelinquencyRiskService delinquencyRiskService) {
+            DelinquencyRiskService delinquencyRiskService,
+            SettlementDashboardService dashboardService) {
         this.taxDeductionService = taxDeductionService;
         this.guaranteeFeeSupportService = guaranteeFeeSupportService;
         this.monthlyMetricsService = monthlyMetricsService;
@@ -63,6 +67,7 @@ public class SettlementController {
         this.returnGuaranteeService = returnGuaranteeService;
         this.postAssetReviewService = postAssetReviewService;
         this.delinquencyRiskService = delinquencyRiskService;
+        this.dashboardService = dashboardService;
     }
 
     @PostMapping("/tax-deduction")
@@ -149,5 +154,15 @@ public class SettlementController {
     public ApiResponse<DelinquencyRiskResponse> delinquencyRisk(
             @AuthenticationPrincipal MemberPrincipal principal, @PathVariable Long planId) {
         return ApiResponse.success(delinquencyRiskService.forPlan(principal.memberId(), planId));
+    }
+
+    @GetMapping("/dashboard")
+    @Operation(
+            summary = "홈 정착 대시보드",
+            description =
+                    "정착 항목 완료 현황·진행률·독립 후 경과일(D+N)을 보여준다(FR-HD-01). 완료 여부를 저장하지" + " 않는 항목은 미추적으로 표시하고 진행률에서 제외한다.")
+    public ApiResponse<SettlementDashboardResponse> dashboard(
+            @AuthenticationPrincipal MemberPrincipal principal, @PathVariable Long planId) {
+        return ApiResponse.success(dashboardService.forPlan(principal.memberId(), planId));
     }
 }
