@@ -4,6 +4,7 @@ import com.homerun.domain.settlement.dto.request.GuaranteeFeeSupportAmountReques
 import com.homerun.domain.settlement.dto.request.MonthlyMetricsRequest;
 import com.homerun.domain.settlement.dto.request.TaxDeductionRequest;
 import com.homerun.domain.settlement.dto.response.CashFlowSummaryResponse;
+import com.homerun.domain.settlement.dto.response.DelinquencyRiskResponse;
 import com.homerun.domain.settlement.dto.response.GuaranteeFeeSupportAmountResponse;
 import com.homerun.domain.settlement.dto.response.MonthlyMetricsResponse;
 import com.homerun.domain.settlement.dto.response.PostAssetReviewResponse;
@@ -11,6 +12,7 @@ import com.homerun.domain.settlement.dto.response.RateCutRightResponse;
 import com.homerun.domain.settlement.dto.response.ReturnGuaranteeGuideResponse;
 import com.homerun.domain.settlement.dto.response.TaxDeductionResponse;
 import com.homerun.domain.settlement.service.CashFlowSummaryService;
+import com.homerun.domain.settlement.service.DelinquencyRiskService;
 import com.homerun.domain.settlement.service.GuaranteeFeeSupportService;
 import com.homerun.domain.settlement.service.MonthlyMetricsService;
 import com.homerun.domain.settlement.service.PostAssetReviewService;
@@ -42,6 +44,7 @@ public class SettlementController {
     private final RateCutRightService rateCutRightService;
     private final ReturnGuaranteeService returnGuaranteeService;
     private final PostAssetReviewService postAssetReviewService;
+    private final DelinquencyRiskService delinquencyRiskService;
 
     public SettlementController(
             TaxDeductionService taxDeductionService,
@@ -50,7 +53,8 @@ public class SettlementController {
             CashFlowSummaryService cashFlowSummaryService,
             RateCutRightService rateCutRightService,
             ReturnGuaranteeService returnGuaranteeService,
-            PostAssetReviewService postAssetReviewService) {
+            PostAssetReviewService postAssetReviewService,
+            DelinquencyRiskService delinquencyRiskService) {
         this.taxDeductionService = taxDeductionService;
         this.guaranteeFeeSupportService = guaranteeFeeSupportService;
         this.monthlyMetricsService = monthlyMetricsService;
@@ -58,6 +62,7 @@ public class SettlementController {
         this.rateCutRightService = rateCutRightService;
         this.returnGuaranteeService = returnGuaranteeService;
         this.postAssetReviewService = postAssetReviewService;
+        this.delinquencyRiskService = delinquencyRiskService;
     }
 
     @PostMapping("/tax-deduction")
@@ -134,5 +139,15 @@ public class SettlementController {
     public ApiResponse<PostAssetReviewResponse> postAssetReview(
             @AuthenticationPrincipal MemberPrincipal principal, @PathVariable Long planId) {
         return ApiResponse.success(postAssetReviewService.forPlan(principal.memberId(), planId));
+    }
+
+    @GetMapping("/delinquency-risk")
+    @Operation(
+            summary = "연체 위험 판단",
+            description = "월 잔여금이 적자면 연체 위험으로 경고한다(FR-H5-04). 이자 고정지출이 없으면 판단할 수 없어"
+                    + " 등록을 안내하고, 이자 자동이체 미등록이면 연체이자(BR-23) 경고를 함께 준다.")
+    public ApiResponse<DelinquencyRiskResponse> delinquencyRisk(
+            @AuthenticationPrincipal MemberPrincipal principal, @PathVariable Long planId) {
+        return ApiResponse.success(delinquencyRiskService.forPlan(principal.memberId(), planId));
     }
 }
