@@ -196,7 +196,8 @@ class MigrationTest {
         // V51 이 대출보증 한도·비율 4건(FCT-211~214)을 더했다(BR-19).
         // V54 가 부대비용·중개보수·인지세·보증료율 24건(FCT-215~238)을 더했다(BR-08a·BR-21·BR-27).
         // V58 이 소득공제 계산 수치 3건(FCT-239~241)을 더했다(BR-29).
-        assertThat(count).isEqualTo(241);
+        // V59 가 보증료 지원 금액 수치 4건(FCT-242~245)을 더했다(BR-31).
+        assertThat(count).isEqualTo(245);
     }
 
     @Test
@@ -214,6 +215,14 @@ class MigrationTest {
         assertThat(numberOf("FCT-239")).isEqualByComparingTo("40"); // 공제율
         assertThat(numberOf("FCT-240")).isEqualByComparingTo("10000000"); // 상환액 상한
         assertThat(numberOf("FCT-241")).isEqualByComparingTo("16.5"); // 간이세율
+    }
+
+    @Test
+    @DisplayName("V59가 보증료 지원 금액 수치를 심는다")
+    void should_seed_guaranteeFeeSupportAmount_whenV59IsApplied() {
+        assertThat(numberOf("FCT-242")).isEqualByComparingTo("400000"); // 신규 가입 한도
+        assertThat(numberOf("FCT-244")).isEqualByComparingTo("90"); // 청년 외 지원율
+        assertThat(valueTextOf("FCT-245")).isEqualTo("2025-03-31"); // 기준일
     }
 
     @Test
@@ -354,6 +363,11 @@ class MigrationTest {
     private java.math.BigDecimal numberOf(String factCode) {
         return jdbc.queryForObject(
                 "SELECT value_num FROM config_effective WHERE fact_code = ?", java.math.BigDecimal.class, factCode);
+    }
+
+    private String valueTextOf(String factCode) {
+        return jdbc.queryForObject(
+                "SELECT value_text FROM config_effective WHERE fact_code = ?", String.class, factCode);
     }
 
     private String constraintDefinition(String constraintName) {
