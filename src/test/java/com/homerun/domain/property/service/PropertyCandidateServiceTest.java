@@ -93,6 +93,20 @@ class PropertyCandidateServiceTest {
     }
 
     @Test
+    void should_storeDomainVocabulary_not_realEstateApiVocabulary() {
+        // 자동판별은 실거래 API 어휘(ROW_HOUSE)를 주지만 매물에는 도메인 어휘(VILLA)로 저장한다.
+        // 어긋나면 HOUSE_TYPE 화이트리스트·1루 희망유형과 이름이 갈린다(#193).
+        when(houses.analyze(any())).thenReturn(houseAnalysisRowHouse());
+        stubSave(84L);
+        when(verifications.verifyAndRecord(any(), any()))
+                .thenReturn(new PropertyVerification(CheckResult.PASS, List.of(), List.of()));
+
+        service.analyzeAndSave(MEMBER_ID, PLAN_ID, request());
+
+        assertThat(savedProperty().getHouseType()).isEqualTo("VILLA");
+    }
+
+    @Test
     void should_confirmResidential_when_ledgerShowsApartment() {
         // 주거용이 확인되면 FALSE 다. null(모름)과 구분돼야 근생 확인 안내가 안 뜬다.
         when(houses.analyze(any())).thenReturn(houseAnalysis());
@@ -247,6 +261,19 @@ class PropertyCandidateServiceTest {
         return new HouseAnalysisResponse(
                 houseRequest(),
                 HousingType.OFFICETEL,
+                new BuildingLedgerResponse(titles, prices),
+                new RentTransactions(true, 0, 0, null, List.of()),
+                List.of());
+    }
+
+    /** 자동판별이 연립다세대(실거래 API 어휘 ROW_HOUSE)로 나오는 대장. */
+    private HouseAnalysisResponse houseAnalysisRowHouse() {
+        var titles =
+                new BuildingRegisterResponse("00", "OK", 1, List.of(Map.of("mainPurpsCdNm", "연립주택", "violBldYn", "N")));
+        var prices = new BuildingRegisterResponse("00", "OK", 0, List.of());
+        return new HouseAnalysisResponse(
+                houseRequest(),
+                HousingType.ROW_HOUSE,
                 new BuildingLedgerResponse(titles, prices),
                 new RentTransactions(true, 0, 0, null, List.of()),
                 List.of());
