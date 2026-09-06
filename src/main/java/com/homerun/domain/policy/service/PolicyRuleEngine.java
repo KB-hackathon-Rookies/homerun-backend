@@ -46,7 +46,8 @@ public class PolicyRuleEngine {
             "NO_DUPLICATE_LOAN", "기존 전세자금대출 없음",
             "NOT_VIOLATION_BUILDING", "위반건축물이 아님",
             "NOT_MULTI_HOUSEHOLD", "다가구 주택이 아님",
-            "REGION_TARGET", "희망 지역이 서울");
+            "REGION_TARGET", "희망 지역이 서울",
+            "HOUSE_TYPE", "대상 주택 유형");
 
     private final FactRegistry facts;
     private final Clock clock;
@@ -179,6 +180,7 @@ public class PolicyRuleEngine {
     private ConditionResult evaluateOne(RuleCondition condition, PlanInput input, Property property) {
         return switch (condition.op()) {
             case "eq" -> equalityCheck(condition, input, property, true);
+            case "in" -> membershipCheck(condition, input, property);
             case "ne" -> equalityCheck(condition, input, property, false);
             case "lte" -> numericCheck(condition, input, property, false);
             case "lte_by_region" -> regionalLimit(condition, input, property);
@@ -212,6 +214,25 @@ public class PolicyRuleEngine {
                 condition,
                 expectEqual == equal,
                 resolveFact(condition.factCode()).orElse(null));
+    }
+
+    /**
+     * 필드 값이 목록에 있는가(BR-09 주택유형 등). enum 이면 이름으로 비교한다.
+     *
+     * <p>value 가 목록이 아니면 조건식이 잘못 적힌 것이다 — 모르는 op 와 같은 취급으로
+     * NEED_INFO 로 떨어뜨린다. 잘못된 조건식으로 가능·불가를 단정하지 않는다.
+     */
+    private ConditionResult membershipCheck(RuleCondition condition, PlanInput input, Property property) {
+        Object fieldValue = resolveField(condition.field(), input, property);
+        if (fieldValue == null) {
+            return needInfo(condition, null);
+        }
+        if (!(condition.value() instanceof List<?> allowed)) {
+            return needInfo(condition, "이 조건은 자동판정 대상이 아닙니다. 원문을 직접 확인해야 합니다.");
+        }
+        String actual = fieldValue instanceof Enum<?> enumValue ? enumValue.name() : String.valueOf(fieldValue);
+        boolean member = allowed.stream().map(String::valueOf).anyMatch(actual::equals);
+        return met(condition, member, resolveFact(condition.factCode()).orElse(null));
     }
 
     /** field 가 BIGINT(금액 등)든 NUMERIC(면적 등)이든 상관없이 fact 와 비교한다 — 둘 다
@@ -497,6 +518,9 @@ public class PolicyRuleEngine {
             // 받은 희망 조건이라, 매물을 정한 뒤에는 그 집의 면적으로 판정해야 한다.
             // is_violation_building 이 매물에서만 읽는 것과 같은 방향이다.
             case "area_m2" -> propertyAreaOr(property, input);
+            // 매물에서만 읽는다. plan_input 의 HouseType 은 값 체계가 다른 enum(VILLA·DETACHED
+            // 등)이라 섞으면 화이트리스트와 항상 미일치가 난다.
+            case "house_type" -> property == null ? null : property.getHouseType();
             case "is_violation_building" -> property == null ? null : property.getViolationBuilding();
             case "is_multi_household" -> property == null ? null : property.getMultiHousehold();
             default -> null;
