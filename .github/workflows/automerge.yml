@@ -1,22 +1,17 @@
 name: Auto Merge
 
 # CI(build)가 성공한 PR을 자동으로 squash 머지한다.
-#
-# 이 조직은 기본 GITHUB_TOKEN 의 쓰기 권한을 막아 두었고, 저장소가 프리 플랜 비공개라
-# 브랜치 보호(required check) 기반 네이티브 auto-merge 도 쓸 수 없다. 그래서 write 권한이 있는
-# 개인 액세스 토큰(PAT)을 시크릿 AUTOMERGE_TOKEN 으로 받아 머지한다.
-#
-# 설정: 저장소 Settings → Secrets and variables → Actions → New repository secret
-#   Name: AUTOMERGE_TOKEN
-#   Value: repo 권한이 있는 PAT (Fine-grained: Contents=RW, Pull requests=RW / Classic: repo)
-# 시크릿이 없으면 이 워크플로우는 아무것도 하지 않고 조용히 지나간다.
-#
-# workflow_run 은 기본 브랜치(dev)의 이 파일로 돈다 -- dev 에 머지된 뒤부터 이후 PR 에 적용된다.
+# 팀 규칙(리뷰 대기 30분 셀프 머지)을 자동화한다. workflow_run 은 기본 브랜치의 워크플로우
+# 파일로 돈다 -- 이 파일이 dev 에 머지된 뒤부터 이후 PR 에 적용된다.
 
 on:
   workflow_run:
     workflows: ["CI"]
     types: [completed]
+
+permissions:
+  contents: write
+  pull-requests: write
 
 jobs:
   automerge:
@@ -28,15 +23,11 @@ jobs:
     steps:
       - name: Squash-merge the PR whose CI passed
         env:
-          GH_TOKEN: ${{ secrets.AUTOMERGE_TOKEN }}
+          GH_TOKEN: ${{ github.token }}
           REPO: ${{ github.repository }}
           HEAD_SHA: ${{ github.event.workflow_run.head_sha }}
         run: |
           set -euo pipefail
-          if [ -z "${GH_TOKEN:-}" ]; then
-            echo "AUTOMERGE_TOKEN 시크릿이 없어 자동 머지를 건너뛴다."
-            exit 0
-          fi
           # CI 가 돈 커밋(head_sha)에 해당하는 열린 PR 을 찾는다.
           pr=$(gh pr list --repo "$REPO" --state open \
                  --json number,headRefOid,isDraft,mergeStateStatus \
