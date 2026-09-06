@@ -6,10 +6,12 @@ import com.homerun.domain.settlement.dto.request.TaxDeductionRequest;
 import com.homerun.domain.settlement.dto.response.CashFlowSummaryResponse;
 import com.homerun.domain.settlement.dto.response.GuaranteeFeeSupportAmountResponse;
 import com.homerun.domain.settlement.dto.response.MonthlyMetricsResponse;
+import com.homerun.domain.settlement.dto.response.RateCutRightResponse;
 import com.homerun.domain.settlement.dto.response.TaxDeductionResponse;
 import com.homerun.domain.settlement.service.CashFlowSummaryService;
 import com.homerun.domain.settlement.service.GuaranteeFeeSupportService;
 import com.homerun.domain.settlement.service.MonthlyMetricsService;
+import com.homerun.domain.settlement.service.RateCutRightService;
 import com.homerun.domain.settlement.service.TaxDeductionService;
 import com.homerun.global.response.ApiResponse;
 import com.homerun.global.security.principal.MemberPrincipal;
@@ -33,16 +35,19 @@ public class SettlementController {
     private final GuaranteeFeeSupportService guaranteeFeeSupportService;
     private final MonthlyMetricsService monthlyMetricsService;
     private final CashFlowSummaryService cashFlowSummaryService;
+    private final RateCutRightService rateCutRightService;
 
     public SettlementController(
             TaxDeductionService taxDeductionService,
             GuaranteeFeeSupportService guaranteeFeeSupportService,
             MonthlyMetricsService monthlyMetricsService,
-            CashFlowSummaryService cashFlowSummaryService) {
+            CashFlowSummaryService cashFlowSummaryService,
+            RateCutRightService rateCutRightService) {
         this.taxDeductionService = taxDeductionService;
         this.guaranteeFeeSupportService = guaranteeFeeSupportService;
         this.monthlyMetricsService = monthlyMetricsService;
         this.cashFlowSummaryService = cashFlowSummaryService;
+        this.rateCutRightService = rateCutRightService;
     }
 
     @PostMapping("/tax-deduction")
@@ -89,5 +94,15 @@ public class SettlementController {
     public ApiResponse<CashFlowSummaryResponse> cashFlow(
             @AuthenticationPrincipal MemberPrincipal principal, @PathVariable Long planId) {
         return ApiResponse.success(cashFlowSummaryService.forPlan(principal.memberId(), planId));
+    }
+
+    @GetMapping("/rate-cut-right")
+    @Operation(
+            summary = "금리인하요구권 안내",
+            description = "실행 대출 상품에 따라 금리인하요구권 안내를 분기한다(FR-H6-01). 버팀목(기금)대출은 비대상이라"
+                    + " 신청 안내 대신 우대금리 추가 안내를 준다. 은행 자체 대출만 신청 사유·경로를 노출한다.")
+    public ApiResponse<RateCutRightResponse> rateCutRight(
+            @AuthenticationPrincipal MemberPrincipal principal, @PathVariable Long planId) {
+        return ApiResponse.success(rateCutRightService.forPlan(principal.memberId(), planId));
     }
 }
