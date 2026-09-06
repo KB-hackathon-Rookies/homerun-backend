@@ -4,7 +4,6 @@ import com.homerun.domain.house.dto.response.HouseAnalysisResponse;
 import com.homerun.domain.house.service.HouseAnalysisService;
 import com.homerun.domain.plan.entity.Plan;
 import com.homerun.domain.plan.repository.PlanRepository;
-import com.homerun.domain.plan.type.HouseType;
 import com.homerun.domain.property.dto.request.PropertyCandidateAnalysisRequest;
 import com.homerun.domain.property.dto.request.PropertyFacts;
 import com.homerun.domain.property.dto.response.BuildingSafetyFactsResponse;
@@ -72,7 +71,7 @@ public class PropertyCandidateService {
                 request.house().jibunAddress(),
                 request.house().roadAddress(),
                 request.house().buildingName(),
-                HouseType.from(analysis.resolvedHousingType()).name(),
+                analysis.resolvedHouseType().name(),
                 request.deposit(),
                 request.marketPrice(),
                 request.officialPrice(),
@@ -93,7 +92,7 @@ public class PropertyCandidateService {
                 request.detailAddress(),
                 area,
                 matchedArea != null ? DataSource.AUTO : DataSource.MANUAL,
-                request.house().housingType() == null ? DataSource.AUTO : DataSource.MANUAL,
+                request.house().houseType() == null ? DataSource.AUTO : DataSource.MANUAL,
                 priceMatched);
         property.recordRegistryRisks(
                 request.leaseholdRegistered(),
