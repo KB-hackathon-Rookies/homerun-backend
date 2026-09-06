@@ -1,7 +1,9 @@
 package com.homerun.domain.contract.controller;
 
+import com.homerun.domain.contract.dto.response.LoanTransferGuideResponse;
 import com.homerun.domain.contract.dto.response.MoveOutChecklistResponse;
 import com.homerun.domain.contract.dto.response.MoveOutScheduleResponse;
+import com.homerun.domain.contract.service.LoanTransferGuideService;
 import com.homerun.domain.contract.service.MoveOutChecklistService;
 import com.homerun.domain.contract.service.MoveOutScheduleService;
 import com.homerun.global.response.ApiResponse;
@@ -24,10 +26,15 @@ public class MoveOutController {
 
     private final MoveOutChecklistService service;
     private final MoveOutScheduleService scheduleService;
+    private final LoanTransferGuideService loanTransferGuideService;
 
-    public MoveOutController(MoveOutChecklistService service, MoveOutScheduleService scheduleService) {
+    public MoveOutController(
+            MoveOutChecklistService service,
+            MoveOutScheduleService scheduleService,
+            LoanTransferGuideService loanTransferGuideService) {
         this.service = service;
         this.scheduleService = scheduleService;
+        this.loanTransferGuideService = loanTransferGuideService;
     }
 
     @GetMapping("/checklist")
@@ -53,5 +60,14 @@ public class MoveOutController {
             @PathVariable Long planId,
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate moveOutDate) {
         return ApiResponse.success(scheduleService.forPlan(principal.memberId(), planId, moveOutDate));
+    }
+
+    @GetMapping("/loan-transfer")
+    @Operation(
+            summary = "대출 승계·이전 안내",
+            description = "새 집으로 대출을 이어가는 방법(상환 후 신규 / 임차목적물 변경)을 안내한다(FR-H10-03)." + " 은행마다 달라 이사 계획 시 즉시 문의하도록 강조한다.")
+    public ApiResponse<LoanTransferGuideResponse> loanTransfer(
+            @AuthenticationPrincipal MemberPrincipal principal, @PathVariable Long planId) {
+        return ApiResponse.success(loanTransferGuideService.forPlan(principal.memberId(), planId));
     }
 }
