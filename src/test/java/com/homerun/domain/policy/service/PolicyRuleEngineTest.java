@@ -10,6 +10,7 @@ import com.homerun.domain.fact.service.FactRegistry;
 import com.homerun.domain.fact.type.Confidence;
 import com.homerun.domain.plan.dto.request.PlanInputRequest;
 import com.homerun.domain.plan.entity.PlanInput;
+import com.homerun.domain.plan.type.CompanySize;
 import com.homerun.domain.plan.type.EmploymentType;
 import com.homerun.domain.plan.type.FinancialValueSource;
 import com.homerun.domain.plan.type.MaritalStatus;
@@ -549,6 +550,17 @@ class PolicyRuleEngineTest {
     }
 
     @Test
+    void should_notExtendMaxAge_when_militaryButLargeCompany() {
+        when(facts.require("FCT-179")).thenReturn(fact("FCT-179", "19"));
+        when(facts.require("FCT-180")).thenReturn(fact("FCT-180", "34"));
+        // 병역 보정은 중소·중견·창업만(BR-01). 같은 나이·복무라도 대기업이면 상한이 늘지 않아 불충족이다.
+        RuleDocument document = ageRangeDocument();
+        PlanInput input = input(null, null, null, LocalDate.of(1991, 9, 4), 12, CompanySize.LARGE);
+
+        assertThat(engine.evaluate(document, input).get(0).isMet()).isFalse();
+    }
+
+    @Test
     void should_returnEligibleDate_when_stillTooYoungForMinAge() {
         when(facts.require("FCT-179")).thenReturn(fact("FCT-179", "19"));
         // 2008-01-01 생일 → 만 19세는 2027-01-01부터. 오늘(clock=2026-09-04)은 아직 하한 미달.
@@ -919,6 +931,17 @@ class PolicyRuleEngineTest {
             Long monthlyIncome,
             LocalDate birthDate,
             Integer militaryMonths) {
+        // 병역 보정 대상 기업규모를 기본값으로 둔다 — 병역 보정 테스트가 상한 연장을 검증할 수 있게.
+        return input(householdHomeless, netAssets, monthlyIncome, birthDate, militaryMonths, CompanySize.SMALL);
+    }
+
+    private PlanInput input(
+            Boolean householdHomeless,
+            Long netAssets,
+            Long monthlyIncome,
+            LocalDate birthDate,
+            Integer militaryMonths,
+            CompanySize companySize) {
         return PlanInput.create(
                 PLAN_ID,
                 new PlanInputRequest(
@@ -935,7 +958,7 @@ class PolicyRuleEngineTest {
                         null,
                         null,
                         null,
-                        null,
+                        companySize,
                         householdHomeless,
                         birthDate,
                         militaryMonths,
