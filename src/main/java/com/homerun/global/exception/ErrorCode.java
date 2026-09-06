@@ -119,6 +119,8 @@ public enum ErrorCode {
     DOCUMENT_STATUS_NOT_SELECTABLE(HttpStatus.BAD_REQUEST, "ISS_002", "직접 지정할 수 없는 서류 상태입니다."),
 
     NOTIFICATION_NOT_FOUND(HttpStatus.NOT_FOUND, "NOTI_001", "알림을 찾을 수 없습니다."),
+
+    LOAN_ACCOUNT_NOT_FOUND(HttpStatus.NOT_FOUND, "RF_001", "등록된 실행 대출이 없습니다."),
     ;
 
     private final HttpStatus status;
