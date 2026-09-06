@@ -24,6 +24,7 @@ import java.time.LocalDate;
  * @param violationBuilding 위반건축물인가
  * @param trustRegistered 신탁등기가 있는가
  * @param multiHousehold 다가구주택인가
+ * @param nonResidential 근린생활시설(비주거)인가. 근생은 모든 전세 상품이 불가다(BR-09)
  * @param landlordTaxUnpaid 임대인 체납이 있는가
  */
 @Schema(description = "매물 검증 입력 — 조회로 확인한 사실")
@@ -42,7 +43,44 @@ public record PropertyFacts(
         Boolean leaseholdRegistered,
         Boolean seizureOrDispositionRestricted,
         Boolean auctionInProgress,
-        LocalDate seniorDebtRegisteredAt) {
+        LocalDate seniorDebtRegisteredAt,
+        Boolean nonResidential) {
+
+    /** nonResidential 이전 자리수(등기 위험 포함)를 위한 편의 생성자. */
+    public PropertyFacts(
+            LeaseType leaseType,
+            long deposit,
+            String regionCode,
+            Long marketPrice,
+            Long officialPrice,
+            Long seniorDebt,
+            Boolean ownerMatches,
+            Boolean violationBuilding,
+            Boolean trustRegistered,
+            Boolean multiHousehold,
+            Boolean landlordTaxUnpaid,
+            Boolean leaseholdRegistered,
+            Boolean seizureOrDispositionRestricted,
+            Boolean auctionInProgress,
+            LocalDate seniorDebtRegisteredAt) {
+        this(
+                leaseType,
+                deposit,
+                regionCode,
+                marketPrice,
+                officialPrice,
+                seniorDebt,
+                ownerMatches,
+                violationBuilding,
+                trustRegistered,
+                multiHousehold,
+                landlordTaxUnpaid,
+                leaseholdRegistered,
+                seizureOrDispositionRestricted,
+                auctionInProgress,
+                seniorDebtRegisteredAt,
+                null);
+    }
 
     public PropertyFacts(
             LeaseType leaseType,

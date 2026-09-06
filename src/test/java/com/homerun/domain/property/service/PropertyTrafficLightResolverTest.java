@@ -56,8 +56,9 @@ class PropertyTrafficLightResolverTest {
 
     @Test
     void should_beRed_when_anySpecifiedCauseBlocks() {
-        for (String cause :
-                new String[] {"VIOLATION_BUILDING", "TRUST_REGISTRATION", "REGISTRY_RESTRICTION", "OWNER_MATCH"}) {
+        for (String cause : new String[] {
+            "VIOLATION_BUILDING", "NON_RESIDENTIAL", "TRUST_REGISTRATION", "REGISTRY_RESTRICTION", "OWNER_MATCH"
+        }) {
             Map<String, CheckResult> checks = registryAllPass();
             checks.put(cause, CheckResult.BLOCK);
 

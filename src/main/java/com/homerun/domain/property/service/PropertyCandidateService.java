@@ -115,7 +115,8 @@ public class PropertyCandidateService {
                 request.leaseholdRegistered(),
                 request.seizureOrDispositionRestricted(),
                 request.auctionInProgress(),
-                request.seniorDebtRegisteredAt());
+                request.seniorDebtRegisteredAt(),
+                automatic.nonResidential());
         PropertyVerification verification = verificationService.verifyAndRecord(property.getId(), facts);
         return new PropertyCandidateAnalysisResponse(property.getId(), false, analysis, automatic, verification);
     }
@@ -160,7 +161,12 @@ public class PropertyCandidateService {
         Boolean multiHousehold = description.contains("다가구")
                 ? Boolean.TRUE
                 : description.matches(".*(다세대|연립|아파트|오피스텔).*") ? Boolean.FALSE : null;
-        return new BuildingSafetyFactsResponse(violation, multiHousehold);
+        // 근생은 주용도에 "제1종/제2종 근린생활시설"로 적힌다. 주거용이 확인되면 FALSE,
+        // 어느 쪽도 안 보이면 null 로 둔다 — 모르는 것을 주거용으로 단정하지 않는다.
+        Boolean nonResidential = description.contains("근린생활")
+                ? Boolean.TRUE
+                : description.matches(".*(다세대|연립|아파트|오피스텔|다가구|단독주택).*") ? Boolean.FALSE : null;
+        return new BuildingSafetyFactsResponse(violation, multiHousehold, nonResidential);
     }
 
     /**

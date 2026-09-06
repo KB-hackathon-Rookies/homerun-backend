@@ -26,8 +26,8 @@ import org.springframework.stereotype.Component;
 public class PropertyTrafficLightResolver {
 
     /** 명세서 3.6.1 이 RED 사유로 적은 것들. 여기 없는 BLOCK 은 신호등을 RED 로 만들지 않는다. */
-    private static final Set<String> RED_CAUSES =
-            Set.of("VIOLATION_BUILDING", "TRUST_REGISTRATION", "REGISTRY_RESTRICTION", "OWNER_MATCH");
+    private static final Set<String> RED_CAUSES = Set.of(
+            "VIOLATION_BUILDING", "NON_RESIDENTIAL", "TRUST_REGISTRATION", "REGISTRY_RESTRICTION", "OWNER_MATCH");
 
     /**
      * 등기부를 봐야 답할 수 있는 항목들(명세서 2-3 체크리스트).
