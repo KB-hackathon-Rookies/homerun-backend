@@ -104,6 +104,12 @@ app:
     send-window: 30m
     max-sends-per-window: 5
     max-attempts: 5
+  sms:
+    solapi:
+      # 세 값이 모두 채워진 경우에만 Solapi 발송기가 활성화된다. 비어 있으면 SMS 스텁을 사용한다.
+      api-key: ${SOLAPI_API_KEY:}
+      api-secret: ${SOLAPI_API_SECRET:}
+      sender: ${SOLAPI_SENDER:}
 
 fcm:
   # 기본은 무동작(NoOpFcmSender). 실제 전송하려면 true 로 켜고 서비스계정 JSON 을 준다.
