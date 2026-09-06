@@ -290,6 +290,54 @@ class PolicyRuleEngineTest {
                         new RuleCondition("NOT_MULTI_HOUSEHOLD", "is_multi_household", "eq", false, null, null)));
     }
 
+    // --- in 연산자 (BR-09 주택유형, #190) ---
+
+    @Test
+    void should_pass_when_houseTypeIsInAllowedList() {
+        List<ConditionResult> results = engine.evaluate(
+                new RuleDocument("AND", List.of(houseTypeCondition())), null, typedProperty("OFFICETEL"));
+
+        assertThat(results.get(0).isMet()).isTrue();
+    }
+
+    @Test
+    void should_fail_when_houseTypeIsNotInAllowedList() {
+        List<ConditionResult> results = engine.evaluate(
+                new RuleDocument("AND", List.of(houseTypeCondition())), null, typedProperty("DETACHED"));
+
+        assertThat(results.get(0).isMet()).isFalse();
+    }
+
+    @Test
+    void should_needInfo_when_propertyIsAbsentForHouseTypeCondition() {
+        // 매물이 없으면 유형을 모른다. plan_input 의 희망 유형은 값 체계가 달라 대신 쓰지 않는다.
+        List<ConditionResult> results = engine.evaluate(
+                new RuleDocument("AND", List.of(houseTypeCondition())), input(true, null, null, null, null), null);
+
+        assertThat(results.get(0).isMet()).isNull();
+    }
+
+    @Test
+    void should_needInfo_when_inConditionValueIsNotAList() {
+        // 조건식이 잘못 적혔으면 판정하지 않는다 — 틀린 조건식으로 가능·불가를 단정하지 않는다.
+        RuleCondition broken = new RuleCondition("HOUSE_TYPE", "house_type", "in", "APARTMENT", null, null);
+
+        List<ConditionResult> results =
+                engine.evaluate(new RuleDocument("AND", List.of(broken)), null, typedProperty("APARTMENT"));
+
+        assertThat(results.get(0).isMet()).isNull();
+    }
+
+    private RuleCondition houseTypeCondition() {
+        return new RuleCondition(
+                "HOUSE_TYPE", "house_type", "in", List.of("APARTMENT", "OFFICETEL", "ROW_HOUSE"), null, null);
+    }
+
+    private Property typedProperty(String houseType) {
+        return Property.candidate(
+                PLAN_ID, null, null, null, null, houseType, null, null, null, null, null, null, null, null, null, null);
+    }
+
     private Property houseConditionProperty(boolean violationBuilding, boolean multiHousehold) {
         return Property.candidate(
                 PLAN_ID,
