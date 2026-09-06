@@ -1,10 +1,13 @@
 package com.homerun.domain.settlement.controller;
 
 import com.homerun.domain.settlement.dto.request.GuaranteeFeeSupportAmountRequest;
+import com.homerun.domain.settlement.dto.request.MonthlyMetricsRequest;
 import com.homerun.domain.settlement.dto.request.TaxDeductionRequest;
 import com.homerun.domain.settlement.dto.response.GuaranteeFeeSupportAmountResponse;
+import com.homerun.domain.settlement.dto.response.MonthlyMetricsResponse;
 import com.homerun.domain.settlement.dto.response.TaxDeductionResponse;
 import com.homerun.domain.settlement.service.GuaranteeFeeSupportService;
+import com.homerun.domain.settlement.service.MonthlyMetricsService;
 import com.homerun.domain.settlement.service.TaxDeductionService;
 import com.homerun.global.response.ApiResponse;
 import com.homerun.global.security.principal.MemberPrincipal;
@@ -25,11 +28,15 @@ public class SettlementController {
 
     private final TaxDeductionService taxDeductionService;
     private final GuaranteeFeeSupportService guaranteeFeeSupportService;
+    private final MonthlyMetricsService monthlyMetricsService;
 
     public SettlementController(
-            TaxDeductionService taxDeductionService, GuaranteeFeeSupportService guaranteeFeeSupportService) {
+            TaxDeductionService taxDeductionService,
+            GuaranteeFeeSupportService guaranteeFeeSupportService,
+            MonthlyMetricsService monthlyMetricsService) {
         this.taxDeductionService = taxDeductionService;
         this.guaranteeFeeSupportService = guaranteeFeeSupportService;
+        this.monthlyMetricsService = monthlyMetricsService;
     }
 
     @PostMapping("/tax-deduction")
@@ -54,5 +61,17 @@ public class SettlementController {
             @PathVariable Long planId,
             @Valid @RequestBody GuaranteeFeeSupportAmountRequest request) {
         return ApiResponse.success(guaranteeFeeSupportService.forPlan(principal.memberId(), planId, request));
+    }
+
+    @PostMapping("/monthly-metrics")
+    @Operation(
+            summary = "월간 지표(월 잔여금·RIR)",
+            description = "월 이자·주거비·잔여금·RIR을 계산한다(BR-28). 계획값이든 실제값이든 같은 공식이다."
+                    + " RIR 안정/위험 컷오프는 공식 출처 미확보(O-3)라 숫자만 주고 판정하지 않는다.")
+    public ApiResponse<MonthlyMetricsResponse> monthlyMetrics(
+            @AuthenticationPrincipal MemberPrincipal principal,
+            @PathVariable Long planId,
+            @Valid @RequestBody MonthlyMetricsRequest request) {
+        return ApiResponse.success(monthlyMetricsService.forPlan(principal.memberId(), planId, request));
     }
 }
