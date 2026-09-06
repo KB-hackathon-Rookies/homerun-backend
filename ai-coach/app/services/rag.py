@@ -37,7 +37,15 @@ def answer(question: str, stage: Stage, context: dict | None) -> AskResponse:
     answer_text = _generate(question, stage, hits, context)
 
     # 근거는 LLM 출력이 아니라 retriever 히트에서 직접 만든다(출처 환각 방지).
-    sources = [Source(title=hit.title, source=hit.source, snippet=_shorten(hit.snippet)) for hit in hits]
+    sources = [
+        Source(
+            title=hit.title,
+            source=hit.source,
+            source_url=hit.source_url,
+            snippet=_shorten(hit.snippet),
+        )
+        for hit in hits
+    ]
     return AskResponse(answer=answer_text, stage=stage, sources=sources)
 
 
