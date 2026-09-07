@@ -224,6 +224,12 @@ class MigrationTest {
     }
 
     @Test
+    @DisplayName("V68이 매물 해제 컬럼을 추가한다")
+    void should_addPropertyCancellation_whenV68IsApplied() {
+        assertThat(columnNames("property")).contains("cancelled_at", "cancel_reason");
+    }
+
+    @Test
     @DisplayName("팩트 레지스트리에 전세대출 진단 기준까지 적용된다")
     void should_seed_config_effective_when_migrated() {
         Integer count = jdbc.queryForObject("SELECT count(*) FROM config_effective", Integer.class);
