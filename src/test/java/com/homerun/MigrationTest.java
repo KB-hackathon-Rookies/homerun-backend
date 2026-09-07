@@ -391,24 +391,20 @@ class MigrationTest {
     }
 
     @Test
-    @DisplayName("V69가 교육 콘텐츠 본문 컬럼·퀴즈 뱅크·6개 모듈 시드를 추가한다")
+    @DisplayName("V69가 교육 콘텐츠 본문 컬럼·퀴즈 뱅크·코치 TIME 모듈(M0~M12) 시드를 추가한다")
     void should_add_education_quiz_and_seed_when_v69IsApplied() {
         // Option A: 기존 education_content/education_progress 재사용, body 컬럼·퀴즈 뱅크 추가.
         assertThat(columnNames("education_content")).contains("body");
         assertThat(tableNames()).contains("education_quiz_question");
+        // 전세 플로우 코치 TIME 모듈 M0~M12 (13개), 모두 활성·본문 보유.
         assertThat(jdbc.queryForObject("SELECT count(*) FROM education_content WHERE is_active = true", Integer.class))
-                .isEqualTo(6);
-        // 모든 퀴즈 정답 index 가 보기 범위 안(시드 무결성).
+                .isEqualTo(13);
         assertThat(jdbc.queryForObject(
-                        "SELECT count(*) FROM education_quiz_question"
-                                + " WHERE answer_index >= jsonb_array_length(options)",
+                        "SELECT count(*) FROM education_content WHERE code LIKE 'M%' AND body IS NOT NULL",
                         Integer.class))
-                .isZero();
-        // 모든 모듈 콘텐츠가 최소 1문항의 퀴즈를 가진다.
-        assertThat(jdbc.queryForObject(
-                        "SELECT count(*) FROM education_content c WHERE NOT EXISTS"
-                                + " (SELECT 1 FROM education_quiz_question q WHERE q.content_id = c.id)",
-                        Integer.class))
+                .isEqualTo(13);
+        // 콘텐츠형 모듈이라 퀴즈 시드는 없다(퀴즈 뱅크는 후속 확장용).
+        assertThat(jdbc.queryForObject("SELECT count(*) FROM education_quiz_question", Integer.class))
                 .isZero();
     }
 

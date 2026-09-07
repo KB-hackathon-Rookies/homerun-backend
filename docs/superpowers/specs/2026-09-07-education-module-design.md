@@ -2,6 +2,33 @@
 
 작성일: 2026-09-07
 
+## [확정] 구현 모델 — Option A (2026-09-07 전환)
+
+구현 착수 중 **V1 에 이미 교육 스키마가 존재**함을 발견했다(`education_content`·`education_progress`·`education_trigger`·`intervention_log`, Java 미사용 스캐폴드). 아래 그린필드 module/lesson/quiz 모델 대신 **기존 콘텐츠 모델(Option A)을 채택**한다.
+
+- **재사용**: `education_content`(6개 모듈), `education_progress`(user×content 진행률). `user_id` 가 곧 member 다.
+- **컬럼 추가**: `education_content.body TEXT`(인앱 레슨 본문, 마크다운). 모듈 1개 = 콘텐츠 1개(단일 본문). 여러 섹션은 후속.
+- **신설**: `education_quiz_question(content_id FK, question, options JSONB, answer_index, explanation, sort_order)`.
+- **그대로 둔다**: `education_trigger`·`intervention_log`(팀원 설계 스캐폴드, 무해). 삭제하지 않는다.
+- **DONE 기준**: 콘텐츠 읽음(`progress_pct = 100`) AND 퀴즈 정답률 60%↑ → `status = DONE`(그 외 IN_PROGRESS). 별도 lesson_completion 테이블은 두지 않는다(단일 본문이라 progress_pct 가 읽음 플래그).
+- **API 경로 변경**: 레슨 완료 대신 `POST /modules/{code}/read`(콘텐츠 읽음 표시). 나머지 경로·정답 비노출·member 스코프는 아래와 동일.
+- **엔티티**: `EducationContent`·`EducationProgress`·`EducationQuizQuestion`. `EducationProgress.memberId` 는 컬럼 `user_id` 에 매핑.
+
+아래 "데이터 모델 (V69 마이그레이션)" 이하의 **module/lesson/quiz 테이블 설계는 위 Option A 로 대체됨**(기록 보존용으로 남긴다).
+
+## [확정] 실제 콘텐츠 반영 — 코치 TIME 전세 모듈 M0~M12 (2026-09-07)
+
+초기 6개 플레이스홀더(연체·신용·부채·사기 등, 내가 작성한 임시 본문·퀴즈)를 **팀 Notion 의 실제 코치 TIME 콘텐츠(전세 플로우 M0~M12, 13개)로 교체**했다.
+
+- **콘텐츠 성격**: 코치 TIME + 📢 본문 + 체크리스트 + ⚠️ 주의. **퀴즈가 아니라 체크리스트형**이다.
+- **퀴즈 뱅크는 유지하되 시드는 비운다**(후속 확장용). 퀴즈 없는 모듈은 **본문 읽음(`progress_pct=100`)만으로 DONE** 이 되도록 `EducationProgress.markRead(hasQuiz)` 로 분기.
+- **모듈 코드**: `M0`~`M12`. 본문은 마이그레이션에 **PostgreSQL 달러 인용(`$md$…$md$`)** 으로 이스케이프 없이 넣는다.
+- **출처**: 각 모듈 하단·`source` 컬럼. 상세 근거 링크는 `docs/education/education-sources.md`(KB Think·HUG/HF·정부기관·법령·경쟁 서비스).
+- **배치표(1루~홈 단계별 자동 노출)와 월세 전용 모듈(소액임차인·월세 세액공제 등)·용어사전·조건부(신탁) 노출은 후속 PR** 로 `education_trigger` 를 활용해 모델링한다.
+
+---
+
+
 ## 배경
 
 홈(정착) 단계 화면 **4-7 교육과 예방**은 사회초년생이 입주 후 꾸준히 학습할 6개 교육 모듈을 보여준다. 지금까지 백엔드에 대응 기능이 없어(콘텐츠·진행률·퀴즈) 이번에 신설한다.

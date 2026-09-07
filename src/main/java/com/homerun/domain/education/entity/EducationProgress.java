@@ -58,10 +58,18 @@ public class EducationProgress {
         return p;
     }
 
-    /** 콘텐츠 읽음 표시. DONE 은 유지하고, 그 외에는 최소 IN_PROGRESS 로 올린다. */
-    public void markRead() {
+    /**
+     * 콘텐츠 읽음 표시. 퀴즈가 없는 모듈은 읽음만으로 DONE 이 되고, 퀴즈가 있는 모듈은 퀴즈 통과 전까지
+     * 최소 IN_PROGRESS 로만 올린다. 이미 DONE 이면 유지한다.
+     */
+    public void markRead(boolean hasQuiz) {
         this.progressPct = 100;
-        if (status != EducationProgressStatus.DONE) {
+        if (!hasQuiz) {
+            if (status != EducationProgressStatus.DONE) {
+                this.completedAt = Instant.now();
+            }
+            this.status = EducationProgressStatus.DONE;
+        } else if (status != EducationProgressStatus.DONE) {
             this.status = EducationProgressStatus.IN_PROGRESS;
         }
         this.updatedAt = Instant.now();
