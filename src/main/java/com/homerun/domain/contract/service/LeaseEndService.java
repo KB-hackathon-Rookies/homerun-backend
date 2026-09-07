@@ -1,5 +1,6 @@
 package com.homerun.domain.contract.service;
 
+import com.homerun.domain.contract.dto.request.DepositReturnRecordRequest;
 import com.homerun.domain.contract.dto.request.LeaseEndRequest;
 import com.homerun.domain.contract.dto.response.LeaseEndResponse;
 import com.homerun.domain.contract.entity.LeaseEnd;
@@ -32,6 +33,23 @@ public class LeaseEndService {
         ownedPlan(memberId, planId);
         LeaseEnd entity = leaseEnds.findByPlanId(planId).orElseGet(() -> new LeaseEnd(planId));
         entity.decide(request.decision(), request.renewalMethod(), request.noticeSentAt(), Instant.now(clock));
+        return LeaseEndResponse.from(leaseEnds.save(entity));
+    }
+
+    /**
+     * 보증금 반환 결과를 기록한다(FR-HX-01). 갱신·퇴거 결정(lease_end)이 먼저 저장돼 있어야 한다 --
+     * 퇴거를 정한 뒤에 반환 결과가 나오기 때문이다.
+     */
+    @Transactional
+    public LeaseEndResponse recordDepositReturn(Long memberId, Long planId, DepositReturnRecordRequest request) {
+        ownedPlan(memberId, planId);
+        LeaseEnd entity =
+                leaseEnds.findByPlanId(planId).orElseThrow(() -> new BusinessException(ErrorCode.LEASE_END_NOT_FOUND));
+        entity.recordDepositReturn(
+                request.depositReturned(),
+                request.returnAmountToBank(),
+                request.returnAmountToMe(),
+                request.unreturnedAction());
         return LeaseEndResponse.from(leaseEnds.save(entity));
     }
 
