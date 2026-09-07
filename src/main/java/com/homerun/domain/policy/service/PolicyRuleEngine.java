@@ -45,7 +45,7 @@ public class PolicyRuleEngine {
     private static final Map<String, String> STATIC_LABELS = Map.of(
             "HOUSEHOLD_HOMELESS", "세대원 전원 무주택",
             "HOUSEHOLDER_STATUS", "세대주 또는 예비 세대주",
-            "NO_DUPLICATE_LOAN", "기존 전세자금대출 없음",
+            "NO_DUPLICATE_LOAN", "기금·전세·주택담보 중복대출 금지",
             "NOT_VIOLATION_BUILDING", "위반건축물이 아님",
             "NOT_MULTI_HOUSEHOLD", "다가구 주택이 아님",
             "REGION_TARGET", "희망 지역이 서울",
@@ -263,6 +263,7 @@ public class PolicyRuleEngine {
     private ConditionResult evaluateOne(RuleCondition condition, PlanInput input, Property property) {
         return switch (condition.op()) {
             case "eq" -> equalityCheck(condition, input, property, true);
+            case "prohibited_loan_check" -> prohibitedLoanCheck(condition, input);
             case "in" -> membershipCheck(condition, input, property);
             case "ne" -> equalityCheck(condition, input, property, false);
             case "lte" -> numericCheck(condition, input, property, false);
@@ -278,6 +279,21 @@ public class PolicyRuleEngine {
             case "reference_only" -> referenceOnly(condition);
             default -> needInfo(condition, "이 조건은 자동판정 대상이 아닙니다. 원문을 직접 확인해야 합니다.");
         };
+    }
+
+    /**
+     * 1루의 {@code has_existing_jeonse_loan}만으로는 공식 중복대출 금지 범위를 전부 확인할 수 없다.
+     *
+     * <p>사용자가 기존 전세대출이 있다고 답한 경우에는 명확히 불충족이다. 없다고 답해도 성년
+     * 세대원의 기금대출과 차주·배우자의 주택담보대출까지 확인한 것은 아니므로 PASS로 만들지
+     * 않고 은행 추가 확인 상태로 둔다.
+     */
+    private ConditionResult prohibitedLoanCheck(RuleCondition condition, PlanInput input) {
+        Object fieldValue = resolveField(condition.field(), input);
+        if (Boolean.TRUE.equals(fieldValue)) {
+            return met(condition, false, resolveFact(condition.factCode()).orElse(null));
+        }
+        return needInfo(condition, "세대원 기금대출과 차주·배우자의 전세·주택담보대출을 은행에서 확인해야 합니다.");
     }
 
     /** field 가 plan_input 소속인지 property 소속인지는 이름으로만 구분한다 — 이름이 겹치지

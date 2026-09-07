@@ -37,12 +37,12 @@ class FactRegistryTest {
     }
 
     @Test
-    @DisplayName("문서 간 값이 엇갈리는 수치는 판정에 쓸 수 없다")
-    void should_reject_conflicting_fact() {
-        // FCT-004 버팀목 순자산 기준. 3.37억과 3.45억이 엇갈린다
+    @DisplayName("공식 기준으로 대체돼 은퇴한 구 팩트는 판정에 쓸 수 없다")
+    void should_reject_retired_fact() {
+        // FCT-004는 FCT-170으로 대체됐다. 과거 충돌값이 다시 쓰이면 안 된다.
         assertThatThrownBy(() -> registry.require("FCT-004"))
                 .isInstanceOf(UnusableFactException.class)
-                .hasMessageContaining("CONFLICT");
+                .hasMessageContaining("RETIRED");
     }
 
     @Test
