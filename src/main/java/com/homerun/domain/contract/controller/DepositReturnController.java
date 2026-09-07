@@ -36,7 +36,7 @@ public class DepositReturnController {
     public ApiResponse<UnreturnedDepositResponse> unreturnedGuide(
             @AuthenticationPrincipal MemberPrincipal principal,
             @PathVariable Long planId,
-            @RequestParam boolean hasReturnGuarantee) {
+            @RequestParam(required = false) Boolean hasReturnGuarantee) {
         return ApiResponse.success(service.guide(principal.memberId(), planId, hasReturnGuarantee));
     }
 
