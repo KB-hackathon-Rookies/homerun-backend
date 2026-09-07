@@ -28,9 +28,12 @@ import com.homerun.domain.plan.type.FinancialValueSource;
 import com.homerun.domain.plan.type.HouseholderStatus;
 import com.homerun.domain.plan.type.LeaseType;
 import com.homerun.domain.plan.type.PlanGate;
+import com.homerun.domain.property.entity.Property;
+import com.homerun.domain.property.repository.PropertyRepository;
 import com.homerun.domain.region.repository.RegionRepository;
 import com.homerun.domain.terms.service.TermsService;
 import com.homerun.global.security.jwt.JwtTokenProvider;
+import java.time.Instant;
 import java.time.LocalDate;
 import java.util.Set;
 import org.junit.jupiter.api.BeforeEach;
@@ -81,6 +84,9 @@ class ServiceFlowE2eIntegrationTest {
 
     @Autowired
     RegionRepository regions;
+
+    @Autowired
+    PropertyRepository properties;
 
     @Autowired
     PlanService planService;
@@ -146,6 +152,67 @@ class ServiceFlowE2eIntegrationTest {
         mvc.perform(get("/api/v1/plans/" + planId + "/first-base/result").header("Authorization", otherBearer))
                 .andExpect(status().isForbidden())
                 .andExpect(jsonPath("$.code").value("PLAN_003"));
+    }
+
+    @Test
+    @DisplayName("2루 매물은 계획당 5개까지만 등록되고 6번째는 거부된다(PRP_008)")
+    void property_registration_is_capped_at_five_per_plan() throws Exception {
+        Long planId = createJeonsePlanReadyForFirstBase();
+        mvc.perform(post("/api/v1/plans/" + planId + "/first-base/complete")
+                        .header("Authorization", bearer)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(firstBaseBody(1)))
+                .andExpect(status().isOk());
+
+        for (int i = 0; i < 5; i++) {
+            properties.save(candidate(planId));
+        }
+
+        // 6번째는 외부 조회 이전에 개수 제한으로 막힌다.
+        mvc.perform(post("/api/v1/plans/" + planId + "/properties/analysis")
+                        .header("Authorization", bearer)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(analysisBody()))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value("PRP_008"));
+    }
+
+    private Property candidate(Long planId) {
+        return Property.candidate(
+                planId,
+                "1168010100",
+                "서울특별시 강남구 역삼동 123-4",
+                "서울특별시 강남구 테헤란로 123",
+                "홈런아파트",
+                "APARTMENT",
+                100_000_000L,
+                200_000_000L,
+                150_000_000L,
+                0L,
+                true,
+                false,
+                false,
+                false,
+                false,
+                Instant.now());
+    }
+
+    private String analysisBody() {
+        return """
+                {
+                  "house": {
+                    "legalDistrictCode": "1168010100",
+                    "mountain": false,
+                    "mainLotNumber": "123",
+                    "subLotNumber": "4",
+                    "roadAddress": "서울특별시 강남구 테헤란로 123",
+                    "jibunAddress": "서울특별시 강남구 역삼동 123-4",
+                    "buildingName": "홈런아파트",
+                    "dealYearMonth": "202608"
+                  },
+                  "deposit": 100000000
+                }
+                """;
     }
 
     /** 계획 생성 + 온보딩 완료 + 1루 입력 저장까지. 1루 complete 를 호출할 수 있는 상태로 만든다. */
