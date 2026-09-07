@@ -72,8 +72,8 @@ class HouseAnalysisServiceTest {
 
     @Test
     void acceptsManualHouseType_andSkipsRentQuery_forTypesWithoutTransactionApi() {
-        // FR-P1-09. 단독주택은 건축물대장 자동판별이 안 되고 유형별 실거래 API 도 없다.
-        // 사용자가 유형을 직접 주면, 자동판별을 건너뛰고(예외 없이) 실거래 조회도 안 한다.
+        // FR-P1-09. 사용자가 유형을 직접 주면 자동판별보다 그쪽이 이긴다.
+        // 단독주택은 유형별 실거래 API 가 없어 조회를 건너뛴다.
         BuildingLedgerResponse ledger = new BuildingLedgerResponse(
                 new BuildingRegisterResponse("00", "OK", 1, List.of(Map.of("mainPurpsCdNm", "단독주택"))),
                 new BuildingRegisterResponse("00", "OK", 0, List.of()));
@@ -96,6 +96,67 @@ class HouseAnalysisServiceTest {
         assertThat(result.warnings()).anySatisfy(w -> assertThat(w).contains("직접 입력"));
         // 실거래 API 를 부르지 않는다 — 없는 유형별 엔드포인트를 호출하지 않는다.
         org.mockito.Mockito.verifyNoInteractions(transactionClient);
+    }
+
+    @Test
+    void resolvesDetachedHouseFromLedger_withoutManualType() {
+        // 대장이 "단독주택" 이라고 말해 주는데 굳이 사용자에게 다시 묻지 않는다.
+        BuildingLedgerResponse ledger = new BuildingLedgerResponse(
+                new BuildingRegisterResponse("00", "OK", 1, List.of(Map.of("mainPurpsCdNm", "단독주택"))),
+                new BuildingRegisterResponse("00", "OK", 0, List.of()));
+        when(buildingLedgerService.findLedger(any())).thenReturn(ledger);
+
+        HouseAnalysisResponse result = service.analyze(request(null));
+
+        assertThat(result.resolvedHouseType()).isEqualTo(HouseType.DETACHED);
+        assertThat(result.rents().available()).isFalse();
+        org.mockito.Mockito.verifyNoInteractions(transactionClient);
+    }
+
+    @Test
+    void readsMultiFamilyFromEtcPurps_beforeDetached() {
+        // 다가구는 주용도가 "단독주택" 이고 기타용도에만 "다가구주택" 이 적히는 일이 많다.
+        BuildingLedgerResponse ledger = new BuildingLedgerResponse(
+                new BuildingRegisterResponse(
+                        "00", "OK", 1, List.of(Map.of("mainPurpsCdNm", "단독주택", "etcPurps", "다가구주택"))),
+                new BuildingRegisterResponse("00", "OK", 0, List.of()));
+        when(buildingLedgerService.findLedger(any())).thenReturn(ledger);
+
+        assertThat(service.analyze(request(null)).resolvedHouseType()).isEqualTo(HouseType.MULTI_FAMILY);
+    }
+
+    @Test
+    void fallsBackToOther_whenLedgerIsEmpty() {
+        // 대장이 없는 필지가 흔하다. 여기서 막으면 매물을 아예 등록할 수 없다 — 유형은
+        // 바로 다음 단계에서 사용자가 고르므로, 경고만 남기고 등록은 통과시킨다.
+        BuildingLedgerResponse ledger = new BuildingLedgerResponse(
+                new BuildingRegisterResponse("00", "OK", 0, List.of()),
+                new BuildingRegisterResponse("00", "OK", 0, List.of()));
+        when(buildingLedgerService.findLedger(any())).thenReturn(ledger);
+
+        HouseAnalysisResponse result = service.analyze(request(null));
+
+        assertThat(result.resolvedHouseType()).isEqualTo(HouseType.OTHER);
+        assertThat(result.warnings()).anySatisfy(w -> assertThat(w).contains("건축물대장을 찾지 못해"));
+        org.mockito.Mockito.verifyNoInteractions(transactionClient);
+    }
+
+    @Test
+    void fallsBackToOther_whenPurposeIsNotResidential() {
+        BuildingLedgerResponse ledger = new BuildingLedgerResponse(
+                new BuildingRegisterResponse("00", "OK", 1, List.of(Map.of("mainPurpsCdNm", "제2종근린생활시설"))),
+                new BuildingRegisterResponse("00", "OK", 0, List.of()));
+        when(buildingLedgerService.findLedger(any())).thenReturn(ledger);
+
+        HouseAnalysisResponse result = service.analyze(request(null));
+
+        assertThat(result.resolvedHouseType()).isEqualTo(HouseType.OTHER);
+        assertThat(result.warnings()).anySatisfy(w -> assertThat(w).contains("판별하지 못했습니다"));
+    }
+
+    private HouseAnalysisRequest request(HouseType houseType) {
+        return new HouseAnalysisRequest(
+                "1168010100", false, "123", "4", "서울특별시 관악구 신림로 1", "서울특별시 관악구 신림동 123-4", "홈런빌", houseType, "202608");
     }
 
     private RealEstateTransactionResponse response(List<Map<String, String>> items) {
