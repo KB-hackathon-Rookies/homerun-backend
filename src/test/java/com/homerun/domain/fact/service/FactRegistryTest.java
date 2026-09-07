@@ -37,12 +37,19 @@ class FactRegistryTest {
     }
 
     @Test
-    @DisplayName("공식 기준으로 대체돼 은퇴한 구 팩트는 판정에 쓸 수 없다")
+    @DisplayName("폐지된 제도의 팩트는 판정에 쓸 수 없다")
     void should_reject_retired_fact() {
-        // FCT-004는 FCT-170으로 대체됐다. 과거 충돌값이 다시 쓰이면 안 된다.
-        assertThatThrownBy(() -> registry.require("FCT-004"))
+        // FCT-135 중기청 대출은 폐지(RETIRED)됐다. 만료일이 없어 조회는 되지만 판정 금지.
+        assertThatThrownBy(() -> registry.require("FCT-135"))
                 .isInstanceOf(UnusableFactException.class)
                 .hasMessageContaining("RETIRED");
+    }
+
+    @Test
+    @DisplayName("유효기간(effective_to)이 지난 팩트는 조회에서 빠진다")
+    void should_drop_expired_fact() {
+        // FCT-004는 V66에서 effective_to 2026-09-06 으로 닫혔다. 그 이후로는 없는 값처럼 다룬다.
+        assertThatThrownBy(() -> registry.require("FCT-004")).isInstanceOf(FactNotFoundException.class);
     }
 
     @Test
