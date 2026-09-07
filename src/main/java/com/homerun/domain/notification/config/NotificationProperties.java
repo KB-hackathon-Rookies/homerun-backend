@@ -13,6 +13,7 @@ import org.springframework.boot.context.properties.bind.DefaultValue;
 public record NotificationProperties(
         @DefaultValue Stream stream,
         @DefaultValue Reaper reaper,
+        @DefaultValue Recovery recovery,
         @DefaultValue Deadline deadline,
         @DefaultValue StaleApplication staleApplication) {
 
@@ -26,6 +27,11 @@ public record NotificationProperties(
     public record Reaper(
             @DefaultValue("5m") Duration minIdle,
             @DefaultValue("3") int maxRetries,
+            @DefaultValue("100") int batchSize) {}
+
+    /** DB에는 남았지만 Redis Stream에 들어가지 못한 PENDING 알림 재발행 설정. */
+    public record Recovery(
+            @DefaultValue("5m") Duration minAge,
             @DefaultValue("100") int batchSize) {}
 
     /** 마감 며칠 전에 알릴지. 기준일 대비 남은 일수(D-N) 목록. */

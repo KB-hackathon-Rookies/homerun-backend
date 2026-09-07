@@ -84,22 +84,24 @@ public class NotificationEventPublisher {
             TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
                 @Override
                 public void afterCommit() {
-                    addToStream(notificationId);
+                    enqueueExisting(notificationId);
                 }
             });
         } else {
-            addToStream(notificationId);
+            enqueueExisting(notificationId);
         }
     }
 
-    private void addToStream(Long notificationId) {
+    public boolean enqueueExisting(Long notificationId) {
         try {
             redisTemplate
                     .opsForStream()
                     .add(properties.stream().key(), Map.of("notificationId", String.valueOf(notificationId)));
+            return true;
         } catch (RuntimeException exception) {
-            // 스트림 발행 실패해도 행은 PENDING 으로 남는다. 재발행은 후속 과제(현재는 로깅).
+            // PENDING 행은 복구 스케줄러가 다시 발행한다.
             log.error("알림 스트림 발행 실패: notificationId={}", notificationId, exception);
+            return false;
         }
     }
 

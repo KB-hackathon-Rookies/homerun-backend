@@ -21,5 +21,9 @@ public enum NotificationType {
      * 신청 결과 대기 지연 넛지. 접수 마감 데이터가 없어 마감 대신, 제출(SUBMITTED/SCREENING) 후
      * N일이 지나도 결과가 없는 건을 알린다. 진짜 접수 마감 컬럼이 생기면 별도 타입으로 분리한다.
      */
-    APPLICATION_RESULT_PENDING
+    APPLICATION_RESULT_PENDING,
+    /** 잔금·전입 다음 날 반환보증 가입 여부를 확인한다. */
+    RETURN_GUARANTEE_REMINDER,
+    /** 계약 종료 6개월 전 갱신 창 개시와 2개월 전 의사표시 마감을 알린다. */
+    LEASE_RENEWAL_WINDOW
 }

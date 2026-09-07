@@ -118,6 +118,10 @@ fcm:
   credentials: ${FIREBASE_CREDENTIALS:}
 
 notification:
+  recovery:
+    min-age: ${NOTIFICATION_RECOVERY_MIN_AGE:5m}
+    batch-size: ${NOTIFICATION_RECOVERY_BATCH_SIZE:100}
+    fixed-delay: ${NOTIFICATION_RECOVERY_FIXED_DELAY:60s}
   # 마감 스캔 실행 시각(KST). 기본 매일 09:00.
   deadline:
     cron: ${NOTIFICATION_DEADLINE_CRON:0 0 9 * * *}

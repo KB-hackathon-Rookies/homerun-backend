@@ -4,6 +4,7 @@ import com.homerun.domain.notification.entity.Notification;
 import com.homerun.domain.notification.repository.DeviceTokenRepository;
 import com.homerun.domain.notification.repository.NotificationRepository;
 import com.homerun.domain.notification.type.NotificationStatus;
+import com.homerun.global.external.fcm.FcmDeliveryException;
 import com.homerun.global.external.fcm.FcmSender;
 import java.time.Clock;
 import java.util.List;
@@ -70,7 +71,18 @@ public class NotificationDeliveryService {
                 .map(token -> token.getToken())
                 .toList();
         // 전송 실패는 예외로 던져져 여기서 잡지 않는다(호출자가 ACK 하지 않도록).
-        fcmSender.send(tokens, notification.getTitle(), notification.getBody(), parseData(notification.getData()));
+        var result = fcmSender.send(
+                tokens, notification.getTitle(), notification.getBody(), parseData(notification.getData()));
+        if (!result.invalidTokens().isEmpty()) {
+            deviceTokenRepository.deleteByTokenIn(result.invalidTokens());
+            log.info(
+                    "무효 FCM 토큰 삭제: notificationId={}, count={}",
+                    notificationId,
+                    result.invalidTokens().size());
+        }
+        if (result.failureCount() > result.invalidTokens().size()) {
+            throw new FcmDeliveryException("재시도 가능한 FCM 개별 전송 실패가 남아 있습니다.");
+        }
         notification.markSent(clock.instant());
         log.debug("알림 전송 완료: id={}, recipients={}", notificationId, tokens.size());
         return true;
