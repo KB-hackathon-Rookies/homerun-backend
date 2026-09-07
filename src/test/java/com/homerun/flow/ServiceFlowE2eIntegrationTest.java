@@ -28,13 +28,26 @@ import com.homerun.domain.plan.type.FinancialValueSource;
 import com.homerun.domain.plan.type.HouseholderStatus;
 import com.homerun.domain.plan.type.LeaseType;
 import com.homerun.domain.plan.type.PlanGate;
+import com.homerun.domain.property.dto.request.BankConsultationRequest;
+import com.homerun.domain.property.dto.request.PropertyDecisionRequest;
 import com.homerun.domain.property.entity.Property;
+import com.homerun.domain.property.entity.PropertyCheck;
+import com.homerun.domain.property.repository.PropertyCheckRepository;
 import com.homerun.domain.property.repository.PropertyRepository;
+import com.homerun.domain.property.service.PropertyDecisionService;
+import com.homerun.domain.property.type.CheckResult;
+import com.homerun.domain.property.type.CollateralMethod;
+import com.homerun.domain.property.type.ConsultationResultStatus;
+import com.homerun.domain.property.type.ConsultedLoanProduct;
+import com.homerun.domain.property.type.PropertyDiagnosisStep;
+import com.homerun.domain.property.type.PropertyWorkflowStatus;
 import com.homerun.domain.region.repository.RegionRepository;
 import com.homerun.domain.terms.service.TermsService;
 import com.homerun.global.security.jwt.JwtTokenProvider;
+import java.math.BigDecimal;
 import java.time.Instant;
 import java.time.LocalDate;
+import java.util.List;
 import java.util.Set;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -45,6 +58,7 @@ import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.context.annotation.Import;
 import org.springframework.http.MediaType;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
+import org.springframework.test.util.ReflectionTestUtils;
 import org.springframework.test.web.servlet.MockMvc;
 
 /**
@@ -87,6 +101,12 @@ class ServiceFlowE2eIntegrationTest {
 
     @Autowired
     PropertyRepository properties;
+
+    @Autowired
+    PropertyCheckRepository checks;
+
+    @Autowired
+    PropertyDecisionService decisionService;
 
     @Autowired
     PlanService planService;
@@ -152,6 +172,89 @@ class ServiceFlowE2eIntegrationTest {
         mvc.perform(get("/api/v1/plans/" + planId + "/first-base/result").header("Authorization", otherBearer))
                 .andExpect(status().isForbidden())
                 .andExpect(jsonPath("$.code").value("PLAN_003"));
+    }
+
+    @Test
+    @DisplayName("1루→2루→3루: 매물 검증·상담·확정을 마치고 2루를 완료하면 3루로 전이한다")
+    void completes_second_base_and_advances_to_third() throws Exception {
+        Long planId = createJeonsePlanReadyForFirstBase();
+        mvc.perform(post("/api/v1/plans/" + planId + "/first-base/complete")
+                        .header("Authorization", bearer)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(firstBaseBody(1)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.progress.currentStage").value("SECOND"));
+
+        int decisionRevision = verifyPropertyAndDecide(planId);
+
+        mvc.perform(post("/api/v1/plans/" + planId + "/second-base/complete")
+                        .header("Authorization", bearer)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(secondBaseBody(decisionRevision)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.progress.currentStage").value("THIRD"))
+                .andExpect(jsonPath("$.data.progress.lastVisitedStage").value("SECOND"));
+    }
+
+    @Test
+    @DisplayName("홈에 도달해도 계획은 종료되지 않고 ACTIVE 로 이어진다")
+    void plan_stays_active_at_home() throws Exception {
+        Plan plan = plans.save(Plan.create(memberId, LeaseType.JEONSE, null));
+        Long planId = plan.getId();
+        planSteps.saveAll(PlanStep.defaultSteps(planId));
+        plan.advance(); // FIRST
+        plan.advance(); // SECOND
+        plan.advance(); // THIRD
+        plan.advance(); // HOME
+        plans.save(plan);
+
+        mvc.perform(get("/api/v1/plans/" + planId + "/progress").header("Authorization", bearer))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.currentStage").value("HOME"))
+                .andExpect(jsonPath("$.data.planStatus").value("ACTIVE"));
+    }
+
+    /** GREEN 매물 등록 + 상담(가능) + 확정까지. 2루 complete 에 넘길 decisionRevision 을 돌려준다. */
+    private int verifyPropertyAndDecide(Long planId) {
+        Property property = candidate(planId);
+        ReflectionTestUtils.setField(property, "workflowStep", PropertyDiagnosisStep.COMPLETE);
+        ReflectionTestUtils.setField(property, "workflowStatus", PropertyWorkflowStatus.READY_FOR_CONSULTATION);
+        Long propertyId = properties.save(property).getId();
+        checks.saveAll(List.of(
+                pass(propertyId, "VIOLATION_BUILDING"),
+                pass(propertyId, "NON_RESIDENTIAL"),
+                pass(propertyId, "OWNER_MATCH"),
+                pass(propertyId, "TRUST_REGISTRATION"),
+                pass(propertyId, "REGISTRY_RESTRICTION")));
+        var consultation = decisionService.addConsultation(
+                memberId,
+                planId,
+                propertyId,
+                new BankConsultationRequest(
+                        "국민은행",
+                        "역삼점",
+                        null,
+                        null,
+                        ConsultationResultStatus.POSSIBLE,
+                        ConsultedLoanProduct.BANK_LOAN,
+                        CollateralMethod.HF,
+                        80_000_000L,
+                        new BigDecimal("3.200"),
+                        LocalDate.now(),
+                        null));
+        return decisionService
+                .decide(memberId, planId, new PropertyDecisionRequest(propertyId, consultation.consultationId()))
+                .decisionRevision();
+    }
+
+    private PropertyCheck pass(Long propertyId, String code) {
+        return new PropertyCheck(propertyId, code, code, CheckResult.PASS, null, null, Instant.now());
+    }
+
+    private String secondBaseBody(int decisionRevision) {
+        return """
+                {"expectedDecisionRevision": %d, "ruleVersion": "1.0"}
+                """.formatted(decisionRevision);
     }
 
     @Test
