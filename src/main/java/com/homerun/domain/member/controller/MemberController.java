@@ -42,7 +42,7 @@ public class MemberController {
     }
 
     @PatchMapping
-    @Operation(summary = "내 정보 수정", description = "현재는 서비스 닉네임을 수정할 수 있습니다.")
+    @Operation(summary = "내 정보 수정", description = "현재는 서비스에서 사용할 이름을 수정할 수 있습니다.")
     public ApiResponse<MemberProfileResponse> updateMyProfile(
             @AuthenticationPrincipal MemberPrincipal principal,
             @Valid @RequestBody UpdateMemberProfileRequest request) {
