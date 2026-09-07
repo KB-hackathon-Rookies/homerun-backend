@@ -3,6 +3,7 @@ package com.homerun.domain.plan.service;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.Mockito.doThrow;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import com.homerun.domain.dashboard.repository.DeadlineRepository;
@@ -34,6 +35,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.test.util.ReflectionTestUtils;
 
 @ExtendWith(MockitoExtension.class)
 class PlanServiceTest {
@@ -70,6 +72,7 @@ class PlanServiceTest {
                 new PlanStageTransitionPolicy(),
                 inputCompletionValidator);
         plan = Plan.create(MEMBER_ID, LeaseType.JEONSE, LocalDate.of(2027, 2, 1));
+        ReflectionTestUtils.setField(plan, "id", PLAN_ID);
         steps = PlanStep.defaultSteps(PLAN_ID);
     }
 
@@ -252,6 +255,46 @@ class PlanServiceTest {
         assertThat(response.stage()).isEqualTo(PlanStage.FIRST);
         assertThat(response.lastVisitedStage()).isEqualTo(PlanStage.BENCH);
         assertThat(response.lastLocationCode()).isEqualTo("BENCH_REVIEW");
+    }
+
+    @Test
+    void should_listOnlyMemberPlans_inRepositoryRecentOrder() {
+        Plan older = Plan.create(MEMBER_ID, LeaseType.WOLSE, LocalDate.of(2027, 3, 1));
+        ReflectionTestUtils.setField(older, "id", 11L);
+        when(planRepository.findAllByMemberIdOrderByUpdatedAtDescIdDesc(MEMBER_ID))
+                .thenReturn(List.of(plan, older));
+        when(planStepRepository.findAllByPlanIdOrderBySequenceAsc(PLAN_ID)).thenReturn(steps);
+        when(planStepRepository.findAllByPlanIdOrderBySequenceAsc(11L)).thenReturn(List.of());
+
+        List<PlanResponse> responses = planService.getAll(MEMBER_ID);
+
+        assertThat(responses).extracting(PlanResponse::leaseType).containsExactly(LeaseType.JEONSE, LeaseType.WOLSE);
+        verify(planRepository).findAllByMemberIdOrderByUpdatedAtDescIdDesc(MEMBER_ID);
+    }
+
+    @Test
+    void should_resumeMostRecentlyUpdatedActivePlan_withLastLocation() {
+        plan.updateLastLocation("FIRST_INCOME");
+        when(planRepository.findFirstByMemberIdAndStatusOrderByUpdatedAtDescIdDesc(MEMBER_ID, PlanStatus.ACTIVE))
+                .thenReturn(Optional.of(plan));
+        when(planStepRepository.findAllByPlanIdOrderBySequenceAsc(PLAN_ID)).thenReturn(steps);
+
+        PlanResponse response = planService.getActive(MEMBER_ID);
+
+        assertThat(response.status()).isEqualTo(PlanStatus.ACTIVE);
+        assertThat(response.lastVisitedStage()).isEqualTo(PlanStage.BENCH);
+        assertThat(response.lastLocationCode()).isEqualTo("FIRST_INCOME");
+    }
+
+    @Test
+    void should_failClearly_whenMemberHasNoActivePlan() {
+        when(planRepository.findFirstByMemberIdAndStatusOrderByUpdatedAtDescIdDesc(MEMBER_ID, PlanStatus.ACTIVE))
+                .thenReturn(Optional.empty());
+
+        assertThatThrownBy(() -> planService.getActive(MEMBER_ID))
+                .isInstanceOfSatisfying(
+                        BusinessException.class,
+                        exception -> assertThat(exception.errorCode()).isEqualTo(ErrorCode.PLAN_ACTIVE_NOT_FOUND));
     }
 
     private void givenPlanOwnedByMember() {
