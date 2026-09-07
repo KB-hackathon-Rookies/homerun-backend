@@ -89,6 +89,7 @@ public enum ErrorCode {
     PLAN_INPUT_STEP_INVALID(HttpStatus.BAD_REQUEST, "PLAN_019", "현재 STEP에서 저장할 수 없는 입력이 포함되어 있습니다."),
     PLAN_INPUT_STEP_INCOMPLETE(HttpStatus.BAD_REQUEST, "PLAN_020", "현재 STEP의 답변을 입력하거나 모름으로 표시해 주세요."),
     FIRST_BASE_REVIEW_REQUIRED(HttpStatus.CONFLICT, "PLAN_021", "최종 확인 STEP을 저장한 후 1루를 제출해 주세요."),
+    PLAN_ACTIVE_NOT_FOUND(HttpStatus.NOT_FOUND, "PLAN_022", "진행 중인 계획이 없습니다."),
 
     DIAGNOSIS_INPUT_REQUIRED(HttpStatus.BAD_REQUEST, "DIA_001", "진단 계산에 필요한 계획 입력을 확인해 주세요."),
     DIAGNOSIS_NOT_FOUND(HttpStatus.NOT_FOUND, "DIA_002", "저장된 진단 결과가 없습니다."),
