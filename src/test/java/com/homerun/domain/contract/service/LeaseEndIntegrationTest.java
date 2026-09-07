@@ -6,8 +6,10 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import com.homerun.TestcontainersConfiguration;
 import com.homerun.domain.contract.entity.LeaseEnd;
 import com.homerun.domain.contract.repository.LeaseEndRepository;
+import com.homerun.domain.contract.type.DepositReturnStatus;
 import com.homerun.domain.contract.type.LeaseDecision;
 import com.homerun.domain.contract.type.RenewalMethod;
+import com.homerun.domain.contract.type.UnreturnedAction;
 import jakarta.persistence.EntityManager;
 import java.time.Instant;
 import java.time.LocalDate;
@@ -56,6 +58,22 @@ class LeaseEndIntegrationTest {
                     em.flush();
                 })
                 .isInstanceOf(Exception.class);
+    }
+
+    @Test
+    void should_roundTripDepositReturnEnums() {
+        Long planId = setUpPlan();
+        LeaseEnd e = new LeaseEnd(planId);
+        e.decide(LeaseDecision.LEAVE, null, null, Instant.now());
+        e.recordDepositReturn(DepositReturnStatus.PARTIAL, 100_000_000L, 20_000_000L, UnreturnedAction.GUARANTEE_CLAIM);
+        leaseEnds.save(e);
+        em.flush();
+        em.clear();
+
+        LeaseEnd reloaded = leaseEnds.findByPlanId(planId).orElseThrow();
+        assertThat(reloaded.getDepositReturned()).isEqualTo(DepositReturnStatus.PARTIAL);
+        assertThat(reloaded.getUnreturnedAction()).isEqualTo(UnreturnedAction.GUARANTEE_CLAIM);
+        assertThat(reloaded.getReturnAmountToBank()).isEqualTo(100_000_000L);
     }
 
     private Long setUpPlan() {

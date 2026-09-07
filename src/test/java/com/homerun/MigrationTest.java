@@ -224,6 +224,16 @@ class MigrationTest {
     }
 
     @Test
+    @DisplayName("V69가 lease_end 에 보증금 반환 컬럼과 CHECK 를 추가한다")
+    void should_addLeaseEndDepositReturn_whenV69IsApplied() {
+        assertThat(columnNames("lease_end"))
+                .contains("deposit_returned", "return_amount_to_bank", "return_amount_to_me", "unreturned_action");
+        assertThat(constraintDefinition("ck_lease_end_deposit_returned")).contains("YES", "NO", "PARTIAL");
+        assertThat(constraintDefinition("ck_lease_end_unreturned_action"))
+                .contains("LEASEHOLD_REGISTRATION", "GUARANTEE_CLAIM", "LAWSUIT");
+    }
+
+    @Test
     @DisplayName("팩트 레지스트리에 전세대출 진단 기준까지 적용된다")
     void should_seed_config_effective_when_migrated() {
         Integer count = jdbc.queryForObject("SELECT count(*) FROM config_effective", Integer.class);

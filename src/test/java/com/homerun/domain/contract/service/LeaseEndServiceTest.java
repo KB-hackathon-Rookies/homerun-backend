@@ -6,12 +6,15 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
+import com.homerun.domain.contract.dto.request.DepositReturnRecordRequest;
 import com.homerun.domain.contract.dto.request.LeaseEndRequest;
 import com.homerun.domain.contract.dto.response.LeaseEndResponse;
 import com.homerun.domain.contract.entity.LeaseEnd;
 import com.homerun.domain.contract.repository.LeaseEndRepository;
+import com.homerun.domain.contract.type.DepositReturnStatus;
 import com.homerun.domain.contract.type.LeaseDecision;
 import com.homerun.domain.contract.type.RenewalMethod;
+import com.homerun.domain.contract.type.UnreturnedAction;
 import com.homerun.domain.plan.entity.Plan;
 import com.homerun.domain.plan.repository.PlanRepository;
 import com.homerun.domain.plan.type.LeaseType;
@@ -92,5 +95,35 @@ class LeaseEndServiceTest {
     void should_throw_whenNotOwner() {
         when(plans.findById(PLAN_ID)).thenReturn(Optional.of(Plan.create(MEMBER_ID, LeaseType.JEONSE, null)));
         assertThatThrownBy(() -> service.get(999L, PLAN_ID)).isInstanceOf(BusinessException.class);
+    }
+
+    @Test
+    void should_recordDepositReturn_ontoExistingDecision() {
+        owned();
+        LeaseEnd existing = new LeaseEnd(PLAN_ID);
+        when(leaseEnds.findByPlanId(PLAN_ID)).thenReturn(Optional.of(existing));
+
+        var r = service.recordDepositReturn(
+                MEMBER_ID,
+                PLAN_ID,
+                new DepositReturnRecordRequest(
+                        DepositReturnStatus.NO, 0L, 0L, UnreturnedAction.LEASEHOLD_REGISTRATION));
+
+        assertThat(existing.getDepositReturned()).isEqualTo(DepositReturnStatus.NO);
+        assertThat(existing.getUnreturnedAction()).isEqualTo(UnreturnedAction.LEASEHOLD_REGISTRATION);
+        assertThat(r.depositReturned()).isEqualTo(DepositReturnStatus.NO);
+    }
+
+    @Test
+    void should_throw_whenRecordingReturnWithoutDecision() {
+        // 갱신·퇴거 결정이 먼저 있어야 반환 결과를 기록한다.
+        when(plans.findById(PLAN_ID)).thenReturn(Optional.of(Plan.create(MEMBER_ID, LeaseType.JEONSE, null)));
+        when(leaseEnds.findByPlanId(PLAN_ID)).thenReturn(Optional.empty());
+
+        assertThatThrownBy(() -> service.recordDepositReturn(
+                        MEMBER_ID, PLAN_ID, new DepositReturnRecordRequest(DepositReturnStatus.YES, null, null, null)))
+                .isInstanceOfSatisfying(
+                        BusinessException.class,
+                        e -> assertThat(e.errorCode()).isEqualTo(ErrorCode.LEASE_END_NOT_FOUND));
     }
 }
