@@ -5,6 +5,9 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
 import com.homerun.domain.contract.dto.response.RenewalMethodsResponse;
+import com.homerun.domain.contract.entity.LeaseEnd;
+import com.homerun.domain.contract.repository.LeaseEndRepository;
+import com.homerun.domain.contract.type.LeaseDecision;
 import com.homerun.domain.contract.type.RenewalMethod;
 import com.homerun.domain.fact.model.Fact;
 import com.homerun.domain.fact.service.FactRegistry;
@@ -14,7 +17,7 @@ import com.homerun.domain.plan.type.LeaseType;
 import java.util.Optional;
 import org.junit.jupiter.api.Test;
 
-/** FR-H9-02. 3종 비교와, 법정 수치(청구권·통보시기)를 팩트에서 읽는지를 본다. */
+/** FR-H9-02. 3종 비교, 법정 수치를 팩트에서 읽기, 저장된 청구권 사용 여부 반영을 본다. */
 class RenewalMethodsServiceTest {
 
     private static final Long MEMBER_ID = 1L;
@@ -22,7 +25,8 @@ class RenewalMethodsServiceTest {
 
     private final PlanRepository plans = mock(PlanRepository.class);
     private final FactRegistry facts = mock(FactRegistry.class);
-    private final RenewalMethodsService service = new RenewalMethodsService(plans, facts);
+    private final LeaseEndRepository leaseEnds = mock(LeaseEndRepository.class);
+    private final RenewalMethodsService service = new RenewalMethodsService(plans, facts, leaseEnds);
 
     private Fact textFact(String code, String text) {
         return new Fact(code, code, null, null, text, "url", false);
@@ -33,6 +37,13 @@ class RenewalMethodsServiceTest {
         // 팩트에 화면과 다른, 구분되는 값을 넣어 코드가 실제로 팩트를 읽는지 확인한다.
         when(facts.require("FCT-111")).thenReturn(textFact("FCT-111", "종료 6~2개월 전(팩트값)"));
         when(facts.require("FCT-113")).thenReturn(textFact("FCT-113", "1회 · 5% 상한(팩트값)"));
+        when(leaseEnds.findByPlanId(PLAN_ID)).thenReturn(Optional.empty());
+    }
+
+    private LeaseEnd leaseEndWithClaim() {
+        LeaseEnd le = new LeaseEnd(PLAN_ID);
+        le.decide(LeaseDecision.RENEW, RenewalMethod.CLAIM, null, null); // 청구권 선택 → 사용 기록
+        return le;
     }
 
     private String detailOf(RenewalMethodsResponse r, RenewalMethod method) {
@@ -62,8 +73,21 @@ class RenewalMethodsServiceTest {
     }
 
     @Test
-    void should_noteClaimRightIsSingleUse() {
+    void should_noteClaimRightIsSingleUse_whenNotUsedYet() {
         given();
-        assertThat(service.forPlan(MEMBER_ID, PLAN_ID).reuseNote()).contains("1회");
+        RenewalMethodsResponse r = service.forPlan(MEMBER_ID, PLAN_ID);
+        assertThat(r.claimRightAlreadyUsed()).isFalse();
+        assertThat(r.reuseNote()).contains("1회");
+    }
+
+    @Test
+    void should_reflectClaimRightAlreadyUsed_whenStoredDecisionUsedIt() {
+        given();
+        when(leaseEnds.findByPlanId(PLAN_ID)).thenReturn(Optional.of(leaseEndWithClaim()));
+
+        RenewalMethodsResponse r = service.forPlan(MEMBER_ID, PLAN_ID);
+
+        assertThat(r.claimRightAlreadyUsed()).isTrue();
+        assertThat(r.reuseNote()).contains("이미 사용");
     }
 }

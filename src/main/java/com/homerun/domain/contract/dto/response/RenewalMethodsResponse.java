@@ -9,10 +9,12 @@ import java.util.List;
  *
  * @param noticeWindow 갱신 의사 통보 시기(FCT-111)
  * @param methods 방법별 비교
- * @param reuseNote 계약갱신청구권 재사용 불가 안내
+ * @param claimRightAlreadyUsed 계약갱신청구권을 이미 사용했는가(저장된 갱신 결정 기준)
+ * @param reuseNote 계약갱신청구권 재사용 관련 안내
  */
 @Schema(description = "갱신 방법 3종 비교(FR-H9-02)")
-public record RenewalMethodsResponse(String noticeWindow, List<Method> methods, String reuseNote) {
+public record RenewalMethodsResponse(
+        String noticeWindow, List<Method> methods, boolean claimRightAlreadyUsed, String reuseNote) {
 
     public RenewalMethodsResponse {
         methods = List.copyOf(methods);
