@@ -35,10 +35,10 @@ public class EducationProgress {
     private EducationProgressStatus status;
 
     @Column(name = "progress_pct", nullable = false)
-    private int progressPct;
+    private short progressPct;
 
     @Column(name = "quiz_score")
-    private Integer quizScore;
+    private Short quizScore;
 
     @Column(name = "completed_at")
     private Instant completedAt;
@@ -69,7 +69,7 @@ public class EducationProgress {
 
     /** 퀴즈 결과 반영. 콘텐츠를 다 읽었고(100%) 통과했으면 DONE, 아니면 IN_PROGRESS. */
     public void applyQuiz(int score, boolean passed) {
-        this.quizScore = score;
+        this.quizScore = (short) score;
         if (progressPct >= 100 && passed) {
             this.status = EducationProgressStatus.DONE;
             this.completedAt = Instant.now();
@@ -96,6 +96,6 @@ public class EducationProgress {
     }
 
     public Integer getQuizScore() {
-        return quizScore;
+        return quizScore == null ? null : quizScore.intValue();
     }
 }
