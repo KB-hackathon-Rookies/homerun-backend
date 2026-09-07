@@ -4,11 +4,11 @@ import com.homerun.domain.contract.entity.LeaseContract;
 import com.homerun.domain.contract.repository.LeaseContractRepository;
 import com.homerun.domain.plan.entity.Plan;
 import com.homerun.domain.plan.repository.PlanRepository;
-import com.homerun.domain.property.type.CollateralMethod;
 import com.homerun.domain.settlement.dto.response.DashboardItemResponse;
 import com.homerun.domain.settlement.dto.response.SettlementDashboardResponse;
 import com.homerun.domain.settlement.entity.LoanAccount;
 import com.homerun.domain.settlement.repository.LoanAccountRepository;
+import com.homerun.domain.settlement.repository.ReturnGuaranteeEnrollmentRepository;
 import com.homerun.domain.settlement.type.DashboardItemStatus;
 import com.homerun.global.exception.BusinessException;
 import com.homerun.global.exception.ErrorCode;
@@ -33,13 +33,22 @@ public class SettlementDashboardService {
     private final PlanRepository plans;
     private final LeaseContractRepository contracts;
     private final LoanAccountRepository loans;
+    private final ReturnGuaranteeStatusResolver returnGuaranteeResolver;
+    private final ReturnGuaranteeEnrollmentRepository enrollments;
     private final Clock clock;
 
     public SettlementDashboardService(
-            PlanRepository plans, LeaseContractRepository contracts, LoanAccountRepository loans, Clock clock) {
+            PlanRepository plans,
+            LeaseContractRepository contracts,
+            LoanAccountRepository loans,
+            ReturnGuaranteeStatusResolver returnGuaranteeResolver,
+            ReturnGuaranteeEnrollmentRepository enrollments,
+            Clock clock) {
         this.plans = plans;
         this.contracts = contracts;
         this.loans = loans;
+        this.returnGuaranteeResolver = returnGuaranteeResolver;
+        this.enrollments = enrollments;
         this.clock = clock;
     }
 
@@ -56,7 +65,7 @@ public class SettlementDashboardService {
                 "LOAN_EXECUTED", "전세대출 실행", loan != null ? DashboardItemStatus.DONE : DashboardItemStatus.PENDING));
         items.add(item("MOVE_IN_REPORT", "전입신고", done(contract != null && contract.getMoveInReportAt() != null)));
         items.add(item("CONFIRMED_DATE", "확정일자", done(contract != null && contract.getConfirmedDateAt() != null)));
-        items.add(item("RETURN_GUARANTEE", "반환보증", returnGuaranteeStatus(loan)));
+        items.add(item("RETURN_GUARANTEE", "반환보증", returnGuaranteeStatus(planId)));
         // 보증료 지원·연말정산은 완료 여부를 저장하지 않아 추적할 수 없다.
         items.add(item("GUARANTEE_FEE_SUPPORT", "보증료 지원 신청", DashboardItemStatus.NOT_TRACKED));
         items.add(item("YEAR_END_TAX", "연말정산 소득공제", DashboardItemStatus.NOT_TRACKED));
@@ -72,12 +81,18 @@ public class SettlementDashboardService {
         return new SettlementDashboardResponse(daysSinceIndependence(contract), items, progress);
     }
 
-    /** HUG 담보는 반환보증이 포함돼 완료로 본다. 그 외는 가입 상태를 저장하지 않아 추적 불가. */
-    private DashboardItemStatus returnGuaranteeStatus(LoanAccount loan) {
-        if (loan != null && loan.getGuarantee() == CollateralMethod.HUG_SAFE_JEONSE) {
+    /**
+     * HUG 담보이거나 반환보증에 가입했으면 완료다(resolver). 가입 기록이 있는데 아직 가입 전이면
+     * 해야 할 일(PENDING), 기록도 없고 HUG 도 아니면 추적할 수 없다(NOT_TRACKED) -- 근거 없이
+     * 미완료로 단정하지 않는다.
+     */
+    private DashboardItemStatus returnGuaranteeStatus(Long planId) {
+        if (returnGuaranteeResolver.hasReturnGuarantee(planId)) {
             return DashboardItemStatus.DONE;
         }
-        return DashboardItemStatus.NOT_TRACKED;
+        return enrollments.findByPlanId(planId).isPresent()
+                ? DashboardItemStatus.PENDING
+                : DashboardItemStatus.NOT_TRACKED;
     }
 
     /** 독립(실제 전입) 후 경과일. 아직 전입 전이면 null -- 예정일로 지어내지 않는다. */
