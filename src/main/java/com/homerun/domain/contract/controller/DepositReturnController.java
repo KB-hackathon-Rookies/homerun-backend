@@ -44,12 +44,13 @@ public class DepositReturnController {
     @Operation(
             summary = "질권 상환 자금 흐름",
             description = "퇴거 시 보증금 반환 자금 흐름을 보여준다(FR-H10-02). 보증금은 임대인이 은행에 직접"
-                    + " 송금하고, 은행 몫은 대출 잔액, 내 몫은 나머지다. 착오 전액 수령 시 즉시 반환을 안내한다.")
+                    + " 송금하고, 은행 몫은 대출 잔액, 내 몫은 나머지다. 값을 생략하면 보증금은 계약, 대출 잔액은 실행 대출"
+                    + "(만기일시상환은 원금)에서 읽는다. 착오 전액 수령 시 즉시 반환을 안내한다.")
     public ApiResponse<LienRepaymentResponse> lienRepayment(
             @AuthenticationPrincipal MemberPrincipal principal,
             @PathVariable Long planId,
-            @RequestParam long deposit,
-            @RequestParam long loanBalance) {
+            @RequestParam(required = false) Long deposit,
+            @RequestParam(required = false) Long loanBalance) {
         return ApiResponse.success(lienRepaymentService.guide(principal.memberId(), planId, deposit, loanBalance));
     }
 }
