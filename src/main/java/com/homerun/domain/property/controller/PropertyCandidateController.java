@@ -3,6 +3,7 @@ package com.homerun.domain.property.controller;
 import com.homerun.domain.property.dto.request.BankConsultationRequest;
 import com.homerun.domain.property.dto.request.LandlordConsentRequest;
 import com.homerun.domain.property.dto.request.PropertyBuildingStepRequest;
+import com.homerun.domain.property.dto.request.PropertyCancellationRequest;
 import com.homerun.domain.property.dto.request.PropertyCandidateAnalysisRequest;
 import com.homerun.domain.property.dto.request.PropertyComparisonRequest;
 import com.homerun.domain.property.dto.request.PropertyDecisionRequest;
@@ -240,6 +241,18 @@ public class PropertyCandidateController {
             @PathVariable Long planId,
             @PathVariable Long propertyId) {
         return ApiResponse.success(service.landlordConsentGuide(principal.memberId(), planId, propertyId));
+    }
+
+    @PutMapping("/{propertyId}/cancellation")
+    @Operation(
+            summary = "매물 해제",
+            description = "계약 해제로 매물을 접는다(FR-P8-06). 삭제하지 않고 해제 표시·사유를 남기며, 선택된" + " 매물이었으면 선택을 풀어 다른 매물을 고르게 한다.")
+    public ApiResponse<PropertyCandidateResponse> cancel(
+            @AuthenticationPrincipal MemberPrincipal principal,
+            @PathVariable Long planId,
+            @PathVariable Long propertyId,
+            @Valid @RequestBody PropertyCancellationRequest request) {
+        return ApiResponse.success(service.cancel(principal.memberId(), planId, propertyId, request.reason()));
     }
 
     @PutMapping("/{propertyId}/selection")

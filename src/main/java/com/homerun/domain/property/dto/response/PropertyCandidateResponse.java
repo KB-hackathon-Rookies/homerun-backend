@@ -30,7 +30,11 @@ public record PropertyCandidateResponse(
         @Schema(description = "신호등의 한글 이름. 색만으로 구분하지 않는다(NFR-UX-03)")
         String trafficLightLabel,
 
-        Instant analyzedAt) {
+        Instant analyzedAt,
+
+        @Schema(description = "계약 해제로 접힌 매물인가(FR-P8-06)") boolean cancelled,
+
+        @Schema(description = "해제 사유") String cancelReason) {
 
     public static PropertyCandidateResponse from(Property property, TrafficLight trafficLight) {
         return new PropertyCandidateResponse(
@@ -45,6 +49,8 @@ public record PropertyCandidateResponse(
                 property.isSelected(),
                 trafficLight,
                 trafficLight == null ? null : trafficLight.label(),
-                property.getAnalyzedAt());
+                property.getAnalyzedAt(),
+                property.isCancelled(),
+                property.getCancelReason());
     }
 }
