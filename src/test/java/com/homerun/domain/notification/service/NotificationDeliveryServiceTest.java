@@ -4,6 +4,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyList;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import com.homerun.domain.notification.entity.DeviceToken;
@@ -62,6 +63,21 @@ class NotificationDeliveryServiceTest {
         boolean ack = service().deliver(1L);
 
         assertThat(ack).isTrue();
+        assertThat(notification.getStatus()).isEqualTo(NotificationStatus.SENT);
+    }
+
+    @Test
+    @DisplayName("FCM이 무효로 판정한 토큰은 전송 후 저장소에서 삭제한다")
+    void should_deleteInvalidTokens_afterDelivery() {
+        Notification notification = pending();
+        when(notificationRepository.findById(1L)).thenReturn(Optional.of(notification));
+        when(deviceTokenRepository.findByMemberId(7L))
+                .thenReturn(List.of(new DeviceToken(7L, "expired", DevicePlatform.ANDROID, Instant.now(CLOCK))));
+        when(fcmSender.send(anyList(), any(), any(), any())).thenReturn(new FcmSendResult(0, 1, List.of("expired")));
+
+        service().deliver(1L);
+
+        verify(deviceTokenRepository).deleteByTokenIn(List.of("expired"));
         assertThat(notification.getStatus()).isEqualTo(NotificationStatus.SENT);
     }
 

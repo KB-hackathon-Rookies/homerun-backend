@@ -28,4 +28,9 @@ public class DeviceTokenService {
                         () -> deviceTokenRepository.save(
                                 new DeviceToken(memberId, request.token(), request.platform(), clock.instant())));
     }
+
+    @Transactional
+    public void unregister(Long memberId, String token) {
+        deviceTokenRepository.deleteByMemberIdAndToken(memberId, token);
+    }
 }

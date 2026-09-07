@@ -1,6 +1,7 @@
 package com.homerun.domain.notification.controller;
 
 import com.homerun.domain.notification.dto.request.RegisterDeviceTokenRequest;
+import com.homerun.domain.notification.dto.request.UnregisterDeviceTokenRequest;
 import com.homerun.domain.notification.dto.response.NotificationResponse;
 import com.homerun.domain.notification.service.DeviceTokenService;
 import com.homerun.domain.notification.service.NotificationQueryService;
@@ -13,6 +14,7 @@ import java.util.List;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -43,6 +45,15 @@ public class NotificationController {
             @Valid @RequestBody RegisterDeviceTokenRequest request) {
         deviceTokenService.register(principal.memberId(), request);
         return ResponseEntity.status(HttpStatus.CREATED).body(ApiResponse.success(null));
+    }
+
+    @DeleteMapping("/tokens")
+    @Operation(summary = "디바이스 FCM 토큰 해제", description = "로그아웃 전에 현재 기기 토큰을 해제합니다.")
+    public ResponseEntity<Void> unregisterToken(
+            @AuthenticationPrincipal MemberPrincipal principal,
+            @Valid @RequestBody UnregisterDeviceTokenRequest request) {
+        deviceTokenService.unregister(principal.memberId(), request.token());
+        return ResponseEntity.noContent().build();
     }
 
     @GetMapping
