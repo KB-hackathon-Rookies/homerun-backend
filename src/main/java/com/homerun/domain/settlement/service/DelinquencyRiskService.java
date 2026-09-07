@@ -14,8 +14,8 @@ import org.springframework.transaction.annotation.Transactional;
  * 연체 위험 판단(FR-H5-04). 월 잔여금이 적자면 위험으로 본다. 소유권 확인·현금흐름 계산은
  * {@link CashFlowSummaryService} 를 그대로 재사용한다.
  *
- * <p>RIR 컷오프(O-3 미결)는 쓰지 않는다. 적자(잔여금 &lt; 0)라는 명확한 선만 쓴다. 이자 고정지출이
- * 없으면 판단 자체가 안 되므로 등록을 안내한다(FR-H5-01).
+ * <p>적자(잔여금 &lt; 0)라는 명확한 선만 쓴다. 이자 고정지출이 없으면 판단 자체가 안 되므로 등록을
+ * 안내한다(FR-H5-01).
  */
 @Service
 public class DelinquencyRiskService {

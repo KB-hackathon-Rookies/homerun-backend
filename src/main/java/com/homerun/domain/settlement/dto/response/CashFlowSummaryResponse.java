@@ -9,7 +9,7 @@ import io.swagger.v3.oas.annotations.media.Schema;
  * @param monthlyIncome 월 소득(원, plan_input). 없으면 0
  * @param managementFee 월 관리비(원, fixed_expense 의 MGMT 합계)
  * @param livingCost 월 생활비(원, 최근 진단). 없으면 0
- * @param metrics 월 이자·주거비·잔여금·RIR(BR-28)
+ * @param metrics 월 이자·주거비·잔여금(BR-28)
  */
 @Schema(description = "현금흐름 종합(FR-H5-03)")
 public record CashFlowSummaryResponse(

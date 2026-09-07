@@ -95,10 +95,7 @@ public class SettlementController {
     }
 
     @PostMapping("/monthly-metrics")
-    @Operation(
-            summary = "월간 지표(월 잔여금·RIR)",
-            description = "월 이자·주거비·잔여금·RIR을 계산한다(BR-28). 계획값이든 실제값이든 같은 공식이다."
-                    + " RIR 안정/위험 컷오프는 공식 출처 미확보(O-3)라 숫자만 주고 판정하지 않는다.")
+    @Operation(summary = "월간 지표(월 이자·주거비·잔여금)", description = "월 이자·주거비·잔여금을 계산한다(BR-28). 계획값이든 실제값이든 같은 공식이다.")
     public ApiResponse<MonthlyMetricsResponse> monthlyMetrics(
             @AuthenticationPrincipal MemberPrincipal principal,
             @PathVariable Long planId,
@@ -107,10 +104,7 @@ public class SettlementController {
     }
 
     @GetMapping("/cash-flow")
-    @Operation(
-            summary = "현금흐름 종합",
-            description =
-                    "저장된 대출·고정지출·소득·생활비로 월간 지표(BR-28)를 계산한다. 대출이 등록돼 있어야 한다." + " RIR 컷오프는 공식 출처 미확보(O-3)라 판정하지 않는다.")
+    @Operation(summary = "현금흐름 종합", description = "저장된 대출·고정지출·소득·생활비로 월 이자·주거비·잔여금(BR-28)을 계산한다." + " 대출이 등록돼 있어야 한다.")
     public ApiResponse<CashFlowSummaryResponse> cashFlow(
             @AuthenticationPrincipal MemberPrincipal principal, @PathVariable Long planId) {
         return ApiResponse.success(cashFlowSummaryService.forPlan(principal.memberId(), planId));
