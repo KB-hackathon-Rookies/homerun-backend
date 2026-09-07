@@ -134,6 +134,12 @@ public class Property {
     @Column(name = "analyzed_at")
     private Instant analyzedAt;
 
+    @Column(name = "cancelled_at")
+    private Instant cancelledAt;
+
+    @Column(name = "cancel_reason", columnDefinition = "text")
+    private String cancelReason;
+
     @Enumerated(EnumType.STRING)
     @Column(name = "workflow_step", nullable = false, length = 20)
     private PropertyDiagnosisStep workflowStep = PropertyDiagnosisStep.BUILDING;
@@ -336,6 +342,25 @@ public class Property {
 
     public void select() {
         selected = true;
+    }
+
+    /** 계약 해제로 이 매물을 접는다. 삭제하지 않고 사유와 시각만 남긴다(FR-P8-06). */
+    public void cancel(String reason, java.time.Instant at) {
+        this.cancelledAt = at;
+        this.cancelReason = reason;
+        this.selected = false;
+    }
+
+    public boolean isCancelled() {
+        return cancelledAt != null;
+    }
+
+    public java.time.Instant getCancelledAt() {
+        return cancelledAt;
+    }
+
+    public String getCancelReason() {
+        return cancelReason;
     }
 
     public void deselect() {

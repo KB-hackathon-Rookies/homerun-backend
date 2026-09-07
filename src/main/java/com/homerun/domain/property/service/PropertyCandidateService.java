@@ -181,6 +181,20 @@ public class PropertyCandidateService {
         return PropertyCandidateResponse.from(selected, trafficLights.forProperty(planId, propertyId));
     }
 
+    /**
+     * 계약 해제로 매물을 접는다(FR-P8-06). 삭제하지 않고 해제 표시·사유만 남긴다. 선택된 매물이었으면
+     * 선택을 풀어 2루에서 다른 매물을 고르게 한다.
+     */
+    @Transactional
+    public PropertyCandidateResponse cancel(Long memberId, Long planId, Long propertyId, String reason) {
+        ownedPlan(memberId, planId);
+        Property property = properties
+                .findByIdAndPlanId(propertyId, planId)
+                .orElseThrow(() -> new BusinessException(ErrorCode.PROPERTY_NOT_IN_PLAN));
+        property.cancel(reason, Instant.now(clock));
+        return PropertyCandidateResponse.from(property, trafficLights.forProperty(planId, propertyId));
+    }
+
     private Plan ownedPlan(Long memberId, Long planId) {
         Plan plan = plans.findById(planId).orElseThrow(() -> new BusinessException(ErrorCode.PLAN_NOT_FOUND));
         plan.verifyOwner(memberId);

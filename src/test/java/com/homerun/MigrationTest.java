@@ -224,8 +224,14 @@ class MigrationTest {
     }
 
     @Test
-    @DisplayName("V69가 lease_end 에 보증금 반환 컬럼과 CHECK 를 추가한다")
-    void should_addLeaseEndDepositReturn_whenV69IsApplied() {
+    @DisplayName("V68이 매물 해제 컬럼을 추가한다")
+    void should_addPropertyCancellation_whenV68IsApplied() {
+        assertThat(columnNames("property")).contains("cancelled_at", "cancel_reason");
+    }
+
+    @Test
+    @DisplayName("V70이 lease_end 에 보증금 반환 컬럼과 CHECK 를 추가한다")
+    void should_addLeaseEndDepositReturn_whenV70IsApplied() {
         assertThat(columnNames("lease_end"))
                 .contains("deposit_returned", "return_amount_to_bank", "return_amount_to_me", "unreturned_action");
         assertThat(constraintDefinition("ck_lease_end_deposit_returned")).contains("YES", "NO", "PARTIAL");
@@ -392,6 +398,28 @@ class MigrationTest {
                 String.class,
                 version,
                 policyCode);
+    }
+
+    @Test
+    @DisplayName("V69가 교육 콘텐츠 본문 컬럼·퀴즈 뱅크·6개 모듈 시드를 추가한다")
+    void should_add_education_quiz_and_seed_when_v69IsApplied() {
+        // Option A: 기존 education_content/education_progress 재사용, body 컬럼·퀴즈 뱅크 추가.
+        assertThat(columnNames("education_content")).contains("body");
+        assertThat(tableNames()).contains("education_quiz_question");
+        assertThat(jdbc.queryForObject("SELECT count(*) FROM education_content WHERE is_active = true", Integer.class))
+                .isEqualTo(6);
+        // 모든 퀴즈 정답 index 가 보기 범위 안(시드 무결성).
+        assertThat(jdbc.queryForObject(
+                        "SELECT count(*) FROM education_quiz_question"
+                                + " WHERE answer_index >= jsonb_array_length(options)",
+                        Integer.class))
+                .isZero();
+        // 모든 모듈 콘텐츠가 최소 1문항의 퀴즈를 가진다.
+        assertThat(jdbc.queryForObject(
+                        "SELECT count(*) FROM education_content c WHERE NOT EXISTS"
+                                + " (SELECT 1 FROM education_quiz_question q WHERE q.content_id = c.id)",
+                        Integer.class))
+                .isZero();
     }
 
     private java.util.List<String> tableNames() {

@@ -237,6 +237,22 @@ class PropertyCandidateServiceTest {
     }
 
     @Test
+    void should_cancelProperty_markingReasonAndClearingSelection() {
+        // 계약 해제로 매물을 접으면 삭제하지 않고 해제 표시·사유를 남기고, 선택을 푼다(FR-P8-06).
+        Property property = candidate(3L);
+        property.select();
+        when(properties.findByIdAndPlanId(3L, PLAN_ID)).thenReturn(Optional.of(property));
+
+        var response = service.cancel(MEMBER_ID, PLAN_ID, 3L, "대출 거절로 계약 무효");
+
+        assertThat(property.isCancelled()).isTrue();
+        assertThat(property.getCancelReason()).isEqualTo("대출 거절로 계약 무효");
+        assertThat(property.isSelected()).isFalse();
+        assertThat(response.cancelled()).isTrue();
+        assertThat(response.cancelReason()).isEqualTo("대출 거절로 계약 무효");
+    }
+
+    @Test
     void should_keepOnlyRequestedCandidateSelected() {
         Property first = candidate(1L);
         first.select();

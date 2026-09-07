@@ -137,6 +137,9 @@ public enum ErrorCode {
     RETURN_GUARANTEE_NOT_FOUND(HttpStatus.NOT_FOUND, "RF_004", "저장된 반환보증 가입 상태가 없습니다."),
     LOAN_BALANCE_REQUIRED(HttpStatus.BAD_REQUEST, "RF_003", "원리금균등상환은 대출 잔액을 직접 입력해야 합니다."),
     FIXED_EXPENSE_NOT_FOUND(HttpStatus.NOT_FOUND, "RF_002", "고정지출을 찾을 수 없습니다."),
+
+    EDUCATION_CONTENT_NOT_FOUND(HttpStatus.NOT_FOUND, "EDU_001", "교육 콘텐츠를 찾을 수 없습니다."),
+    EDUCATION_QUIZ_SUBMISSION_INVALID(HttpStatus.BAD_REQUEST, "EDU_002", "퀴즈 제출이 올바르지 않습니다."),
     ;
 
     private final HttpStatus status;

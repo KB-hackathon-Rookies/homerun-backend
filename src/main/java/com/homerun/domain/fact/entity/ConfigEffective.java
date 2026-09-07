@@ -48,6 +48,9 @@ public class ConfigEffective {
     @Column(name = "effective_from")
     private LocalDate effectiveFrom;
 
+    @Column(name = "effective_to")
+    private LocalDate effectiveTo;
+
     protected ConfigEffective() {}
 
     public String factCode() {
@@ -80,5 +83,9 @@ public class ConfigEffective {
 
     public LocalDate effectiveFrom() {
         return effectiveFrom;
+    }
+
+    public LocalDate effectiveTo() {
+        return effectiveTo;
     }
 }
