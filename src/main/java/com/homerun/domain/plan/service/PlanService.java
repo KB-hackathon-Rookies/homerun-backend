@@ -16,6 +16,7 @@ import com.homerun.domain.plan.repository.PlanStepRepository;
 import com.homerun.domain.plan.repository.StepTaskRepository;
 import com.homerun.domain.plan.type.PlanGate;
 import com.homerun.domain.plan.type.PlanStage;
+import com.homerun.domain.plan.type.PlanStatus;
 import com.homerun.domain.plan.type.PlanStepStatus;
 import com.homerun.domain.plan.type.StepTaskTemplate;
 import com.homerun.domain.plan.validation.PlanInputCompletionValidator;
@@ -63,6 +64,21 @@ public class PlanService {
     public PlanResponse get(Long memberId, Long planId) {
         Plan plan = findOwnedPlan(memberId, planId);
         return PlanResponse.from(plan, findSteps(planId));
+    }
+
+    @Transactional(readOnly = true)
+    public List<PlanResponse> getAll(Long memberId) {
+        return planRepository.findAllByMemberIdOrderByUpdatedAtDescIdDesc(memberId).stream()
+                .map(plan -> PlanResponse.from(plan, findSteps(plan.getId())))
+                .toList();
+    }
+
+    @Transactional(readOnly = true)
+    public PlanResponse getActive(Long memberId) {
+        Plan plan = planRepository
+                .findFirstByMemberIdAndStatusOrderByUpdatedAtDescIdDesc(memberId, PlanStatus.ACTIVE)
+                .orElseThrow(() -> new BusinessException(ErrorCode.PLAN_ACTIVE_NOT_FOUND));
+        return PlanResponse.from(plan, findSteps(plan.getId()));
     }
 
     @Transactional(readOnly = true)

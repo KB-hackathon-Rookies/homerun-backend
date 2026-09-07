@@ -12,6 +12,7 @@ import com.homerun.global.security.principal.MemberPrincipal;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
+import java.util.List;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
@@ -40,6 +41,18 @@ public class PlanController {
             @AuthenticationPrincipal MemberPrincipal principal, @Valid @RequestBody CreatePlanRequest request) {
         return ResponseEntity.status(HttpStatus.CREATED)
                 .body(ApiResponse.success(planService.create(principal.memberId(), request)));
+    }
+
+    @GetMapping
+    @Operation(summary = "내 계획 목록 조회", description = "로그인 사용자의 계획을 최근 활동 순으로 조회합니다.")
+    public ApiResponse<List<PlanResponse>> getAll(@AuthenticationPrincipal MemberPrincipal principal) {
+        return ApiResponse.success(planService.getAll(principal.memberId()));
+    }
+
+    @GetMapping("/active")
+    @Operation(summary = "진행 중인 계획 이어하기", description = "가장 최근에 활동한 ACTIVE 계획과 마지막 위치를 조회합니다.")
+    public ApiResponse<PlanResponse> getActive(@AuthenticationPrincipal MemberPrincipal principal) {
+        return ApiResponse.success(planService.getActive(principal.memberId()));
     }
 
     @GetMapping("/{planId}")
