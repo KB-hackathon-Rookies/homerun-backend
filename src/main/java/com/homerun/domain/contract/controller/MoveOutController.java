@@ -46,7 +46,7 @@ public class MoveOutController {
             @AuthenticationPrincipal MemberPrincipal principal,
             @PathVariable Long planId,
             @RequestParam boolean aptOrOfficetel,
-            @RequestParam boolean hasReturnGuarantee) {
+            @RequestParam(required = false) Boolean hasReturnGuarantee) {
         return ApiResponse.success(service.guide(principal.memberId(), planId, aptOrOfficetel, hasReturnGuarantee));
     }
 

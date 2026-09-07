@@ -3,6 +3,7 @@ package com.homerun.domain.contract.service;
 import com.homerun.domain.contract.dto.response.MoveOutChecklistResponse;
 import com.homerun.domain.plan.entity.Plan;
 import com.homerun.domain.plan.repository.PlanRepository;
+import com.homerun.domain.settlement.service.ReturnGuaranteeStatusResolver;
 import com.homerun.global.exception.BusinessException;
 import com.homerun.global.exception.ErrorCode;
 import org.springframework.stereotype.Service;
@@ -14,10 +15,15 @@ public class MoveOutChecklistService {
 
     private final PlanRepository plans;
     private final MoveOutChecklistAdvisor advisor;
+    private final ReturnGuaranteeStatusResolver returnGuaranteeResolver;
 
-    public MoveOutChecklistService(PlanRepository plans, MoveOutChecklistAdvisor advisor) {
+    public MoveOutChecklistService(
+            PlanRepository plans,
+            MoveOutChecklistAdvisor advisor,
+            ReturnGuaranteeStatusResolver returnGuaranteeResolver) {
         this.plans = plans;
         this.advisor = advisor;
+        this.returnGuaranteeResolver = returnGuaranteeResolver;
     }
 
     @Transactional(readOnly = true)
