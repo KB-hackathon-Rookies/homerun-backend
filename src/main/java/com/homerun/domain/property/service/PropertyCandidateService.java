@@ -31,6 +31,10 @@ import org.springframework.transaction.annotation.Transactional;
 @Service
 public class PropertyCandidateService {
 
+    /** 계획당 매물 등록 상한(FR-P1-03). 명세서 NFR-OPS-02 는 설정 테이블 분리를 권하지만, 화면
+     * 비교 가능 개수와 묶인 값이라 지금은 여기 둔다. */
+    private static final int MAX_PROPERTIES_PER_PLAN = 5;
+
     private final PlanRepository plans;
     private final PropertyRepository properties;
     private final HouseAnalysisService houseAnalysisService;
@@ -60,6 +64,12 @@ public class PropertyCandidateService {
     public PropertyCandidateAnalysisResponse analyzeAndSave(
             Long memberId, Long planId, PropertyCandidateAnalysisRequest request) {
         Plan plan = ownedPlan(memberId, planId);
+        // FR-P1-03. 5개가 차면 더 등록하지 않는다. 외부 조회 앞에서 막는다 — 어차피 거절할
+        // 요청으로 공공 API 호출 한도를 쓰지 않는다.
+        if (properties.countByPlanId(planId) >= MAX_PROPERTIES_PER_PLAN) {
+            throw new BusinessException(ErrorCode.PROPERTY_LIMIT_EXCEEDED);
+        }
+
         HouseAnalysisResponse analysis = houseAnalysisService.analyze(request.house());
         BuildingSafetyFactsResponse automatic = automaticFacts(analysis);
         Instant analyzedAt = Instant.now(clock);
