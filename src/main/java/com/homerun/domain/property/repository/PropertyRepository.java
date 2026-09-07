@@ -13,8 +13,6 @@ public interface PropertyRepository extends JpaRepository<Property, Long> {
 
     boolean existsByIdAndPlanId(Long id, Long planId);
 
-    long countByPlanId(Long planId);
-
     List<Property> findAllByPlanIdOrderByIdAsc(Long planId);
 
     Optional<Property> findByIdAndPlanId(Long id, Long planId);

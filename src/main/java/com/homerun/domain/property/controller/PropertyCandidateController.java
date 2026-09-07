@@ -19,6 +19,7 @@ import com.homerun.domain.property.dto.response.PropertyPolicyVerdictListRespons
 import com.homerun.domain.property.dto.response.PropertyRejectionResponse;
 import com.homerun.domain.property.dto.response.PropertyStepSaveResponse;
 import com.homerun.domain.property.dto.response.PropertyWorkflowResponse;
+import com.homerun.domain.property.service.PropertyCandidateDeletionService;
 import com.homerun.domain.property.service.PropertyCandidateService;
 import com.homerun.domain.property.service.PropertyDecisionService;
 import com.homerun.domain.property.service.PropertyPolicyVerdictService;
@@ -31,6 +32,7 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import java.util.List;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -45,6 +47,7 @@ import org.springframework.web.bind.annotation.RestController;
 public class PropertyCandidateController {
 
     private final PropertyCandidateService service;
+    private final PropertyCandidateDeletionService deletionService;
     private final PropertyDecisionService decisionService;
     private final PropertyPolicyVerdictService policyVerdictService;
     private final PropertyWorkflowService workflowService;
@@ -52,11 +55,13 @@ public class PropertyCandidateController {
 
     public PropertyCandidateController(
             PropertyCandidateService service,
+            PropertyCandidateDeletionService deletionService,
             PropertyDecisionService decisionService,
             PropertyPolicyVerdictService policyVerdictService,
             PropertyWorkflowService workflowService,
             PropertyRejectionService rejectionService) {
         this.service = service;
+        this.deletionService = deletionService;
         this.decisionService = decisionService;
         this.policyVerdictService = policyVerdictService;
         this.workflowService = workflowService;
@@ -148,8 +153,18 @@ public class PropertyCandidateController {
         return ApiResponse.success(service.getCandidates(principal.memberId(), planId));
     }
 
+    @DeleteMapping("/{propertyId}")
+    @Operation(summary = "매물 후보 삭제", description = "비교 후보를 삭제합니다. 최종 선택 또는 계약에 사용한 매물은 삭제할 수 없습니다.")
+    public ApiResponse<Void> delete(
+            @AuthenticationPrincipal MemberPrincipal principal,
+            @PathVariable Long planId,
+            @PathVariable Long propertyId) {
+        deletionService.delete(principal.memberId(), planId, propertyId);
+        return ApiResponse.success(null);
+    }
+
     @PostMapping("/compare")
-    @Operation(summary = "매물 후보 비교", description = "최대 5개까지 등록할 수 있고 한 번에 2~3개를 매물·상담 요약과 함께 비교합니다.")
+    @Operation(summary = "매물 후보 비교", description = "매물은 제한 없이 등록할 수 있고 한 번에 2~3개를 매물·상담 요약과 함께 비교합니다.")
     public ApiResponse<PropertyComparisonResponse> compare(
             @AuthenticationPrincipal MemberPrincipal principal,
             @PathVariable Long planId,

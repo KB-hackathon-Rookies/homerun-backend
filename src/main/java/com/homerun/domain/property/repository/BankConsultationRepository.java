@@ -10,4 +10,6 @@ public interface BankConsultationRepository extends JpaRepository<BankConsultati
     List<BankConsultation> findAllByPlanIdAndPropertyIdOrderByConsultedAtDescIdDesc(Long planId, Long propertyId);
 
     Optional<BankConsultation> findByIdAndPlanIdAndPropertyId(Long id, Long planId, Long propertyId);
+
+    void deleteByPlanIdAndPropertyId(Long planId, Long propertyId);
 }

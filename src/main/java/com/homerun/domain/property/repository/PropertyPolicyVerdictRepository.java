@@ -10,4 +10,6 @@ public interface PropertyPolicyVerdictRepository extends JpaRepository<PropertyP
     List<PropertyPolicyVerdict> findByPropertyIdOrderByIdAsc(Long propertyId);
 
     Optional<PropertyPolicyVerdict> findByPropertyIdAndPolicyId(Long propertyId, Long policyId);
+
+    void deleteByPropertyId(Long propertyId);
 }

@@ -9,4 +9,6 @@ public interface PolicyVerdictRepository extends JpaRepository<PolicyVerdict, Lo
     Optional<PolicyVerdict> findByPlanIdAndPolicyIdAndRuleId(Long planId, Long policyId, Long ruleId);
 
     List<PolicyVerdict> findAllByPlanId(Long planId);
+
+    List<PolicyVerdict> findAllByPropertyId(Long propertyId);
 }

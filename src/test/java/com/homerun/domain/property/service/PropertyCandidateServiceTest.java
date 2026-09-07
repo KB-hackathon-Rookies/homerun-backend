@@ -1,7 +1,6 @@
 package com.homerun.domain.property.service;
 
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
@@ -22,8 +21,6 @@ import com.homerun.domain.property.entity.Property;
 import com.homerun.domain.property.repository.PropertyRepository;
 import com.homerun.domain.property.type.CheckResult;
 import com.homerun.domain.property.type.DataSource;
-import com.homerun.global.exception.BusinessException;
-import com.homerun.global.exception.ErrorCode;
 import com.homerun.global.external.building.BuildingLedgerResponse;
 import com.homerun.global.external.building.BuildingRegisterResponse;
 import java.time.Clock;
@@ -124,9 +121,7 @@ class PropertyCandidateServiceTest {
     }
 
     @Test
-    void should_saveCandidate_when_planIsUnderTheFivePropertyCap() {
-        // #179 이전에는 상한이 없었다. 이제 5건 미만이면 저장되고 5건이면 막힌다(FR-P1-03).
-        when(properties.countByPlanId(PLAN_ID)).thenReturn(4L);
+    void should_saveCandidate_withoutRegistrationCap() {
         when(houses.analyze(any())).thenReturn(houseAnalysis());
         when(properties.save(any(Property.class))).thenAnswer(invocation -> {
             Property property = invocation.getArgument(0);
@@ -139,18 +134,6 @@ class PropertyCandidateServiceTest {
         assertThat(service.analyzeAndSave(MEMBER_ID, PLAN_ID, request()).propertyId())
                 .isEqualTo(78L);
         verify(houses).analyze(any());
-    }
-
-    @Test
-    void should_rejectSixthCandidate_becauseComparisonCapsAtFive() {
-        when(properties.countByPlanId(PLAN_ID)).thenReturn(5L);
-
-        assertThatThrownBy(() -> service.analyzeAndSave(MEMBER_ID, PLAN_ID, request()))
-                .isInstanceOfSatisfying(
-                        BusinessException.class,
-                        exception -> assertThat(exception.errorCode()).isEqualTo(ErrorCode.PROPERTY_LIMIT_EXCEEDED));
-        // 상한에 걸리면 외부 조회를 아예 하지 않는다 — 막을 거면 돈·시간을 쓰기 전에 막는다.
-        verify(houses, never()).analyze(any());
     }
 
     @Test
