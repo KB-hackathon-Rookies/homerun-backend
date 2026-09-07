@@ -38,31 +38,51 @@ public class HouseAnalysisService {
                 request.mainLotNumber(),
                 normalizeSubLotNumber(request.subLotNumber()));
         BuildingLedgerResponse ledger = buildingLedgerService.findLedger(lotQuery);
-        HouseType houseType =
-                request.houseType() != null ? request.houseType() : HouseType.from(resolveHousingType(ledger));
+        List<String> warnings = new ArrayList<>();
+        HouseType houseType = request.houseType() != null ? request.houseType() : resolveHouseType(ledger, warnings);
         String sigunguCode = request.legalDistrictCode().substring(0, 5);
 
         List<String> buildingNames = buildingNames(request, ledger);
-        List<String> warnings = new ArrayList<>();
         RentTransactions rents = fetchAndMatch(houseType, sigunguCode, request, buildingNames, warnings);
         return new HouseAnalysisResponse(request, houseType, ledger, rents, List.copyOf(warnings));
     }
 
-    private HousingType resolveHousingType(BuildingLedgerResponse ledger) {
+    /**
+     * 건축물대장 용도 문구로 주택 유형을 읽는다. 판별하지 못해도 실패시키지 않는다.
+     *
+     * <p>여기서 예외를 던지면 매물 등록 자체가 막힌다. 그런데 유형은 바로 다음 단계(STEP 2)에서
+     * 사용자가 고르는 값이고, 유형별 실거래 API 가 없는 종류는 어차피 면적을 직접 받는다
+     * (FR-P1-10). 못 읽었다고 등록을 거절할 이유가 없다 — {@link HouseType#OTHER} 로 두고
+     * 경고만 남긴다.
+     *
+     * <p>순서가 있다. 다가구는 대장 주용도가 "단독주택" 이고 기타용도에 "다가구주택" 이 적히는
+     * 일이 많아, 단독보다 먼저 본다.
+     */
+    private HouseType resolveHouseType(BuildingLedgerResponse ledger, List<String> warnings) {
         String description = ledger.titles().items().stream()
                 .map(item ->
                         String.join(" ", value(item, "mainPurpsCdNm"), value(item, "etcPurps"), value(item, "bldNm")))
                 .reduce("", (left, right) -> left + " " + right);
         if (description.contains("오피스텔")) {
-            return HousingType.OFFICETEL;
+            return HouseType.OFFICETEL;
         }
         if (description.contains("연립") || description.contains("다세대")) {
-            return HousingType.ROW_HOUSE;
+            return HouseType.VILLA;
         }
         if (description.contains("아파트")) {
-            return HousingType.APARTMENT;
+            return HouseType.APARTMENT;
         }
-        throw new IllegalArgumentException("건축물대장에서 주택 유형을 판별하지 못했습니다. housingType을 직접 입력해 주세요.");
+        if (description.contains("다가구")) {
+            return HouseType.MULTI_FAMILY;
+        }
+        if (description.contains("단독")) {
+            return HouseType.DETACHED;
+        }
+        warnings.add(
+                ledger.titles().items().isEmpty()
+                        ? "이 주소의 건축물대장을 찾지 못해 주택 유형을 판별하지 못했습니다. 다음 단계에서 직접 골라 주세요."
+                        : "건축물대장의 용도로는 주택 유형을 판별하지 못했습니다. 다음 단계에서 직접 골라 주세요.");
+        return HouseType.OTHER;
     }
 
     private RentTransactions matchTransactions(
