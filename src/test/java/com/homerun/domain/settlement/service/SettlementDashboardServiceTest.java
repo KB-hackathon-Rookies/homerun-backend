@@ -14,7 +14,9 @@ import com.homerun.domain.property.type.ConsultedLoanProduct;
 import com.homerun.domain.settlement.dto.response.DashboardItemResponse;
 import com.homerun.domain.settlement.dto.response.SettlementDashboardResponse;
 import com.homerun.domain.settlement.entity.LoanAccount;
+import com.homerun.domain.settlement.entity.ReturnGuaranteeEnrollment;
 import com.homerun.domain.settlement.repository.LoanAccountRepository;
+import com.homerun.domain.settlement.repository.ReturnGuaranteeEnrollmentRepository;
 import com.homerun.domain.settlement.type.DashboardItemStatus;
 import com.homerun.domain.settlement.type.RepaymentType;
 import java.math.BigDecimal;
@@ -35,10 +37,15 @@ class SettlementDashboardServiceTest {
     private final PlanRepository plans = mock(PlanRepository.class);
     private final LeaseContractRepository contracts = mock(LeaseContractRepository.class);
     private final LoanAccountRepository loans = mock(LoanAccountRepository.class);
-    private final SettlementDashboardService service = new SettlementDashboardService(plans, contracts, loans, CLOCK);
+    private final ReturnGuaranteeStatusResolver returnGuaranteeResolver = mock(ReturnGuaranteeStatusResolver.class);
+    private final ReturnGuaranteeEnrollmentRepository enrollments = mock(ReturnGuaranteeEnrollmentRepository.class);
+    private final SettlementDashboardService service =
+            new SettlementDashboardService(plans, contracts, loans, returnGuaranteeResolver, enrollments, CLOCK);
 
     private void ownedPlan() {
         when(plans.findById(PLAN_ID)).thenReturn(Optional.of(Plan.create(MEMBER_ID, LeaseType.JEONSE, null)));
+        // 기본: 반환보증 없음, 가입 기록 없음. HUG·가입 케이스는 개별 테스트에서 덮어쓴다.
+        when(enrollments.findByPlanId(PLAN_ID)).thenReturn(Optional.empty());
     }
 
     private LoanAccount loan(CollateralMethod guarantee) {
@@ -75,6 +82,7 @@ class SettlementDashboardServiceTest {
     void should_markDoneAndComputeProgressAndDPlusN_whenSettled() {
         ownedPlan();
         when(loans.findByPlanId(PLAN_ID)).thenReturn(Optional.of(loan(CollateralMethod.HUG_SAFE_JEONSE)));
+        when(returnGuaranteeResolver.hasReturnGuarantee(PLAN_ID)).thenReturn(true);
         LeaseContract c = contract(LocalDate.of(2026, 9, 1), LocalDate.of(2026, 9, 1));
         when(contracts.findByPlanId(PLAN_ID)).thenReturn(Optional.of(c));
 
@@ -105,6 +113,20 @@ class SettlementDashboardServiceTest {
         // 추적 3개(LOAN·전입·확정) 전부 미완료 → 0%.
         assertThat(r.progressPercent()).isZero();
         assertThat(r.daysSinceIndependence()).isNull();
+    }
+
+    @Test
+    void should_markPendingReturnGuarantee_whenEnrollmentRecordButNotEnrolled() {
+        // 가입 기록은 있는데 아직 가입 전이면 해야 할 일(PENDING) -- 미추적(NOT_TRACKED)과 구분한다.
+        ownedPlan();
+        when(loans.findByPlanId(PLAN_ID)).thenReturn(Optional.of(loan(CollateralMethod.HF)));
+        when(contracts.findByPlanId(PLAN_ID)).thenReturn(Optional.empty());
+        ReturnGuaranteeEnrollment notYet = new ReturnGuaranteeEnrollment(PLAN_ID);
+        notYet.update(false, false, null);
+        when(enrollments.findByPlanId(PLAN_ID)).thenReturn(Optional.of(notYet));
+
+        SettlementDashboardResponse r = service.forPlan(MEMBER_ID, PLAN_ID);
+        assertThat(statusOf(r, "RETURN_GUARANTEE")).isEqualTo(DashboardItemStatus.PENDING);
     }
 
     @Test
