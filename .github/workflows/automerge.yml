@@ -38,6 +38,10 @@ jobs:
           fi
           number=$(echo "$pr" | jq -r '.number')
           state=$(echo "$pr" | jq -r '.mergeStateStatus')
+          # 연결된 이슈(Closes #N)를 머지 전에 캡처해 둔다 -- 머지 후 GitHub 자동닫기가 누락돼도
+          # 직접 닫기 위해서다(#276·#279 처럼 간헐적으로 안 닫히는 경우가 있다).
+          issues=$(gh pr view "$number" --repo "$REPO" --json closingIssuesReferences \
+                     --jq '.closingIssuesReferences[].number')
           # CLEAN 만 머지한다. BEHIND(dev 보다 뒤처짐)·DIRTY(충돌)·BLOCKED 는 자동 머지하지 않는다
           # -- 낡은 초록불 머지(#57)를 막는다. 뒤처진 PR 은 리베이스 후 CI 가 새로 돌면 그때 머지된다.
           if [ "$state" != "CLEAN" ]; then
@@ -46,3 +50,8 @@ jobs:
           fi
           echo "PR #$number 를 squash 머지한다."
           gh pr merge "$number" --repo "$REPO" --squash --delete-branch
+          # 연결 이슈를 직접 닫는다. 이미 닫혀 있으면 무해하다.
+          for i in $issues; do
+            echo "이슈 #$i 를 닫는다(PR #$number 머지)."
+            gh issue close "$i" --repo "$REPO" -c "PR #$number 머지로 자동 종료" || true
+          done
