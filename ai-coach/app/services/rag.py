@@ -1,6 +1,7 @@
 """stage-aware RAG. 답변은 LLM 이, 근거(sources)는 retriever 결과가 만든다."""
 
 from functools import lru_cache
+import logging
 
 from openai import OpenAI
 
@@ -24,17 +25,35 @@ _SYSTEM_BASE = (
     "일반론으로 지어내지 않는다. 한국어로, 실행 가능한 다음 단계를 중심으로 간결하게 답한다."
 )
 
+logger = logging.getLogger(__name__)
+
 
 @lru_cache
 def _client() -> OpenAI:
-    return OpenAI(api_key=settings.openai_api_key)
+    return OpenAI(
+        api_key=settings.openai_api_key,
+        timeout=settings.openai_timeout_seconds,
+        max_retries=settings.openai_max_retries,
+    )
 
 
 def answer(question: str, stage: Stage, context: dict | None) -> AskResponse:
-    query_embedding = embed_query(question)
-    hits = vectorstore.search(query_embedding, stage.value, settings.top_k)
+    try:
+        query_embedding = embed_query(question)
+        hits = vectorstore.search(query_embedding, stage.value, settings.top_k)
+    except Exception:  # 외부 임베딩·Chroma 장애를 그대로 500으로 노출하지 않는다.
+        logger.exception("RAG 검색 실패")
+        return AskResponse(
+            answer="지금은 관련 자료를 검색하기 어려워요. 잠시 후 다시 시도해 주세요.",
+            stage=stage,
+            sources=[],
+        )
 
-    answer_text = _generate(question, stage, hits, context)
+    try:
+        answer_text = _generate(question, stage, hits, context)
+    except Exception:  # 검색 근거는 살아 있으므로 생성 장애 시에도 사용자가 출처를 확인할 수 있게 한다.
+        logger.exception("RAG 답변 생성 실패")
+        answer_text = "답변 생성이 잠시 지연되고 있어요. 아래 근거 자료를 먼저 확인해 주세요."
 
     # 근거는 LLM 출력이 아니라 retriever 히트에서 직접 만든다(출처 환각 방지).
     sources = [

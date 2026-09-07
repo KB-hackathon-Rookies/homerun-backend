@@ -9,7 +9,11 @@ from app.core.config import settings
 
 @lru_cache
 def _client() -> OpenAI:
-    return OpenAI(api_key=settings.openai_api_key)
+    return OpenAI(
+        api_key=settings.openai_api_key,
+        timeout=settings.openai_timeout_seconds,
+        max_retries=settings.openai_max_retries,
+    )
 
 
 def embed_texts(texts: list[str]) -> list[list[float]]:

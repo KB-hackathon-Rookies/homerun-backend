@@ -75,8 +75,16 @@ curl -X POST http://localhost:8000/coach/ask \
 docker compose -f compose.prod.yaml up -d --build ai-coach
 ```
 
-컨테이너 기동 후 인제스트는 컨테이너 안에서 한 번 실행한다:
+컨테이너는 기동 전에 코퍼스 지문을 확인하고, 처음 실행하거나 문서가 바뀐 경우에만 자동으로
+전체 인덱스를 갱신한다. 수동으로 다시 만들고 싶을 때만 다음 명령을 사용한다:
 
 ```bash
 docker compose -f compose.prod.yaml exec ai-coach python -m scripts.ingest --path data/corpus
 ```
+
+## 운영 경계
+
+- OpenAI 호출은 기본 10초 시간제한과 1회 재시도를 적용한다.
+- 검색 장애 시 재시도 안내를, 답변 생성 장애 시 검색된 근거 목록을 반환한다.
+- 현재 `context`는 사용자가 요청 시 명시적으로 보낸 값만 사용한다. 백엔드에 저장된 금융·진단
+  정보의 자동 전달은 별도 동의와 최소전송 항목이 확정되기 전까지 수행하지 않는다.

@@ -110,6 +110,8 @@ services:
       OPENAI_API_KEY: ${OPENAI_API_KEY:?Set OPENAI_API_KEY in .env}
       OPENAI_CHAT_MODEL: ${OPENAI_CHAT_MODEL:-gpt-4o-mini}
       OPENAI_EMBEDDING_MODEL: ${OPENAI_EMBEDDING_MODEL:-text-embedding-3-small}
+      OPENAI_TIMEOUT_SECONDS: ${OPENAI_TIMEOUT_SECONDS:-10}
+      OPENAI_MAX_RETRIES: ${OPENAI_MAX_RETRIES:-1}
       # Spring 과 반드시 동일한 값이어야 토큰 검증이 통과한다.
       JWT_SECRET: ${JWT_SECRET:?Set JWT_SECRET in .env}
       CHROMA_DIR: ${CHROMA_DIR:-/data/chroma}

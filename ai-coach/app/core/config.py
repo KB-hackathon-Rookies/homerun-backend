@@ -10,6 +10,8 @@ class Settings(BaseSettings):
     openai_api_key: str = ""
     openai_chat_model: str = "gpt-4o-mini"
     openai_embedding_model: str = "text-embedding-3-small"
+    openai_timeout_seconds: float = 10.0
+    openai_max_retries: int = 1
 
     # Spring 이 발급한 JWT 를 검증하기 위한 공유 시크릿. 반드시 백엔드의 JWT_SECRET 과 같아야 한다.
     jwt_secret: str = ""
