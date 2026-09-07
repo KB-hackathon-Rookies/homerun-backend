@@ -35,8 +35,8 @@ import org.springframework.transaction.annotation.Transactional;
  * 조건식을 그대로 돌린다 — 같은 판정을 두 곳에서 하면 반드시 갈라진다.
  *
  * <p>{@code policy_verdict} 가 아니라 별도 테이블에 쓰는 이유는 그쪽 UNIQUE 제약이
- * (plan, policy, rule) 이라 매물을 여러 개 판정하면 마지막 하나만 남기 때문이다. 매물을 제한
- * 없이 등록하고 최대 3개를 비교하므로(FR-P1-02) 매물별 판정을 각각 보존해야 한다.
+ * (plan, policy, rule) 이라 매물을 여러 개 판정하면 마지막 하나만 남기 때문이다. 명세서는 매물을
+ * 최대 5개까지 등록하고 최대 3개를 비교하므로(FR-P1-02) 매물별 판정을 각각 보존해야 한다.
  */
 @Service
 public class PropertyPolicyVerdictService {

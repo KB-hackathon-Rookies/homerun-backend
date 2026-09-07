@@ -18,8 +18,8 @@ import org.hibernate.type.SqlTypes;
  * 매물 하나 × 상품 하나의 판정(요구사항 명세서 DR-10).
  *
  * <p>{@code policy_verdict} 와 나란히 존재하는 이유가 있다. 그쪽은 {@code UNIQUE (plan_id,
- * policy_id, rule_id)} 라 매물을 여러 개 판정하면 마지막 하나만 남는다. 매물을 제한 없이
- * 등록하고 최대 3개를 비교하므로(FR-P1-02) 매물 축을 가진 자리가 따로 필요하다.
+ * policy_id, rule_id)} 라 매물을 여러 개 판정하면 마지막 하나만 남는다. 명세서는 매물을 최대
+ * 5개까지 등록하고 최대 3개를 비교하므로(FR-P1-02) 매물 축을 가진 자리가 따로 필요하다.
  *
  * <p>계획 단위 판정(1루 사람 조건)은 {@code policy_verdict}, 매물 단위 판정(2루 집 조건)은 여기다.
  */

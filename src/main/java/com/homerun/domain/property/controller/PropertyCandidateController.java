@@ -164,7 +164,7 @@ public class PropertyCandidateController {
     }
 
     @PostMapping("/compare")
-    @Operation(summary = "매물 후보 비교", description = "매물은 제한 없이 등록할 수 있고 한 번에 2~3개를 매물·상담 요약과 함께 비교합니다.")
+    @Operation(summary = "매물 후보 비교", description = "매물은 계획당 최대 5개까지 등록할 수 있고 한 번에 2~3개를 매물·상담 요약과 함께 비교합니다.")
     public ApiResponse<PropertyComparisonResponse> compare(
             @AuthenticationPrincipal MemberPrincipal principal,
             @PathVariable Long planId,
