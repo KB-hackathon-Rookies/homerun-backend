@@ -216,6 +216,14 @@ class MigrationTest {
     }
 
     @Test
+    @DisplayName("V67이 반환보증 가입 상태 테이블을 추가한다")
+    void should_addReturnGuarantee_whenV67IsApplied() {
+        assertThat(tableNames()).contains("return_guarantee");
+        assertThat(columnNames("return_guarantee")).contains("plan_id", "enrolled", "fee_paid", "enrolled_at");
+        assertThat(constraintDefinition("return_guarantee_plan_id_key")).contains("plan_id");
+    }
+
+    @Test
     @DisplayName("팩트 레지스트리에 전세대출 진단 기준까지 적용된다")
     void should_seed_config_effective_when_migrated() {
         Integer count = jdbc.queryForObject("SELECT count(*) FROM config_effective", Integer.class);
