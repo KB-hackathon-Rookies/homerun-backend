@@ -43,6 +43,9 @@ out/
 !.env.example
 node_modules/
 
+# AI 코치 로컬 Chroma/SQLite 세션 파일
+ai-coach/*.ses
+
 # 에이전트 스킬 본체는 커밋하지 않는다. skills-lock.json 으로 복원한다.
 .claude/skills/
 .agents/
