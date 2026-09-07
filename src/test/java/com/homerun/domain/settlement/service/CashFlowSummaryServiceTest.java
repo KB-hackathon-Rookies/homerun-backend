@@ -90,7 +90,6 @@ class CashFlowSummaryServiceTest {
         assertThat(r.livingCost()).isEqualTo(1_000_000L);
         assertThat(r.metrics().monthlyInterest()).isEqualTo(264_000L); // 대출에서 계산
         assertThat(r.metrics().housingCost()).isEqualTo(314_000L); // 관리비 5만 + 이자 26.4만
-        assertThat(r.metrics().rirPercent()).isEqualByComparingTo("12.8");
     }
 
     @Test
@@ -107,7 +106,6 @@ class CashFlowSummaryServiceTest {
         assertThat(r.monthlyIncome()).isZero();
         assertThat(r.livingCost()).isZero();
         assertThat(r.managementFee()).isZero();
-        assertThat(r.metrics().rirPercent()).isNull(); // 소득 0 이면 RIR 미산출
     }
 
     @Test

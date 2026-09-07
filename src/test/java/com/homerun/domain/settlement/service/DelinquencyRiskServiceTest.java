@@ -26,8 +26,7 @@ class DelinquencyRiskServiceTest {
 
     private void givenRemaining(long remaining) {
         when(cashFlow.forPlan(MEMBER_ID, PLAN_ID))
-                .thenReturn(new CashFlowSummaryResponse(
-                        0L, 0L, 0L, 0L, new MonthlyMetricsResponse(0L, 0L, remaining, null, false)));
+                .thenReturn(new CashFlowSummaryResponse(0L, 0L, 0L, 0L, new MonthlyMetricsResponse(0L, 0L, remaining)));
     }
 
     private FixedExpense interest(boolean autopay) {
