@@ -1,16 +1,22 @@
 package com.homerun.domain.contract.controller;
 
+import com.homerun.domain.contract.dto.request.DepositReturnRecordRequest;
+import com.homerun.domain.contract.dto.response.LeaseEndResponse;
 import com.homerun.domain.contract.dto.response.LienRepaymentResponse;
 import com.homerun.domain.contract.dto.response.UnreturnedDepositResponse;
+import com.homerun.domain.contract.service.LeaseEndService;
 import com.homerun.domain.contract.service.LienRepaymentService;
 import com.homerun.domain.contract.service.UnreturnedDepositService;
 import com.homerun.global.response.ApiResponse;
 import com.homerun.global.security.principal.MemberPrincipal;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
+import jakarta.validation.Valid;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PutMapping;
+import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
@@ -22,10 +28,15 @@ public class DepositReturnController {
 
     private final UnreturnedDepositService service;
     private final LienRepaymentService lienRepaymentService;
+    private final LeaseEndService leaseEndService;
 
-    public DepositReturnController(UnreturnedDepositService service, LienRepaymentService lienRepaymentService) {
+    public DepositReturnController(
+            UnreturnedDepositService service,
+            LienRepaymentService lienRepaymentService,
+            LeaseEndService leaseEndService) {
         this.service = service;
         this.lienRepaymentService = lienRepaymentService;
+        this.leaseEndService = leaseEndService;
     }
 
     @GetMapping("/unreturned-guide")
@@ -52,5 +63,17 @@ public class DepositReturnController {
             @RequestParam(required = false) Long deposit,
             @RequestParam(required = false) Long loanBalance) {
         return ApiResponse.success(lienRepaymentService.guide(principal.memberId(), planId, deposit, loanBalance));
+    }
+
+    @PutMapping("/result")
+    @Operation(
+            summary = "보증금 반환 결과 저장",
+            description =
+                    "퇴거 시 보증금 반환 여부(YES/NO/PARTIAL)·은행/나 반환액·미반환 조치를 저장한다(FR-HX-01)." + " 갱신·퇴거 결정이 먼저 저장돼 있어야 한다.")
+    public ApiResponse<LeaseEndResponse> recordDepositReturn(
+            @AuthenticationPrincipal MemberPrincipal principal,
+            @PathVariable Long planId,
+            @Valid @RequestBody DepositReturnRecordRequest request) {
+        return ApiResponse.success(leaseEndService.recordDepositReturn(principal.memberId(), planId, request));
     }
 }

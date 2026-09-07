@@ -230,6 +230,16 @@ class MigrationTest {
     }
 
     @Test
+    @DisplayName("V70이 lease_end 에 보증금 반환 컬럼과 CHECK 를 추가한다")
+    void should_addLeaseEndDepositReturn_whenV70IsApplied() {
+        assertThat(columnNames("lease_end"))
+                .contains("deposit_returned", "return_amount_to_bank", "return_amount_to_me", "unreturned_action");
+        assertThat(constraintDefinition("ck_lease_end_deposit_returned")).contains("YES", "NO", "PARTIAL");
+        assertThat(constraintDefinition("ck_lease_end_unreturned_action"))
+                .contains("LEASEHOLD_REGISTRATION", "GUARANTEE_CLAIM", "LAWSUIT");
+    }
+
+    @Test
     @DisplayName("팩트 레지스트리에 전세대출 진단 기준까지 적용된다")
     void should_seed_config_effective_when_migrated() {
         Integer count = jdbc.queryForObject("SELECT count(*) FROM config_effective", Integer.class);
@@ -391,9 +401,10 @@ class MigrationTest {
     }
 
     @Test
-    @DisplayName("V69가 교육 콘텐츠 본문 컬럼·퀴즈 뱅크·코치 TIME 모듈(M0~M12) 시드를 추가한다")
+    @DisplayName("V69+V71 적용 후 교육 콘텐츠가 코치 TIME 모듈(M0~M12)로 교체된다")
     void should_add_education_quiz_and_seed_when_v69IsApplied() {
-        // Option A: 기존 education_content/education_progress 재사용, body 컬럼·퀴즈 뱅크 추가.
+        // Option A: 기존 education_content/education_progress 재사용, body 컬럼·퀴즈 뱅크 추가(V69).
+        // V71 이 6개 플레이스홀더 시드를 실제 코치 TIME 전세 모듈 M0~M12 로 교체한다.
         assertThat(columnNames("education_content")).contains("body");
         assertThat(tableNames()).contains("education_quiz_question");
         // 전세 플로우 코치 TIME 모듈 M0~M12 (13개), 모두 활성·본문 보유.

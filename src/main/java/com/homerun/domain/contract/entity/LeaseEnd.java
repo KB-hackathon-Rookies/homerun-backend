@@ -1,7 +1,9 @@
 package com.homerun.domain.contract.entity;
 
+import com.homerun.domain.contract.type.DepositReturnStatus;
 import com.homerun.domain.contract.type.LeaseDecision;
 import com.homerun.domain.contract.type.RenewalMethod;
+import com.homerun.domain.contract.type.UnreturnedAction;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;
@@ -42,6 +44,20 @@ public class LeaseEnd {
     @Column(name = "decided_at")
     private Instant decidedAt;
 
+    @Enumerated(EnumType.STRING)
+    @Column(name = "deposit_returned", length = 10)
+    private DepositReturnStatus depositReturned;
+
+    @Column(name = "return_amount_to_bank")
+    private Long returnAmountToBank;
+
+    @Column(name = "return_amount_to_me")
+    private Long returnAmountToMe;
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "unreturned_action", length = 30)
+    private UnreturnedAction unreturnedAction;
+
     @Column(name = "created_at", nullable = false, insertable = false, updatable = false)
     private Instant createdAt;
 
@@ -60,6 +76,34 @@ public class LeaseEnd {
         this.claimRightUsed = renewalMethod == RenewalMethod.CLAIM;
         this.noticeSentAt = noticeSentAt;
         this.decidedAt = decidedAt;
+    }
+
+    /** 보증금 반환 결과와 미반환 조치를 기록한다(FR-HX-01·DR-22). */
+    public void recordDepositReturn(
+            DepositReturnStatus depositReturned,
+            Long returnAmountToBank,
+            Long returnAmountToMe,
+            UnreturnedAction unreturnedAction) {
+        this.depositReturned = depositReturned;
+        this.returnAmountToBank = returnAmountToBank;
+        this.returnAmountToMe = returnAmountToMe;
+        this.unreturnedAction = unreturnedAction;
+    }
+
+    public DepositReturnStatus getDepositReturned() {
+        return depositReturned;
+    }
+
+    public Long getReturnAmountToBank() {
+        return returnAmountToBank;
+    }
+
+    public Long getReturnAmountToMe() {
+        return returnAmountToMe;
+    }
+
+    public UnreturnedAction getUnreturnedAction() {
+        return unreturnedAction;
     }
 
     public Long getId() {
