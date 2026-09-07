@@ -7,4 +7,6 @@ import org.springframework.data.jpa.repository.JpaRepository;
 public interface EducationQuizQuestionRepository extends JpaRepository<EducationQuizQuestion, Long> {
 
     List<EducationQuizQuestion> findByContentIdOrderBySortOrderAsc(Long contentId);
+
+    boolean existsByContentId(Long contentId);
 }

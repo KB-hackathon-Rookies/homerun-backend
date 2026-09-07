@@ -81,7 +81,8 @@ public class EducationService {
     public void markRead(Long memberId, String code) {
         EducationContent content = activeContent(code);
         EducationProgress progress = progressFor(memberId, content.getId());
-        progress.markRead();
+        boolean hasQuiz = questions.existsByContentId(content.getId());
+        progress.markRead(hasQuiz);
         progresses.save(progress);
     }
 
