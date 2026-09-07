@@ -4,7 +4,7 @@ import com.homerun.domain.settlement.type.DelinquencyStatus;
 import io.swagger.v3.oas.annotations.media.Schema;
 
 /**
- * 연체 위험 판단(FR-H5-04·BR-28). RIR 컷오프(O-3 미결)는 쓰지 않고 적자(잔여금<0)만 본다.
+ * 연체 위험 판단(FR-H5-04·BR-28). 월 잔여금이 적자인지를 기준으로 판단한다.
  *
  * @param status 연체 위험 상태
  * @param remaining 월 잔여금(원). 적자면 음수
