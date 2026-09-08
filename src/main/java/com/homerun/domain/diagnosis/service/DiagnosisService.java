@@ -19,6 +19,8 @@ import com.homerun.domain.plan.repository.PlanInputRepository;
 import com.homerun.domain.plan.repository.PlanRepository;
 import com.homerun.domain.plan.type.FinancialValueSource;
 import com.homerun.domain.plan.type.LeaseType;
+import com.homerun.domain.policy.dto.response.AncillaryCostResponse;
+import com.homerun.domain.policy.service.AncillaryCostCalculator;
 import com.homerun.global.exception.BusinessException;
 import com.homerun.global.exception.ErrorCode;
 import java.time.Clock;
@@ -42,6 +44,7 @@ public class DiagnosisService {
     private final FinancialSnapshotRepository snapshots;
     private final CostEstimateRepository costs;
     private final DiagnosisRepository diagnoses;
+    private final AncillaryCostCalculator ancillaryCosts;
     private final Clock clock;
 
     public DiagnosisService(
@@ -50,12 +53,14 @@ public class DiagnosisService {
             FinancialSnapshotRepository snapshots,
             CostEstimateRepository costs,
             DiagnosisRepository diagnoses,
+            AncillaryCostCalculator ancillaryCosts,
             Clock clock) {
         this.plans = plans;
         this.inputs = inputs;
         this.snapshots = snapshots;
         this.costs = costs;
         this.diagnoses = diagnoses;
+        this.ancillaryCosts = ancillaryCosts;
         this.clock = clock;
     }
 
@@ -126,19 +131,20 @@ public class DiagnosisService {
 
         try {
             long deposit = overrides.hopeDepositOr(input.getHopeDeposit());
+            ResolvedCosts resolved = resolveCosts(deposit, request, warnings);
             long nonDepositCost = add(
-                    request.movingCost(),
-                    request.brokerageFee(),
-                    request.guaranteeFee(),
-                    request.stampTax(),
-                    request.emergencyReserve());
+                    resolved.movingCost(),
+                    resolved.brokerageFee(),
+                    resolved.guaranteeFee(),
+                    resolved.stampTax(),
+                    resolved.emergencyReserve());
             long totalRequired = add(deposit, nonDepositCost);
             long ownDeposit = Math.max(0, deposit - request.expectedLoanAmount());
             long requiredCashAfterPolicy = add(ownDeposit, nonDepositCost);
 
             long monthlyHousingCostBeforePolicy = add(zero(input.getMonthlyRent()), zero(input.getMaintenanceFee()));
             long monthlyHousingCost = add(monthlyHousingCostBeforePolicy, request.expectedMonthlyInterest());
-            long nonHousingOutflow = add(request.monthlyLivingExpense(), monthlyDebtPayment);
+            long nonHousingOutflow = add(resolved.monthlyLivingExpense(), monthlyDebtPayment);
             long monthlyDisposableBeforePolicy = Math.subtractExact(
                     input.getMonthlyIncome(), add(monthlyHousingCostBeforePolicy, nonHousingOutflow));
             long monthlyDisposable =
@@ -156,11 +162,11 @@ public class DiagnosisService {
             CostEstimate cost = new CostEstimate(
                     planId,
                     deposit,
-                    request.movingCost(),
-                    request.brokerageFee(),
-                    request.guaranteeFee(),
-                    request.stampTax(),
-                    request.emergencyReserve(),
+                    resolved.movingCost(),
+                    resolved.brokerageFee(),
+                    resolved.guaranteeFee(),
+                    resolved.stampTax(),
+                    resolved.emergencyReserve(),
                     totalRequired,
                     calculatedAt);
             return new Calculation(
@@ -169,7 +175,7 @@ public class DiagnosisService {
                     returnableDeposit,
                     input.getMonthlyIncome(),
                     monthlyHousingCost,
-                    request.monthlyLivingExpense(),
+                    resolved.monthlyLivingExpense(),
                     monthlyDebtPayment,
                     monthlyDisposable,
                     monthsToMove,
@@ -212,6 +218,73 @@ public class DiagnosisService {
         }
         long months = Math.max(0, ChronoUnit.MONTHS.between(YearMonth.from(today), YearMonth.from(target)));
         return Math.toIntExact(months);
+    }
+
+    /** 계산에 실제로 들어간 비용. 사용자가 준 값이거나, 서버가 기준 수치로 계산한 값이다. */
+    private record ResolvedCosts(
+            long movingCost,
+            long brokerageFee,
+            long guaranteeFee,
+            long stampTax,
+            long emergencyReserve,
+            long monthlyLivingExpense) {}
+
+    /**
+     * 비어 있는 비용을 채운다.
+     *
+     * <p>0 은 "확인해서 0원" 이고 null 은 "모른다" 다. 전에는 이 둘을 구분할 수 없어 화면이 모르는
+     * 값까지 0 으로 보냈고, 그 0 이 그대로 계산에 들어가 <b>초기 필요자금과 부족자금이 실제보다
+     * 작게, 월 여유자금이 실제보다 크게</b> 나왔다.
+     *
+     * <p>중개보수·인지세·보증료·이사비는 대출금이 정해져야 나오는 값이라 화면이 알 수 없다. 그래서
+     * 여기서 {@code config_effective} 기준으로 계산한다(BR-08a·BR-27). 담보가 아직 정해지지 않은
+     * 시점이라 보증료율은 중간값 추정이다.
+     *
+     * <p>생활비와 예비비는 계산할 근거가 없다. 지어내지 않고 0 으로 두되 경고를 남긴다 — 결과가
+     * 낙관적으로 치우쳤다는 것을 화면이 말할 수 있어야 한다.
+     */
+    private ResolvedCosts resolveCosts(
+            long deposit, DiagnosisCalculationRequest request, List<DiagnosisWarning> warnings) {
+        boolean needsEstimate = request.movingCost() == null
+                || request.brokerageFee() == null
+                || request.guaranteeFee() == null
+                || request.stampTax() == null;
+        AncillaryCostResponse estimate = null;
+        if (needsEstimate) {
+            // 담보(collateral)·아파트 여부는 2루에서 정해진다. 여기서는 아직 모르므로 넘기지 않는다.
+            estimate = ancillaryCosts.ancillaryCost(
+                    deposit, request.expectedLoanAmount(), null, null, request.movingCost());
+            warnings.add(DiagnosisWarning.ANCILLARY_COST_ESTIMATED);
+        }
+
+        long brokerage;
+        if (request.brokerageFee() != null) {
+            brokerage = request.brokerageFee();
+        } else if (estimate.brokerageFee() != null) {
+            brokerage = estimate.brokerageFee();
+        } else {
+            // 요율표를 확보하지 못한 구간(보증금 6억 초과)이다. 지어내지 않고 빠졌다고 말한다.
+            warnings.add(DiagnosisWarning.BROKERAGE_FEE_UNKNOWN);
+            brokerage = 0;
+        }
+
+        return new ResolvedCosts(
+                request.movingCost() != null ? request.movingCost() : estimate.movingCost(),
+                brokerage,
+                request.guaranteeFee() != null ? request.guaranteeFee() : estimate.guaranteeFee(),
+                request.stampTax() != null ? request.stampTax() : estimate.stampDuty(),
+                missingIsZero(request.emergencyReserve(), DiagnosisWarning.EMERGENCY_RESERVE_MISSING, warnings),
+                missingIsZero(
+                        request.monthlyLivingExpense(), DiagnosisWarning.MONTHLY_LIVING_EXPENSE_MISSING, warnings));
+    }
+
+    /** 계산할 근거가 없는 값. 0 으로 두되 모른다는 것을 남긴다. */
+    private long missingIsZero(Long value, DiagnosisWarning missing, List<DiagnosisWarning> warnings) {
+        if (value != null) {
+            return value;
+        }
+        warnings.add(missing);
+        return 0;
     }
 
     private long monthlyDebtPayment(Long memberId, Long requestValue, List<DiagnosisWarning> warnings) {
