@@ -25,16 +25,16 @@ import org.springframework.test.web.client.MockRestServiceServer;
 import org.springframework.web.client.RestClient;
 import tools.jackson.databind.ObjectMapper;
 
-class OpenBankingClientTest {
+class HttpOpenBankingClientTest {
 
     private MockRestServiceServer server;
-    private OpenBankingClient client;
+    private HttpOpenBankingClient client;
 
     @BeforeEach
     void setUp() {
         RestClient.Builder builder = RestClient.builder();
         server = MockRestServiceServer.bindTo(builder).build();
-        client = new OpenBankingClient(
+        client = new HttpOpenBankingClient(
                 new OpenBankingProperties(
                         "https://oauth.example.com",
                         "https://api.example.com",
@@ -43,7 +43,8 @@ class OpenBankingClientTest {
                         "1234567890",
                         "https://app.example.com/callback",
                         "login inquiry",
-                        "unused"),
+                        "unused",
+                        false),
                 new ObjectMapper(),
                 Clock.fixed(Instant.parse("2026-09-03T01:02:03Z"), ZoneOffset.UTC),
                 builder.build(),
