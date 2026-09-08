@@ -1,5 +1,6 @@
 package com.homerun.domain.contract.service;
 
+import com.homerun.domain.contract.dto.request.ContractExecutionCompletionRequest;
 import com.homerun.domain.contract.dto.request.ThirdBaseCompleteRequest;
 import com.homerun.domain.contract.dto.response.RegistryComparisonResponse;
 import com.homerun.domain.contract.dto.response.ThirdBaseCompleteResponse;
@@ -38,6 +39,15 @@ public class ThirdBaseCompletionService {
         this.contracts = contracts;
         this.registries = registries;
         this.planService = planService;
+    }
+
+    @Transactional
+    public void recordExecutionCompletion(Long memberId, Long planId, ContractExecutionCompletionRequest request) {
+        Plan plan = plans.findById(planId).orElseThrow(() -> new BusinessException(ErrorCode.PLAN_NOT_FOUND));
+        plan.verifyOwner(memberId);
+        LeaseContract contract =
+                contracts.findByPlanId(planId).orElseThrow(() -> new BusinessException(ErrorCode.CONTRACT_NOT_FOUND));
+        contract.completeExecution(request.balancePaidAt(), request.moveInReportAt());
     }
 
     @Transactional
