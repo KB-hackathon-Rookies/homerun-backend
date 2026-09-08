@@ -85,6 +85,9 @@ public class SecurityConfig {
                         .permitAll()
                         .requestMatchers(HttpMethod.POST, "/api/v1/auth/phone/**")
                         .permitAll()
+                        // 회원가입은 로그인 전이라 지역·주소 조회를 인증 없이 쓸 수 있어야 한다.
+                        .requestMatchers(HttpMethod.GET, "/api/v1/regions/**", "/api/v1/addresses/**")
+                        .permitAll()
                         .anyRequest()
                         .authenticated())
                 .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class)
