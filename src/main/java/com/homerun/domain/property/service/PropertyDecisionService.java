@@ -78,8 +78,17 @@ public class PropertyDecisionService {
         if (!trafficLights.forProperty(planId, propertyId).showsLoanProducts()) {
             throw new BusinessException(ErrorCode.PROPERTY_CONSULTATION_NOT_READY);
         }
-        BankConsultationResponse response =
-                BankConsultationResponse.from(consultations.save(new BankConsultation(planId, propertyId, request)));
+        // 같은 (은행 + 상품) 상담은 카드를 새로 만들지 않고 최신 값으로 덮어쓴다(은행+상품당 1건).
+        // 상품이 다르면 별도 카드로 남아 비교할 수 있다.
+        BankConsultation consultation = consultations
+                .findByPlanIdAndPropertyIdAndBankNameAndLoanProduct(
+                        planId, propertyId, request.bankName(), request.loanProduct())
+                .map(existing -> {
+                    existing.applyUpdate(request);
+                    return existing;
+                })
+                .orElseGet(() -> new BankConsultation(planId, propertyId, request));
+        BankConsultationResponse response = BankConsultationResponse.from(consultations.save(consultation));
         property.markConsulted();
         return response;
     }

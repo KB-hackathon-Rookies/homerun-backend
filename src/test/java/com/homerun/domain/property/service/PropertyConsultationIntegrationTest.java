@@ -115,6 +115,28 @@ class PropertyConsultationIntegrationTest {
         assertThat(service.getDecision(memberId, planId).decisionId()).isEqualTo(decision.decisionId());
     }
 
+    @Test
+    void should_upsertConsultation_whenSameBankAndProduct() {
+        // 같은 (은행 + 상품) 을 다시 저장하면 카드를 새로 만들지 않고 최신 값으로 덮어쓴다.
+        service.addConsultation(memberId, planId, propertyId, possible());
+        var updated = service.addConsultation(memberId, planId, propertyId, possibleWithLimit(90_000_000L));
+
+        var list = service.consultations(memberId, planId, propertyId);
+        assertThat(list).hasSize(1);
+        assertThat(list.get(0).approvedLimit()).isEqualTo(90_000_000L);
+        assertThat(updated.approvedLimit()).isEqualTo(90_000_000L);
+    }
+
+    @Test
+    void should_keepSeparateCards_whenSameBankDifferentProduct() {
+        // 같은 은행이라도 상품이 다르면 별도 카드로 남아 비교할 수 있다.
+        service.addConsultation(memberId, planId, propertyId, possible());
+        service.addConsultation(
+                memberId, planId, propertyId, possibleWithProduct(ConsultedLoanProduct.YOUTH_BEOTIMMOK));
+
+        assertThat(service.consultations(memberId, planId, propertyId)).hasSize(2);
+    }
+
     private PropertyCheck pass(String code) {
         return new PropertyCheck(propertyId, code, code, CheckResult.PASS, null, null, Instant.now());
     }
@@ -135,15 +157,27 @@ class PropertyConsultationIntegrationTest {
     }
 
     private BankConsultationRequest possible() {
+        return possibleWith(ConsultedLoanProduct.BANK_LOAN, 80_000_000L);
+    }
+
+    private BankConsultationRequest possibleWithLimit(long approvedLimit) {
+        return possibleWith(ConsultedLoanProduct.BANK_LOAN, approvedLimit);
+    }
+
+    private BankConsultationRequest possibleWithProduct(ConsultedLoanProduct product) {
+        return possibleWith(product, 80_000_000L);
+    }
+
+    private BankConsultationRequest possibleWith(ConsultedLoanProduct product, long approvedLimit) {
         return new BankConsultationRequest(
                 "국민은행",
                 "역삼점",
                 null,
                 null,
                 ConsultationResultStatus.POSSIBLE,
-                ConsultedLoanProduct.BANK_LOAN,
+                product,
                 CollateralMethod.HF,
-                80_000_000L,
+                approvedLimit,
                 new BigDecimal("3.200"),
                 LocalDate.now(),
                 null);

@@ -105,6 +105,25 @@ public class BankConsultation {
         this.rejectionNote = request.rejectionNote();
     }
 
+    /**
+     * 같은 (은행 + 상품) 상담을 다시 기록할 때 값만 덮어쓴다. 키(planId·propertyId·bankName·
+     * loanProduct)와 createdAt 은 그대로 두고 결과·담보·한도·금리·거절정보 등 최신 값으로 갱신한다.
+     */
+    public void applyUpdate(BankConsultationRequest request) {
+        this.branchName = request.branchName();
+        this.policyId = request.policyId();
+        this.guaranteeAgencyId = request.guaranteeAgencyId();
+        this.resultStatus = request.resultStatus();
+        this.collateralMethod = request.collateralMethod();
+        this.approvedLimit = request.approvedLimit();
+        this.quotedRate = request.quotedRate();
+        this.consultedAt = request.consultedAt();
+        this.memo = request.memo();
+        this.rejectionStage = request.rejectionStage();
+        this.rejectionCategory = request.rejectionCategory();
+        this.rejectionNote = request.rejectionNote();
+    }
+
     public Long getId() {
         return id;
     }
