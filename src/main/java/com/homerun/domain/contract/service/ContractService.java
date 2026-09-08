@@ -124,9 +124,8 @@ public class ContractService {
     @Transactional
     public ContractGuide saveBalanceDate(Long memberId, Long planId, LocalDate balanceDate) {
         verifyOwner(memberId, planId);
-        LeaseContract contract = contracts
-                .findByPlanId(planId)
-                .orElseThrow(() -> new BusinessException(ErrorCode.CONTRACT_NOT_FOUND));
+        LeaseContract contract =
+                contracts.findByPlanId(planId).orElseThrow(() -> new BusinessException(ErrorCode.CONTRACT_NOT_FOUND));
         contract.updateBalanceDate(balanceDate);
         LeaseContract saved = contracts.save(contract);
         // 잔금일이 바뀌면 마감 일정도 다시 잡는다(SEQ-01-04).
