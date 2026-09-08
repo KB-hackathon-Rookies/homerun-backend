@@ -26,6 +26,8 @@ import java.time.LocalDate;
  * @param multiHousehold 다가구주택인가
  * @param nonResidential 근린생활시설(비주거)인가. 근생은 모든 전세 상품이 불가다(BR-09)
  * @param landlordTaxUnpaid 임대인 체납이 있는가
+ * @param hopeDeposit 1루에서 정한 희망예산(원). 실제 매물 보증금({@code deposit})과 별개다.
+ *     null 이면 예산을 확인하지 못한 것이라 예산 초과 판정을 하지 않는다
  */
 @Schema(description = "매물 검증 입력 — 조회로 확인한 사실")
 public record PropertyFacts(
@@ -44,7 +46,46 @@ public record PropertyFacts(
         Boolean seizureOrDispositionRestricted,
         Boolean auctionInProgress,
         LocalDate seniorDebtRegisteredAt,
-        Boolean nonResidential) {
+        Boolean nonResidential,
+        Long hopeDeposit) {
+
+    /** 희망예산을 아직 넘기지 않는 호출부(테스트 픽스처 등)를 위한 편의 생성자. */
+    public PropertyFacts(
+            LeaseType leaseType,
+            long deposit,
+            String regionCode,
+            Long marketPrice,
+            Long officialPrice,
+            Long seniorDebt,
+            Boolean ownerMatches,
+            Boolean violationBuilding,
+            Boolean trustRegistered,
+            Boolean multiHousehold,
+            Boolean landlordTaxUnpaid,
+            Boolean leaseholdRegistered,
+            Boolean seizureOrDispositionRestricted,
+            Boolean auctionInProgress,
+            LocalDate seniorDebtRegisteredAt,
+            Boolean nonResidential) {
+        this(
+                leaseType,
+                deposit,
+                regionCode,
+                marketPrice,
+                officialPrice,
+                seniorDebt,
+                ownerMatches,
+                violationBuilding,
+                trustRegistered,
+                multiHousehold,
+                landlordTaxUnpaid,
+                leaseholdRegistered,
+                seizureOrDispositionRestricted,
+                auctionInProgress,
+                seniorDebtRegisteredAt,
+                nonResidential,
+                null);
+    }
 
     /** nonResidential 이전 자리수(등기 위험 포함)를 위한 편의 생성자. */
     public PropertyFacts(

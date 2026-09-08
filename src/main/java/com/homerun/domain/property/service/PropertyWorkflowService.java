@@ -1,6 +1,8 @@
 package com.homerun.domain.property.service;
 
 import com.homerun.domain.plan.entity.Plan;
+import com.homerun.domain.plan.entity.PlanInput;
+import com.homerun.domain.plan.repository.PlanInputRepository;
 import com.homerun.domain.plan.repository.PlanRepository;
 import com.homerun.domain.property.dto.request.PropertyBuildingStepRequest;
 import com.homerun.domain.property.dto.request.PropertyFacts;
@@ -31,6 +33,7 @@ import org.springframework.transaction.annotation.Transactional;
 public class PropertyWorkflowService {
 
     private final PlanRepository plans;
+    private final PlanInputRepository planInputs;
     private final PropertyRepository properties;
     private final PropertyCheckRepository checks;
     private final PropertyVerificationService verificationService;
@@ -40,6 +43,7 @@ public class PropertyWorkflowService {
 
     public PropertyWorkflowService(
             PlanRepository plans,
+            PlanInputRepository planInputs,
             PropertyRepository properties,
             PropertyCheckRepository checks,
             PropertyVerificationService verificationService,
@@ -47,6 +51,7 @@ public class PropertyWorkflowService {
             PropertyPolicyVerdictService policyVerdicts,
             PropertyDecisionService decisions) {
         this.plans = plans;
+        this.planInputs = planInputs;
         this.properties = properties;
         this.checks = checks;
         this.verificationService = verificationService;
@@ -166,7 +171,13 @@ public class PropertyWorkflowService {
                 property.getSeizureOrDispositionRestricted(),
                 property.getAuctionInProgress(),
                 property.getSeniorDebtRegisteredAt(),
-                property.getNonResidential());
+                property.getNonResidential(),
+                hopeDeposit(plan.getId()));
+    }
+
+    /** 1루 희망예산. 입력이 아직 없으면 null — 예산 초과 판정을 건너뛴다. */
+    private Long hopeDeposit(Long planId) {
+        return planInputs.findByPlanId(planId).map(PlanInput::getHopeDeposit).orElse(null);
     }
 
     private PropertyWorkflowStatus status(TrafficLight light) {
