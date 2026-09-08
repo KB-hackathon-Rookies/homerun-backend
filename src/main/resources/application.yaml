@@ -105,8 +105,10 @@ app:
     max-sends-per-window: 5
     max-attempts: 5
   phone-verification:
-    # 전용 시크릿이 없으면 이메일 인증 시크릿을 재사용한다(둘 다 HMAC 서명 용도).
-    secret: ${PHONE_VERIFICATION_SECRET:${EMAIL_VERIFICATION_SECRET:}}
+    # 전용 시크릿이 비어 있으면 fallback-secret 을 쓴다. 대체는 PhoneVerificationProperties 가 한다.
+    # 여기에 ${A:${B:}} 로 적으면 A 가 빈 값으로 정의된 경우 기본값이 무시된다.
+    secret: ${PHONE_VERIFICATION_SECRET:}
+    fallback-secret: ${EMAIL_VERIFICATION_SECRET:}
     code-ttl: 3m
     verified-token-ttl: 10m
     resend-cooldown: 1m
