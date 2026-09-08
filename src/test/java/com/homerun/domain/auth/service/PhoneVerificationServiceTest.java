@@ -55,6 +55,7 @@ class PhoneVerificationServiceTest {
     void should_returnConfiguredDurations_when_codeSent() {
         PhoneVerificationProperties properties = new PhoneVerificationProperties(
                 "phone-verification-test-secret-over-32-bytes",
+                null,
                 Duration.ofMinutes(3),
                 Duration.ofMinutes(10),
                 Duration.ofSeconds(45),
@@ -75,12 +76,43 @@ class PhoneVerificationServiceTest {
         assertThat(response.resendAvailableInSeconds()).isEqualTo(45);
     }
 
+    /**
+     * 전용 시크릿이 비어 있으면 이메일 인증 시크릿으로 대체된다.
+     *
+     * <p>이 대체를 YAML 의 {@code ${A:${B:}}} 로 하면 안 된다. Spring 의 기본값은 A 가 없을 때만
+     * 쓰이고 {@code A=} 처럼 빈 값으로 정의돼 있으면 그 빈 값이 이긴다. {@code .env.example} 이
+     * 이 변수를 빈 채로 배포하므로, 그대로 복사한 사람은 전원 인증번호 발송이 500 이 됐다.
+     */
+    @Test
+    @DisplayName("전용 시크릿이 비어 있으면 이메일 인증 시크릿을 쓴다")
+    void should_useFallbackSecret_when_dedicatedSecretIsBlank() {
+        String email = "email-verification-secret-over-32-bytes-long";
+
+        assertThat(propertiesWithSecrets("", email).secret()).isEqualTo(email);
+        assertThat(propertiesWithSecrets(null, email).secret()).isEqualTo(email);
+        assertThat(propertiesWithSecrets("   ", email).secret()).isEqualTo(email);
+    }
+
+    @Test
+    @DisplayName("전용 시크릿이 있으면 그것을 그대로 쓴다")
+    void should_keepDedicatedSecret_when_present() {
+        String dedicated = "phone-verification-secret-over-32-bytes-long";
+
+        assertThat(propertiesWithSecrets(dedicated, "email-verification-secret-over-32-bytes-long")
+                        .secret())
+                .isEqualTo(dedicated);
+    }
+
+    private PhoneVerificationProperties propertiesWithSecrets(String secret, String fallback) {
+        return new PhoneVerificationProperties(secret, fallback, null, null, null, null, 0, 0);
+    }
+
     /** 발송이 실패하면 남은 시간을 말할 자격도 없다. 예외가 그대로 올라와야 한다. */
     @Test
     @DisplayName("이미 가입된 번호면 발송하지 않는다")
     void should_reject_when_phoneAlreadyRegistered() {
         PhoneVerificationProperties properties = new PhoneVerificationProperties(
-                "phone-verification-test-secret-over-32-bytes", null, null, null, null, 0, 0);
+                "phone-verification-test-secret-over-32-bytes", null, null, null, null, null, 0, 0);
         MemberRepository members = mock(MemberRepository.class);
         when(members.existsByPhoneAndDeletedAtIsNull(anyString())).thenReturn(true);
         PhoneVerificationService sending = new PhoneVerificationService(
