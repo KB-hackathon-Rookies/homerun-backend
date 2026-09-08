@@ -69,24 +69,12 @@ public class SecurityConfig {
                         // 나가기도 전에 브라우저가 막는다.
                         .requestMatchers(HttpMethod.OPTIONS, "/**")
                         .permitAll()
-                        .requestMatchers("/swagger-ui/**", "/v3/api-docs/**", "/actuator/health", "/actuator/health/**")
+                        // 공개 경로 목록은 PublicEndpoints 하나에 둔다. API 문서도 같은 것을 본다.
+                        .requestMatchers(PublicEndpoints.DOCS)
                         .permitAll()
-                        .requestMatchers(
-                                HttpMethod.GET,
-                                "/api/v1/auth/google/login",
-                                "/api/v1/auth/google/callback",
-                                "/api/v1/auth/kakao/login",
-                                "/api/v1/auth/kakao/callback",
-                                "/api/v1/open-banking/callback")
+                        .requestMatchers(HttpMethod.GET, PublicEndpoints.GET)
                         .permitAll()
-                        .requestMatchers(HttpMethod.POST, "/api/v1/auth/refresh", "/api/v1/auth/logout")
-                        .permitAll()
-                        .requestMatchers(HttpMethod.POST, "/api/v1/auth/email/**")
-                        .permitAll()
-                        .requestMatchers(HttpMethod.POST, "/api/v1/auth/phone/**")
-                        .permitAll()
-                        // 회원가입은 로그인 전이라 지역·주소 조회를 인증 없이 쓸 수 있어야 한다.
-                        .requestMatchers(HttpMethod.GET, "/api/v1/regions/**", "/api/v1/addresses/**")
+                        .requestMatchers(HttpMethod.POST, PublicEndpoints.POST)
                         .permitAll()
                         .anyRequest()
                         .authenticated())
