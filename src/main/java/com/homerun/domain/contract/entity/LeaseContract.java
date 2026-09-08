@@ -187,6 +187,15 @@ public class LeaseContract {
         this.balanceDate = balanceDate;
     }
 
+    /**
+     * 잔금 지급일·전입신고일만 고친다. 전체 덮어쓰기(overwrite)와 달리 계약일·확정일자·상담일 등 나머지
+     * 계약 값을 그대로 보존한다. 3루 완료 직전에 실제로 끝낸 날을 남길 때 쓴다(F02).
+     */
+    public void updateExecutionFacts(LocalDate balancePaidAt, LocalDate moveInReportAt) {
+        this.balancePaidAt = balancePaidAt;
+        this.moveInReportAt = moveInReportAt;
+    }
+
     /** 보증금이 걸린 계약인가. 순수 월세가 아니면 전세와 같은 검증이 필요하다(PRP-02-07). */
     public boolean hasDeposit() {
         return deposit > 0;

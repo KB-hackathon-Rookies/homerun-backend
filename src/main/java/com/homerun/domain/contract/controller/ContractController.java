@@ -2,6 +2,7 @@ package com.homerun.domain.contract.controller;
 
 import com.homerun.domain.contract.dto.ContractDtos.BalanceDateRequest;
 import com.homerun.domain.contract.dto.ContractDtos.ContractGuide;
+import com.homerun.domain.contract.dto.ContractDtos.ExecutionFactsRequest;
 import com.homerun.domain.contract.dto.ContractDtos.SaveRequest;
 import com.homerun.domain.contract.dto.request.RegistrySnapshotRequest;
 import com.homerun.domain.contract.dto.request.ThirdBaseCompleteRequest;
@@ -118,6 +119,16 @@ public class ContractController {
             @PathVariable Long planId,
             @Valid @RequestBody BalanceDateRequest request) {
         return ApiResponse.success(service.saveBalanceDate(principal.memberId(), planId, request.balanceDate()));
+    }
+
+    @PatchMapping("/execution-facts")
+    @Operation(summary = "잔금 지급일·전입신고일만 수정", description = "다른 계약 값(계약일·확정일자·상담일 등)은 보존한다. 3루 완료 직전 실제로 끝낸 날을 남길 때 쓴다.")
+    public ApiResponse<ContractGuide> saveExecutionFacts(
+            @AuthenticationPrincipal MemberPrincipal principal,
+            @PathVariable Long planId,
+            @Valid @RequestBody ExecutionFactsRequest request) {
+        return ApiResponse.success(service.saveExecutionFacts(
+                principal.memberId(), planId, request.balancePaidAt(), request.moveInReportAt()));
     }
 
     @PostMapping("/risk-check")
