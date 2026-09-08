@@ -77,7 +77,10 @@ public class PropertyCandidateController {
             @AuthenticationPrincipal MemberPrincipal principal,
             @PathVariable Long planId,
             @PathVariable Long propertyId) {
-        workflowService.requireLoanProductsReady(principal.memberId(), planId, propertyId);
+        // 신호등 가드(requireLoanProductsReady)를 걸지 않는다. 이 응답은 상품별 판정
+        // (status·failCodes·failStep)만 담고 한도·금리 같은 대출 상품 상세가 없어서
+        // FR-P4-02 의 노출 제한 대상이 아니다. 매물 등록 직후 신호등은 위반건축물 미확인으로
+        // YELLOW 라, 가드를 걸면 정상적인 "진행중"(NEED_INFO) 판정까지 가려진다.
         return ApiResponse.success(policyVerdictService.evaluate(principal.memberId(), planId, propertyId));
     }
 
