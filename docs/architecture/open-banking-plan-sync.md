@@ -21,6 +21,14 @@
 
 대출목록 회차번호의 원문 응답명은 `account_num_seq`다. 기존 파서의 `account_seq`를 고치고, 기존 테스트/샌드박스 응답 호환을 위해 후자를 fallback으로만 허용한다. 대출기본 조회 요청에서는 문서대로 `account_seq`를 사용한다.
 
+## 사업자 등록 전 데이터 모킹
+
+위 조회 API(계좌 목록·잔액·거래내역·대출)는 사업자 등록을 마친 이용기관만 호출할 수 있다. 등록 전에는 `external-api.open-banking.mock-data=true`(env `OPEN_BANKING_MOCK_DATA`)로 켜서 업스트림 경계인 `OpenBankingClient` 구현을 `MockDataOpenBankingClient`로 바꾼다. 기본값은 false 이고 플래그가 꺼져 있으면 모킹 구현은 컨텍스트에 아예 올라오지 않으므로, 운영·CI 는 그대로 실제 업스트림을 호출한다.
+
+- 인가는 모킹하지 않는다. `authorizationUri` / `exchangeAuthorizationCode` / `refreshToken` 은 실제 구현으로 위임하므로 데모에서도 진짜 금융결제원 인증 화면을 쓴다.
+- 연결(`open_banking_connection`)이 없는 회원은 모킹이 켜져 있어도 지금과 똑같이 `OPEN_BANKING_NOT_CONNECTED`로 실패한다. 계좌 소유권 검증도 그대로다.
+- 픽스처는 사회초년생 한 명의 일관된 프로필이다. 급여통장에 매달 280만원 급여가 들어오고 적금 80만·청약 10만·월세·카드가 빠져나가 잔액이 320만원에서 유지된다. 세 계좌 잔액 합계는 4,000만원, 전세자금대출 상환은 매달 15만원이다. 계좌 별칭에 `샘플`이 들어가고 예금주는 홍길동, 계좌번호는 마스킹되어 있어 화면에서 실데이터와 구분된다.
+
 ## 동기화 API
 
 인증 후 `POST /api/v1/plans/{planId}/input/open-banking-sync`를 호출한다. 필요한 경우 `bankCodes=004,020`처럼 추가 대출조회 금융기관 코드를 전달한다.

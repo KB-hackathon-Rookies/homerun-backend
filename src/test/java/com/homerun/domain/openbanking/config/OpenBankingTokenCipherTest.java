@@ -52,6 +52,7 @@ class OpenBankingTokenCipherTest {
                 "1234567890",
                 "https://app.example.com/callback",
                 "login inquiry",
-                encryptionKey);
+                encryptionKey,
+                false);
     }
 }
