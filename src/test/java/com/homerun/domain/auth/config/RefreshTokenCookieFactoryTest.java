@@ -9,7 +9,7 @@ import org.springframework.http.ResponseCookie;
 class RefreshTokenCookieFactoryTest {
 
     private final RefreshTokenCookieFactory factory =
-            new RefreshTokenCookieFactory(new AuthCookieProperties(true), new RefreshTokenProperties(14));
+            new RefreshTokenCookieFactory(new AuthCookieProperties(true, "None"), new RefreshTokenProperties(14));
 
     @Test
     void should_createRefreshTokenCookieWithSharedAttributes() {
@@ -19,7 +19,7 @@ class RefreshTokenCookieFactoryTest {
         assertThat(cookie.getValue()).isEqualTo("refresh-token");
         assertThat(cookie.isHttpOnly()).isTrue();
         assertThat(cookie.isSecure()).isTrue();
-        assertThat(cookie.getSameSite()).isEqualTo("Lax");
+        assertThat(cookie.getSameSite()).isEqualTo("None");
         assertThat(cookie.getPath()).isEqualTo("/api/v1/auth");
         assertThat(cookie.getMaxAge()).isEqualTo(Duration.ofDays(14));
     }
@@ -32,7 +32,7 @@ class RefreshTokenCookieFactoryTest {
         assertThat(cookie.getValue()).isEmpty();
         assertThat(cookie.isHttpOnly()).isTrue();
         assertThat(cookie.isSecure()).isTrue();
-        assertThat(cookie.getSameSite()).isEqualTo("Lax");
+        assertThat(cookie.getSameSite()).isEqualTo("None");
         assertThat(cookie.getPath()).isEqualTo("/api/v1/auth");
         assertThat(cookie.getMaxAge()).isEqualTo(Duration.ZERO);
     }

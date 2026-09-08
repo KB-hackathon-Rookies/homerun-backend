@@ -4,6 +4,7 @@ import com.homerun.domain.contract.dto.ContractDtos.BalanceDateRequest;
 import com.homerun.domain.contract.dto.ContractDtos.ContractGuide;
 import com.homerun.domain.contract.dto.ContractDtos.ExecutionFactsRequest;
 import com.homerun.domain.contract.dto.ContractDtos.SaveRequest;
+import com.homerun.domain.contract.dto.request.ContractExecutionCompletionRequest;
 import com.homerun.domain.contract.dto.request.RegistrySnapshotRequest;
 import com.homerun.domain.contract.dto.request.ThirdBaseCompleteRequest;
 import com.homerun.domain.contract.dto.response.ContractEntryResponse;
@@ -71,6 +72,16 @@ public class ContractController {
             @PathVariable Long planId,
             @Valid @RequestBody ThirdBaseCompleteRequest request) {
         return ApiResponse.success(completions.complete(principal.memberId(), planId, request));
+    }
+
+    @PutMapping("/execution-completion")
+    @Operation(summary = "잔금 지급·전입신고 완료 기록", description = "기존 계약 정보를 덮어쓰지 않고 실제 완료일만 저장합니다.")
+    public ApiResponse<Void> recordExecutionCompletion(
+            @AuthenticationPrincipal MemberPrincipal principal,
+            @PathVariable Long planId,
+            @Valid @RequestBody ContractExecutionCompletionRequest request) {
+        completions.recordExecutionCompletion(principal.memberId(), planId, request);
+        return ApiResponse.success(null);
     }
 
     @GetMapping("/schedule")

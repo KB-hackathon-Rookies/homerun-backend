@@ -196,6 +196,14 @@ public class LeaseContract {
         this.moveInReportAt = moveInReportAt;
     }
 
+    /** 다른 계약 입력을 덮어쓰지 않고 잔금 지급·전입신고 완료 사실만 기록한다. */
+    public void completeExecution(LocalDate balancePaidAt, LocalDate moveInReportAt) {
+        updateExecutionFacts(balancePaidAt, moveInReportAt);
+        if (this.moveInDate == null) {
+            this.moveInDate = moveInReportAt;
+        }
+    }
+
     /** 보증금이 걸린 계약인가. 순수 월세가 아니면 전세와 같은 검증이 필요하다(PRP-02-07). */
     public boolean hasDeposit() {
         return deposit > 0;

@@ -9,6 +9,7 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
+import com.homerun.domain.contract.dto.request.ContractExecutionCompletionRequest;
 import com.homerun.domain.contract.dto.request.ThirdBaseCompleteRequest;
 import com.homerun.domain.contract.dto.response.RegistryComparisonResponse;
 import com.homerun.domain.contract.dto.response.ThirdBaseCompleteResponse;
@@ -53,6 +54,22 @@ class ThirdBaseCompletionServiceTest {
     void setUp() {
         plan = Plan.create(MEMBER_ID, LeaseType.JEONSE, LocalDate.of(2026, 11, 20));
         when(plans.findById(PLAN_ID)).thenReturn(Optional.of(plan));
+    }
+
+    @Test
+    @DisplayName("잔금 지급·전입신고 완료일만 기존 계약에 기록한다")
+    void should_record_execution_completion_without_overwriting_contract() {
+        LeaseContract contract = new LeaseContract(PLAN_ID, LeaseType.WOLSE, 10_000_000L, 500_000L);
+        when(contracts.findByPlanId(PLAN_ID)).thenReturn(Optional.of(contract));
+        LocalDate completedAt = LocalDate.now();
+
+        service.recordExecutionCompletion(
+                MEMBER_ID, PLAN_ID, new ContractExecutionCompletionRequest(completedAt, completedAt));
+
+        assertThat(contract.getLeaseType()).isEqualTo(LeaseType.WOLSE);
+        assertThat(contract.getMonthlyRent()).isEqualTo(500_000L);
+        assertThat(contract.getBalancePaidAt()).isEqualTo(completedAt);
+        assertThat(contract.getMoveInReportAt()).isEqualTo(completedAt);
     }
 
     @Test
