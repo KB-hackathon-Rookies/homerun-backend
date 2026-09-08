@@ -2,6 +2,7 @@ package com.homerun.domain.auth.service;
 
 import com.homerun.domain.auth.config.PhoneVerificationProperties;
 import com.homerun.domain.auth.dto.response.PhoneVerificationResponse;
+import com.homerun.domain.auth.dto.response.PhoneVerificationSendResponse;
 import com.homerun.domain.auth.repository.PhoneVerificationStore;
 import com.homerun.domain.auth.repository.PhoneVerificationStore.SendPermit;
 import com.homerun.domain.auth.repository.PhoneVerificationStore.VerificationResult;
@@ -47,7 +48,7 @@ public class PhoneVerificationService {
         this.memberRepository = memberRepository;
     }
 
-    public void sendCode(String rawPhone) {
+    public PhoneVerificationSendResponse sendCode(String rawPhone) {
         validateConfiguration();
         String phone = normalize(rawPhone);
         rejectRegisteredPhone(phone);
@@ -66,6 +67,8 @@ public class PhoneVerificationService {
             verificationStore.removePendingCode(phoneHash);
             throw exception;
         }
+        return new PhoneVerificationSendResponse(
+                properties.codeTtl().toSeconds(), properties.resendCooldown().toSeconds());
     }
 
     public PhoneVerificationResponse confirmCode(String rawPhone, String code) {
