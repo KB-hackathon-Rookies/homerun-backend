@@ -550,6 +550,50 @@ class ContractServiceTest {
                 .isEqualTo(ErrorCode.PROPERTY_NOT_IN_PLAN);
     }
 
+    // F04 잔금일 부분 수정
+
+    @Test
+    @DisplayName("잔금일만 수정하면 상담일 등 다른 계약 값은 보존한다")
+    void should_update_only_balance_date_and_preserve_other_fields() {
+        // 상담일이 들어간 계약을 먼저 저장한다.
+        SaveRequest request = new SaveRequest(
+                null,
+                LeaseType.WOLSE,
+                30_000_000L,
+                600_000L,
+                0L,
+                null,
+                null,
+                BALANCE,
+                null,
+                null,
+                null,
+                BALANCE.minusDays(30),
+                null,
+                null,
+                false);
+        service.save(ownerId, planId, request);
+        em.flush();
+        em.clear();
+
+        LocalDate newBalance = BALANCE.plusDays(10);
+        ContractGuide guide = service.saveBalanceDate(ownerId, planId, newBalance);
+
+        // 잔금일은 새 값으로 바뀌고(착수일 = 잔금일 - 21),
+        assertThat(guide.preConsult().recommendedStartDate()).isEqualTo(newBalance.minusDays(21));
+        // 상담 사실은 그대로 보존된다(전체 덮어쓰기였다면 지워졌을 값).
+        assertThat(guide.preConsult().consulted()).isTrue();
+    }
+
+    @Test
+    @DisplayName("계약이 없으면 잔금일만 수정할 수 없다")
+    void should_reject_balance_date_update_without_contract() {
+        assertThatThrownBy(() -> service.saveBalanceDate(ownerId, planId, BALANCE))
+                .isInstanceOf(BusinessException.class)
+                .extracting(e -> ((BusinessException) e).errorCode())
+                .isEqualTo(ErrorCode.CONTRACT_NOT_FOUND);
+    }
+
     /** 서울, 보증부월세 3천만원, 시세 3억, 공시가 2.5억, 선순위 없음, 문제 없음. */
     private static PropertyFacts cleanFacts() {
         return new PropertyFacts(
