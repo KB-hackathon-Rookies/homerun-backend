@@ -11,6 +11,7 @@ import com.homerun.domain.property.repository.PropertyRepository;
 import com.homerun.domain.property.service.PropertyVerificationService;
 import com.homerun.global.exception.BusinessException;
 import com.homerun.global.exception.ErrorCode;
+import java.time.LocalDate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -112,6 +113,23 @@ public class ContractService {
 
         LeaseContract saved = contracts.save(contract);
         // 마감은 계약 날짜에서 나온다. 잔금일이 바뀌면 같이 다시 잡아야 한다(SEQ-01-04).
+        deadlines.rewrite(planId, saved);
+        return toGuide(saved);
+    }
+
+    /**
+     * 잔금 예정일만 부분 수정한다(F04). 전체 덮어쓰기(save)는 폼에 없는 필드를 지우므로, 기존
+     * 계약을 다시 열어 잔금일만 바꿀 때는 이 경로를 쓴다. 계약일·확정일자·상담일 등은 보존된다.
+     */
+    @Transactional
+    public ContractGuide saveBalanceDate(Long memberId, Long planId, LocalDate balanceDate) {
+        verifyOwner(memberId, planId);
+        LeaseContract contract = contracts
+                .findByPlanId(planId)
+                .orElseThrow(() -> new BusinessException(ErrorCode.CONTRACT_NOT_FOUND));
+        contract.updateBalanceDate(balanceDate);
+        LeaseContract saved = contracts.save(contract);
+        // 잔금일이 바뀌면 마감 일정도 다시 잡는다(SEQ-01-04).
         deadlines.rewrite(planId, saved);
         return toGuide(saved);
     }

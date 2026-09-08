@@ -20,6 +20,12 @@ public final class ContractDtos {
     private ContractDtos() {}
 
     /**
+     * 잔금 예정일만 부분 수정(F04). 전체 저장(SaveRequest)과 달리 다른 계약 값을 건드리지 않는다.
+     */
+    @Schema(description = "잔금 예정일 부분 수정")
+    public record BalanceDateRequest(@NotNull LocalDate balanceDate) {}
+
+    /**
      * 계약 정보 저장(PRP-02-04).
      *
      * <p>화면이 폼 전체를 보내므로 통째로 덮어쓴다. 날짜를 지우려면 null 로 보내면 된다.
