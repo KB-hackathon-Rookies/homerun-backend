@@ -134,6 +134,21 @@ public class ContractService {
     }
 
     /**
+     * 잔금 지급일·전입신고일만 부분 수정한다(F02). 3루 완료는 이 두 값이 모두 있어야 승인하므로, 실제로
+     * 끝낸 날을 여기서 남긴다. 잔금 '예정일'(balanceDate)이 아니라 실제 실행 사실이라 마감 일정은
+     * 건드리지 않고, 계약일·확정일자·상담일 등 나머지 계약 값도 그대로 보존한다.
+     */
+    @Transactional
+    public ContractGuide saveExecutionFacts(
+            Long memberId, Long planId, LocalDate balancePaidAt, LocalDate moveInReportAt) {
+        verifyOwner(memberId, planId);
+        LeaseContract contract =
+                contracts.findByPlanId(planId).orElseThrow(() -> new BusinessException(ErrorCode.CONTRACT_NOT_FOUND));
+        contract.updateExecutionFacts(balancePaidAt, moveInReportAt);
+        return toGuide(contracts.save(contract));
+    }
+
+    /**
      * 계약 실행 안내를 모아 준다(PRP-02).
      *
      * <p>계약 정보가 아직 없어도 안내는 나간다. 계약서를 쓰기 전에 무엇을 확인해야 하는지가
