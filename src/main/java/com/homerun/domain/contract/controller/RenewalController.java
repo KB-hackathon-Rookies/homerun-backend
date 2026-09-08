@@ -2,9 +2,11 @@ package com.homerun.domain.contract.controller;
 
 import com.homerun.domain.contract.dto.request.LeaseEndRequest;
 import com.homerun.domain.contract.dto.response.LeaseEndResponse;
+import com.homerun.domain.contract.dto.response.RenewalEligibilityResponse;
 import com.homerun.domain.contract.dto.response.RenewalMethodsResponse;
 import com.homerun.domain.contract.service.LeaseEndService;
 import com.homerun.domain.contract.service.RenewalMethodsService;
+import com.homerun.domain.contract.service.RenewalReviewService;
 import com.homerun.global.response.ApiResponse;
 import com.homerun.global.security.principal.MemberPrincipal;
 import io.swagger.v3.oas.annotations.Operation;
@@ -13,6 +15,7 @@ import jakarta.validation.Valid;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -25,10 +28,13 @@ public class RenewalController {
 
     private final RenewalMethodsService service;
     private final LeaseEndService leaseEndService;
+    private final RenewalReviewService renewalReviewService;
 
-    public RenewalController(RenewalMethodsService service, LeaseEndService leaseEndService) {
+    public RenewalController(
+            RenewalMethodsService service, LeaseEndService leaseEndService, RenewalReviewService renewalReviewService) {
         this.service = service;
         this.leaseEndService = leaseEndService;
+        this.renewalReviewService = renewalReviewService;
     }
 
     @GetMapping("/methods")
@@ -58,5 +64,15 @@ public class RenewalController {
     public ApiResponse<LeaseEndResponse> decision(
             @AuthenticationPrincipal MemberPrincipal principal, @PathVariable Long planId) {
         return ApiResponse.success(leaseEndService.get(principal.memberId(), planId));
+    }
+
+    @PostMapping("/eligibility")
+    @Operation(
+            summary = "갱신 시점 버팀목 자격 재심사",
+            description = "현재 입력으로 청년·일반 버팀목 자격을 다시 판정하고, 초기 판정 대비 변화와 순자산 여유액"
+                    + "(상한 3.45억 − 현재)을 함께 준다(FR-H9-03·BR-30). 판정은 기존 엔진을 재사용하며 규칙은 같다.")
+    public ApiResponse<RenewalEligibilityResponse> reviewEligibility(
+            @AuthenticationPrincipal MemberPrincipal principal, @PathVariable Long planId) {
+        return ApiResponse.success(renewalReviewService.review(principal.memberId(), planId));
     }
 }
