@@ -298,6 +298,63 @@ class JeonsePolicyVerdictIntegrationTest {
         assertThat(withoutPropertyResult.verdict()).isEqualTo(PolicyVerdictResult.NEED_INFO); // 매물 없으면 단정 안 함
     }
 
+    /**
+     * V66 이 청년·일반 버팀목 ACTIVE version 11 에 넣은 RESIDENTIAL_USE 를 엔진이 실제로 읽는지
+     * 본다(#364). 조건식을 테스트에서 새로 심지 않는 것이 요점이다 — 실 시드 규칙 그대로 돌려야
+     * "시드에는 있는데 엔진이 모르는 field" 라는 원래 사고를 다시 잡는다. setUp 이 심는 version 5
+     * 보다 11 이 커서 findFirstBy...OrderByVersionDesc 가 실 시드를 고른다.
+     */
+    @Test
+    void should_failYouthLoan_when_propertyIsNonResidentialAgainstRealPostgres() {
+        Long nonResidentialPropertyId = insertPropertyWithResidentialUse(true);
+
+        PolicyVerdictResponse youth = youthOf(service.evaluate(memberId, planId, nonResidentialPropertyId));
+
+        assertThat(youth.verdict()).isEqualTo(PolicyVerdictResult.FAIL);
+        assertThat(residentialUseBasis(youth).isMet()).isFalse();
+        assertThat(youth.missingFields()).doesNotContain("RESIDENTIAL_USE");
+    }
+
+    /** 주거용으로 확인된 매물이면 RESIDENTIAL_USE 는 충족이어야 하고, NEED_INFO 원인 목록
+     * (missingFields[])에 남으면 안 된다 — 고치기 전에는 이 조건이 항상 여기 있었다. */
+    @Test
+    void should_notReportResidentialUseAsMissing_when_propertyIsResidentialAgainstRealPostgres() {
+        Long residentialPropertyId = insertPropertyWithResidentialUse(false);
+
+        PolicyVerdictResponse youth = youthOf(service.evaluate(memberId, planId, residentialPropertyId));
+
+        assertThat(residentialUseBasis(youth).isMet()).isTrue();
+        assertThat(youth.missingFields()).doesNotContain("RESIDENTIAL_USE");
+    }
+
+    private Long insertPropertyWithResidentialUse(boolean nonResidential) {
+        return ((Number) em.createNativeQuery("""
+                        INSERT INTO property
+                            (plan_id, deposit, exclusive_area, is_violation_building,
+                             is_multi_household, is_non_residential)
+                        VALUES (:pid, 150000000, 42.35, false, false, :nonResidential)
+                        RETURNING id
+                        """)
+                        .setParameter("pid", planId)
+                        .setParameter("nonResidential", nonResidential)
+                        .getSingleResult())
+                .longValue();
+    }
+
+    private ConditionBasisResponse residentialUseBasis(PolicyVerdictResponse verdict) {
+        return verdict.basis().stream()
+                .filter(basis -> basis.code().equals("RESIDENTIAL_USE"))
+                .findFirst()
+                .orElseThrow();
+    }
+
+    private PolicyVerdictResponse youthOf(JeonsePolicyVerdictListResponse response) {
+        return response.results().stream()
+                .filter(result -> result.policyCode().equals("JEONSE-YOUTH-BEOTIMMOK"))
+                .findFirst()
+                .orElseThrow();
+    }
+
     @Test
     void should_failYouthLoan_when_areaExceedsCapAgainstRealPostgres() {
         activateAreaConditionRule("JEONSE-YOUTH-BEOTIMMOK");
