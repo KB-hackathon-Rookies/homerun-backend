@@ -25,6 +25,11 @@ services:
   redis:
     image: redis:7.4-alpine
     restart: unless-stopped
+    labels:
+      # spring-boot-docker-compose 가 Redis 접속정보를 자동으로 주입하면 비밀번호가 빠져
+      # NOAUTH 로 끊긴다. 이 라벨로 자동 주입만 끄고, 접속은 .env 의 REDIS_* 로 한다.
+      # 컨테이너는 그대로 자동 기동된다.
+      org.springframework.boot.ignore: 'true'
     environment:
       REDIS_PASSWORD: ${REDIS_PASSWORD:?Set REDIS_PASSWORD in .env}
     command: ['sh', '-c', 'redis-server --appendonly yes --requirepass "$$REDIS_PASSWORD"']
