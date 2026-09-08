@@ -4,6 +4,6 @@ uvicorn[standard]==0.34.0
 pydantic==2.10.4
 pydantic-settings==2.7.1
 openai==1.59.6
-chromadb==0.6.3
+chromadb==0.5.23
 PyJWT==2.10.1
 pypdf==5.1.0

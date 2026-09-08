@@ -49,7 +49,11 @@ def delete_source(source_path: str) -> None:
 def reset_collection() -> None:
     """전체 코퍼스를 다시 만들 때 기존 컬렉션을 원자적으로 새로 연다."""
     client = _client()
-    collection_names = {getattr(collection, "name", str(collection)) for collection in client.list_collections()}
+    collections = client.list_collections()
+    collection_names = {
+        collection if isinstance(collection, str) else collection.name
+        for collection in collections
+    }
     if settings.chroma_collection in collection_names:
         client.delete_collection(settings.chroma_collection)
     get_collection()
