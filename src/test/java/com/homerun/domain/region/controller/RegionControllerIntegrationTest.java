@@ -56,8 +56,14 @@ class RegionControllerIntegrationTest {
                 .andExpect(jsonPath("$.data[3].policyArea").value("SEOUL"));
     }
 
+    /**
+     * 회원가입은 로그인 전 단계다. 지역 목록이 401 이면 거주지를 고를 수 없어 가입이 끝나지 않는다
+     * (b10df51 에서 permitAll 로 공개).
+     */
     @Test
-    void should_requireAuthentication() throws Exception {
-        mvc.perform(get("/api/v1/regions/jeonse-options")).andExpect(status().isUnauthorized());
+    void should_allowWithoutAuthentication() throws Exception {
+        mvc.perform(get("/api/v1/regions/jeonse-options"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.length()").value(4));
     }
 }
