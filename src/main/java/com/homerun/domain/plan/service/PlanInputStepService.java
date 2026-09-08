@@ -189,6 +189,7 @@ public class PlanInputStepService {
             case EMPLOYMENT_MONTHS -> input.employmentMonths() != null;
             case MONTHLY_INCOME -> input.monthlyIncome() != null;
             case NET_ASSETS -> input.netAssets() != null;
+            case AVAILABLE_CASH -> input.availableCash() != null;
             case HOPE_DEPOSIT -> input.hopeDeposit() != null;
             case REGION_ID -> input.regionId() != null;
             default -> false;
