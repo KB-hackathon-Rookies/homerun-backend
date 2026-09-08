@@ -179,6 +179,14 @@ public class LeaseContract {
         this.houseType = houseType;
     }
 
+    /**
+     * 잔금 예정일만 고친다. 전체 덮어쓰기(overwrite)와 달리 계약일·확정일자·상담일 등 나머지
+     * 계약 값을 그대로 보존한다. 기존 계약을 다시 열어 잔금일만 바꿀 때 쓴다(F04).
+     */
+    public void updateBalanceDate(LocalDate balanceDate) {
+        this.balanceDate = balanceDate;
+    }
+
     /** 보증금이 걸린 계약인가. 순수 월세가 아니면 전세와 같은 검증이 필요하다(PRP-02-07). */
     public boolean hasDeposit() {
         return deposit > 0;

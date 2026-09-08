@@ -1,5 +1,6 @@
 package com.homerun.domain.contract.controller;
 
+import com.homerun.domain.contract.dto.ContractDtos.BalanceDateRequest;
 import com.homerun.domain.contract.dto.ContractDtos.ContractGuide;
 import com.homerun.domain.contract.dto.ContractDtos.SaveRequest;
 import com.homerun.domain.contract.dto.request.RegistrySnapshotRequest;
@@ -22,6 +23,7 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
@@ -107,6 +109,17 @@ public class ContractController {
             @PathVariable Long planId,
             @Valid @RequestBody SaveRequest request) {
         return ApiResponse.success(service.save(principal.memberId(), planId, request));
+    }
+
+    @PatchMapping("/balance-date")
+    @Operation(
+            summary = "잔금 예정일만 수정",
+            description = "다른 계약 값(계약일·확정일자·상담일 등)은 보존한다. 기존 계약을 다시 열어 잔금일만 바꿀 때 쓴다.")
+    public ApiResponse<ContractGuide> saveBalanceDate(
+            @AuthenticationPrincipal MemberPrincipal principal,
+            @PathVariable Long planId,
+            @Valid @RequestBody BalanceDateRequest request) {
+        return ApiResponse.success(service.saveBalanceDate(principal.memberId(), planId, request.balanceDate()));
     }
 
     @PostMapping("/risk-check")
