@@ -16,10 +16,16 @@ permissions:
 
 jobs:
   automerge:
-    # PR 이벤트로 돈 CI 가 성공했을 때만.
+    # PR 이벤트로 돈 CI 가 성공했을 때만. 그리고 **이 저장소 안의 브랜치에서 올라온 PR 만**.
+    #
+    # 저장소가 공개라 누구나 포크해서 PR 을 열 수 있다. workflow_run 은 기본 브랜치의
+    # 워크플로우 파일을 contents:write 권한으로 돌리므로, 포크 PR 을 걸러내지 않으면
+    # 외부인의 코드가 리뷰 없이 dev 로 머지되고 곧바로 CD 를 타고 EC2 까지 배포된다.
+    # dev 는 승인 리뷰를 0 건으로 두고 있어 CI 만 통과하면 mergeStateStatus 가 CLEAN 이 된다.
     if: >-
       github.event.workflow_run.event == 'pull_request' &&
-      github.event.workflow_run.conclusion == 'success'
+      github.event.workflow_run.conclusion == 'success' &&
+      github.event.workflow_run.head_repository.full_name == github.repository
     runs-on: ubuntu-latest
     steps:
       - name: Squash-merge the PR whose CI passed
