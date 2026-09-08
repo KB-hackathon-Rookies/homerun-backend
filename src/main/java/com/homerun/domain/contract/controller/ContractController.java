@@ -1,7 +1,10 @@
 package com.homerun.domain.contract.controller;
 
+import com.homerun.domain.contract.dto.ContractDtos.BalanceDateRequest;
 import com.homerun.domain.contract.dto.ContractDtos.ContractGuide;
+import com.homerun.domain.contract.dto.ContractDtos.ExecutionFactsRequest;
 import com.homerun.domain.contract.dto.ContractDtos.SaveRequest;
+import com.homerun.domain.contract.dto.request.ContractExecutionCompletionRequest;
 import com.homerun.domain.contract.dto.request.RegistrySnapshotRequest;
 import com.homerun.domain.contract.dto.request.ThirdBaseCompleteRequest;
 import com.homerun.domain.contract.dto.response.ContractEntryResponse;
@@ -22,6 +25,7 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
@@ -70,6 +74,16 @@ public class ContractController {
         return ApiResponse.success(completions.complete(principal.memberId(), planId, request));
     }
 
+    @PutMapping("/execution-completion")
+    @Operation(summary = "잔금 지급·전입신고 완료 기록", description = "기존 계약 정보를 덮어쓰지 않고 실제 완료일만 저장합니다.")
+    public ApiResponse<Void> recordExecutionCompletion(
+            @AuthenticationPrincipal MemberPrincipal principal,
+            @PathVariable Long planId,
+            @Valid @RequestBody ContractExecutionCompletionRequest request) {
+        completions.recordExecutionCompletion(principal.memberId(), planId, request);
+        return ApiResponse.success(null);
+    }
+
     @GetMapping("/schedule")
     @Operation(summary = "잔금일 기준 실행 일정", description = "상품·담보·신청방법·주택유형에 따라 D-day 일정을 분기합니다.")
     public ApiResponse<ContractScheduleResponse> schedule(
@@ -107,6 +121,25 @@ public class ContractController {
             @PathVariable Long planId,
             @Valid @RequestBody SaveRequest request) {
         return ApiResponse.success(service.save(principal.memberId(), planId, request));
+    }
+
+    @PatchMapping("/balance-date")
+    @Operation(summary = "잔금 예정일만 수정", description = "다른 계약 값(계약일·확정일자·상담일 등)은 보존한다. 기존 계약을 다시 열어 잔금일만 바꿀 때 쓴다.")
+    public ApiResponse<ContractGuide> saveBalanceDate(
+            @AuthenticationPrincipal MemberPrincipal principal,
+            @PathVariable Long planId,
+            @Valid @RequestBody BalanceDateRequest request) {
+        return ApiResponse.success(service.saveBalanceDate(principal.memberId(), planId, request.balanceDate()));
+    }
+
+    @PatchMapping("/execution-facts")
+    @Operation(summary = "잔금 지급일·전입신고일만 수정", description = "다른 계약 값(계약일·확정일자·상담일 등)은 보존한다. 3루 완료 직전 실제로 끝낸 날을 남길 때 쓴다.")
+    public ApiResponse<ContractGuide> saveExecutionFacts(
+            @AuthenticationPrincipal MemberPrincipal principal,
+            @PathVariable Long planId,
+            @Valid @RequestBody ExecutionFactsRequest request) {
+        return ApiResponse.success(service.saveExecutionFacts(
+                principal.memberId(), planId, request.balancePaidAt(), request.moveInReportAt()));
     }
 
     @PostMapping("/risk-check")

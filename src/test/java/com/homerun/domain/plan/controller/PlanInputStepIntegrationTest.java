@@ -156,6 +156,18 @@ class PlanInputStepIntegrationTest {
     }
 
     @Test
+    @DisplayName("금융 STEP은 가용 현금을 값으로 입력해도 완료된다")
+    void completes_financial_step_with_availableCash_value() throws Exception {
+        save(
+                        "FINANCIAL",
+                        "{\"expectedRevision\":0,\"monthlyIncome\":2450000,\"netAssets\":36000000,"
+                                + "\"availableCash\":40000000}")
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.nextStep").value("HOPE_DEPOSIT"))
+                .andExpect(jsonPath("$.data.input.availableCash").value(40000000));
+    }
+
+    @Test
     @DisplayName("답변 없는 STEP 저장은 입력과 위치를 모두 롤백한다")
     void rolls_back_input_and_location_when_step_is_incomplete() throws Exception {
         save("HOUSEHOLDER", "{\"expectedRevision\":0}")

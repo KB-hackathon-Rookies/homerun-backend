@@ -11,6 +11,7 @@ import com.homerun.domain.property.repository.PropertyRepository;
 import com.homerun.domain.property.service.PropertyVerificationService;
 import com.homerun.global.exception.BusinessException;
 import com.homerun.global.exception.ErrorCode;
+import java.time.LocalDate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -114,6 +115,37 @@ public class ContractService {
         // 마감은 계약 날짜에서 나온다. 잔금일이 바뀌면 같이 다시 잡아야 한다(SEQ-01-04).
         deadlines.rewrite(planId, saved);
         return toGuide(saved);
+    }
+
+    /**
+     * 잔금 예정일만 부분 수정한다(F04). 전체 덮어쓰기(save)는 폼에 없는 필드를 지우므로, 기존
+     * 계약을 다시 열어 잔금일만 바꿀 때는 이 경로를 쓴다. 계약일·확정일자·상담일 등은 보존된다.
+     */
+    @Transactional
+    public ContractGuide saveBalanceDate(Long memberId, Long planId, LocalDate balanceDate) {
+        verifyOwner(memberId, planId);
+        LeaseContract contract =
+                contracts.findByPlanId(planId).orElseThrow(() -> new BusinessException(ErrorCode.CONTRACT_NOT_FOUND));
+        contract.updateBalanceDate(balanceDate);
+        LeaseContract saved = contracts.save(contract);
+        // 잔금일이 바뀌면 마감 일정도 다시 잡는다(SEQ-01-04).
+        deadlines.rewrite(planId, saved);
+        return toGuide(saved);
+    }
+
+    /**
+     * 잔금 지급일·전입신고일만 부분 수정한다(F02). 3루 완료는 이 두 값이 모두 있어야 승인하므로, 실제로
+     * 끝낸 날을 여기서 남긴다. 잔금 '예정일'(balanceDate)이 아니라 실제 실행 사실이라 마감 일정은
+     * 건드리지 않고, 계약일·확정일자·상담일 등 나머지 계약 값도 그대로 보존한다.
+     */
+    @Transactional
+    public ContractGuide saveExecutionFacts(
+            Long memberId, Long planId, LocalDate balancePaidAt, LocalDate moveInReportAt) {
+        verifyOwner(memberId, planId);
+        LeaseContract contract =
+                contracts.findByPlanId(planId).orElseThrow(() -> new BusinessException(ErrorCode.CONTRACT_NOT_FOUND));
+        contract.updateExecutionFacts(balancePaidAt, moveInReportAt);
+        return toGuide(contracts.save(contract));
     }
 
     /**

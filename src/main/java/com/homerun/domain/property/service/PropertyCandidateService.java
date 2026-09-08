@@ -3,6 +3,8 @@ package com.homerun.domain.property.service;
 import com.homerun.domain.house.dto.response.HouseAnalysisResponse;
 import com.homerun.domain.house.service.HouseAnalysisService;
 import com.homerun.domain.plan.entity.Plan;
+import com.homerun.domain.plan.entity.PlanInput;
+import com.homerun.domain.plan.repository.PlanInputRepository;
 import com.homerun.domain.plan.repository.PlanRepository;
 import com.homerun.domain.property.dto.request.PropertyCandidateAnalysisRequest;
 import com.homerun.domain.property.dto.request.PropertyFacts;
@@ -36,6 +38,7 @@ public class PropertyCandidateService {
     private static final int MAX_PROPERTIES_PER_PLAN = 5;
 
     private final PlanRepository plans;
+    private final PlanInputRepository planInputs;
     private final PropertyRepository properties;
     private final HouseAnalysisService houseAnalysisService;
     private final PropertyVerificationService verificationService;
@@ -45,6 +48,7 @@ public class PropertyCandidateService {
 
     public PropertyCandidateService(
             PlanRepository plans,
+            PlanInputRepository planInputs,
             PropertyRepository properties,
             HouseAnalysisService houseAnalysisService,
             PropertyVerificationService verificationService,
@@ -52,6 +56,7 @@ public class PropertyCandidateService {
             LandlordConsentAdvisor landlordConsentAdvisor,
             Clock clock) {
         this.plans = plans;
+        this.planInputs = planInputs;
         this.properties = properties;
         this.houseAnalysisService = houseAnalysisService;
         this.verificationService = verificationService;
@@ -126,7 +131,8 @@ public class PropertyCandidateService {
                 request.seizureOrDispositionRestricted(),
                 request.auctionInProgress(),
                 request.seniorDebtRegisteredAt(),
-                automatic.nonResidential());
+                automatic.nonResidential(),
+                planInputs.findByPlanId(planId).map(PlanInput::getHopeDeposit).orElse(null));
         PropertyVerification verification = verificationService.verifyAndRecord(property.getId(), facts);
         property.startWorkflow(area != null, verification.trafficLight() == TrafficLight.RED);
         return new PropertyCandidateAnalysisResponse(

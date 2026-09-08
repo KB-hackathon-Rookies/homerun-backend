@@ -93,6 +93,8 @@ jobs:
             --arg tag "$IMAGE_TAG" \
             '[
               "set -e",
+              "export PATH=/usr/local/bin:/usr/local/sbin:/usr/bin:/sbin:/bin:$PATH",
+              "command -v aws >/dev/null 2>&1 || { echo \"aws CLI를 호스트에서 찾지 못했습니다. AWS CLI v2 설치 또는 PATH 확인이 필요합니다.\"; exit 3; }",
               "cd \($dir)",
               "aws ecr get-login-password --region \($region) | docker login --username AWS --password-stdin \($registry)",
               "export IMAGE=\($registry)/\($backend):\($tag)",

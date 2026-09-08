@@ -3,6 +3,7 @@ package com.homerun.domain.auth.controller;
 import com.homerun.domain.auth.dto.request.ConfirmPhoneVerificationRequest;
 import com.homerun.domain.auth.dto.request.SendPhoneVerificationRequest;
 import com.homerun.domain.auth.dto.response.PhoneVerificationResponse;
+import com.homerun.domain.auth.dto.response.PhoneVerificationSendResponse;
 import com.homerun.domain.auth.service.PhoneVerificationService;
 import com.homerun.global.response.ApiResponse;
 import io.swagger.v3.oas.annotations.Operation;
@@ -25,10 +26,10 @@ public class PhoneAuthController {
     }
 
     @PostMapping("/verification/send")
-    @Operation(summary = "회원가입 휴대전화 인증번호 발송")
-    public ApiResponse<Void> sendVerificationCode(@Valid @RequestBody SendPhoneVerificationRequest request) {
-        verificationService.sendCode(request.phone());
-        return ApiResponse.success(null);
+    @Operation(summary = "회원가입 휴대전화 인증번호 발송", description = "인증번호 유효시간과 재발송 가능 시각까지 함께 돌려줍니다.")
+    public ApiResponse<PhoneVerificationSendResponse> sendVerificationCode(
+            @Valid @RequestBody SendPhoneVerificationRequest request) {
+        return ApiResponse.success(verificationService.sendCode(request.phone()));
     }
 
     @PostMapping("/verification/confirm")

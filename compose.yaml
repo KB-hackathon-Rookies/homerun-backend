@@ -25,6 +25,10 @@ services:
   redis:
     image: redis:7.4-alpine
     restart: unless-stopped
+    # Spring Boot의 Docker Compose Redis 연결 정보는 비밀번호를 지원하지 않는다.
+    # 이 서비스는 app의 spring.data.redis.* 설정(REDIS_PASSWORD 포함)을 사용한다.
+    labels:
+      org.springframework.boot.ignore: "true"
     environment:
       REDIS_PASSWORD: ${REDIS_PASSWORD:?Set REDIS_PASSWORD in .env}
     command: ['sh', '-c', 'redis-server --appendonly yes --requirepass "$$REDIS_PASSWORD"']
