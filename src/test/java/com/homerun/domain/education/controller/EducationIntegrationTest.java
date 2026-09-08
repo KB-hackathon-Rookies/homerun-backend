@@ -71,13 +71,15 @@ class EducationIntegrationTest {
     }
 
     @Test
-    @DisplayName("모듈 목록은 시드된 M0~M12(13개)이고 처음엔 모두 NOT_STARTED 다")
+    @DisplayName("모듈 목록은 시드된 M0~M12(13개)이고 처음엔 모두 NOT_STARTED, 본문 있는 모듈은 hasContent=true 다")
     void lists_seeded_modules() throws Exception {
         mvc.perform(get("/api/v1/education/modules").header("Authorization", bearer))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.length()").value(13))
                 .andExpect(jsonPath("$.data[0].code").value("M0"))
-                .andExpect(jsonPath("$.data[0].status").value("NOT_STARTED"));
+                .andExpect(jsonPath("$.data[0].status").value("NOT_STARTED"))
+                // 시드된 M0~M12 는 본문이 채워져 있어 프론트가 '준비 중'으로 표시하지 않는다.
+                .andExpect(jsonPath("$.data[0].hasContent").value(true));
     }
 
     @Test

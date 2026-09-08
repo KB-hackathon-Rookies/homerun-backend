@@ -55,7 +55,8 @@ public class EducationService {
                             content.getTitle(),
                             content.getEstimatedMinutes(),
                             statusName(progress),
-                            progress == null ? null : progress.getQuizScore());
+                            progress == null ? null : progress.getQuizScore(),
+                            content.getBody() != null && !content.getBody().isBlank());
                 })
                 .toList();
     }
