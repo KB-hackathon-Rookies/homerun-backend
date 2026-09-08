@@ -7,6 +7,7 @@ import com.homerun.domain.openbanking.dto.response.OpenBankingConnectionResponse
 import com.homerun.domain.openbanking.dto.response.OpenBankingFinancialSummaryResponse;
 import com.homerun.domain.openbanking.dto.response.OpenBankingLoanListResponse;
 import com.homerun.domain.openbanking.dto.response.OpenBankingTransactionPageResponse;
+import com.homerun.domain.openbanking.repository.OpenBankingOAuthStateStore;
 import com.homerun.domain.openbanking.service.OpenBankingService;
 import com.homerun.global.exception.BusinessException;
 import com.homerun.global.exception.ErrorCode;
@@ -15,7 +16,6 @@ import com.homerun.global.security.principal.MemberPrincipal;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.tags.Tag;
-import jakarta.servlet.http.HttpSession;
 import jakarta.validation.constraints.Size;
 import java.net.URI;
 import java.security.SecureRandom;
@@ -37,23 +37,22 @@ import org.springframework.web.bind.annotation.RestController;
 @Tag(name = "오픈뱅킹", description = "금융결제원 OAuth 연결 및 본인 계좌·잔액·거래내역 조회")
 public class OpenBankingController {
 
-    private static final String STATE_KEY = "open-banking.oauth.state";
-    private static final String MEMBER_KEY = "open-banking.oauth.member-id";
     private static final SecureRandom SECURE_RANDOM = new SecureRandom();
 
     private final OpenBankingService service;
+    private final OpenBankingOAuthStateStore stateStore;
 
-    public OpenBankingController(OpenBankingService service) {
+    public OpenBankingController(OpenBankingService service, OpenBankingOAuthStateStore stateStore) {
         this.service = service;
+        this.stateStore = stateStore;
     }
 
     @GetMapping("/connect")
     @Operation(summary = "오픈뱅킹 연결 시작", description = "반환된 URL을 같은 브라우저에서 열어 금융결제원 계좌등록·동의를 진행합니다.")
-    public ApiResponse<OpenBankingAuthorizationResponse> connect(
-            @AuthenticationPrincipal MemberPrincipal principal, HttpSession session) {
+    public ApiResponse<OpenBankingAuthorizationResponse> connect(@AuthenticationPrincipal MemberPrincipal principal) {
         String state = createState();
-        session.setAttribute(STATE_KEY, state);
-        session.setAttribute(MEMBER_KEY, principal.memberId());
+        // state → memberId 를 Redis 에 저장한다. 세션과 달리 재배포·교차 사이트 콜백에도 살아남는다.
+        stateStore.save(state, principal.memberId());
         URI authorizationUri = service.authorizationUri(state);
         return ApiResponse.success(new OpenBankingAuthorizationResponse(authorizationUri.toString()));
     }
@@ -63,20 +62,19 @@ public class OpenBankingController {
     public ApiResponse<OpenBankingConnectionResponse> callback(
             @RequestParam(required = false) String code,
             @RequestParam(required = false) String state,
-            @RequestParam(required = false) String error,
-            HttpSession session) {
+            @RequestParam(required = false) String error) {
         if (error != null && !error.isBlank()) {
-            clearOAuthSession(session);
+            if (!isBlank(state)) {
+                stateStore.consume(state); // 남은 state 정리
+            }
             throw new BusinessException(ErrorCode.OPEN_BANKING_AUTH_REJECTED);
         }
-        String expectedState = (String) session.getAttribute(STATE_KEY);
-        Long memberId = (Long) session.getAttribute(MEMBER_KEY);
-        clearOAuthSession(session);
-        if (isBlank(code)
-                || isBlank(state)
-                || expectedState == null
-                || !expectedState.equals(state)
-                || memberId == null) {
+        if (isBlank(code) || isBlank(state)) {
+            throw new BusinessException(ErrorCode.INVALID_OPEN_BANKING_REQUEST);
+        }
+        // state 로 회원을 찾고 즉시 소비(1회성). 없거나 만료면 유효하지 않은 요청.
+        Long memberId = stateStore.consume(state).orElse(null);
+        if (memberId == null) {
             throw new BusinessException(ErrorCode.INVALID_OPEN_BANKING_REQUEST);
         }
         return ApiResponse.success(service.connect(memberId, code));
@@ -139,11 +137,6 @@ public class OpenBankingController {
         byte[] bytes = new byte[16];
         SECURE_RANDOM.nextBytes(bytes);
         return HexFormat.of().formatHex(bytes);
-    }
-
-    private void clearOAuthSession(HttpSession session) {
-        session.removeAttribute(STATE_KEY);
-        session.removeAttribute(MEMBER_KEY);
     }
 
     private boolean isBlank(String value) {
