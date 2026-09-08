@@ -13,6 +13,7 @@ import com.homerun.domain.house.dto.response.HouseAnalysisResponse;
 import com.homerun.domain.house.dto.response.RentTransactions;
 import com.homerun.domain.house.service.HouseAnalysisService;
 import com.homerun.domain.plan.entity.Plan;
+import com.homerun.domain.plan.repository.PlanInputRepository;
 import com.homerun.domain.plan.repository.PlanRepository;
 import com.homerun.domain.plan.type.HouseType;
 import com.homerun.domain.plan.type.LeaseType;
@@ -43,12 +44,14 @@ class PropertyCandidateServiceTest {
     private static final Long PLAN_ID = 10L;
 
     private final PlanRepository plans = mock(PlanRepository.class);
+    private final PlanInputRepository planInputs = mock(PlanInputRepository.class);
     private final PropertyRepository properties = mock(PropertyRepository.class);
     private final HouseAnalysisService houses = mock(HouseAnalysisService.class);
     private final PropertyVerificationService verifications = mock(PropertyVerificationService.class);
     private final PropertyTrafficLightResolver trafficLights = mock(PropertyTrafficLightResolver.class);
     private final PropertyCandidateService service = new PropertyCandidateService(
             plans,
+            planInputs,
             properties,
             houses,
             verifications,
@@ -59,6 +62,7 @@ class PropertyCandidateServiceTest {
     @BeforeEach
     void setUpPlan() {
         when(plans.findById(PLAN_ID)).thenReturn(Optional.of(Plan.create(MEMBER_ID, LeaseType.JEONSE, null)));
+        when(planInputs.findByPlanId(PLAN_ID)).thenReturn(Optional.empty());
     }
 
     @Test
