@@ -141,6 +141,10 @@ public enum ErrorCode {
 
     EDUCATION_CONTENT_NOT_FOUND(HttpStatus.NOT_FOUND, "EDU_001", "교육 콘텐츠를 찾을 수 없습니다."),
     EDUCATION_QUIZ_SUBMISSION_INVALID(HttpStatus.BAD_REQUEST, "EDU_002", "퀴즈 제출이 올바르지 않습니다."),
+
+    AI_COACH_UNAVAILABLE(HttpStatus.SERVICE_UNAVAILABLE, "COACH_001", "AI 코치 서비스를 사용할 수 없습니다."),
+    AI_COACH_TIMEOUT(HttpStatus.GATEWAY_TIMEOUT, "COACH_002", "AI 코치 응답이 지연되고 있습니다. 잠시 후 다시 시도해 주세요."),
+    AI_COACH_UPSTREAM_ERROR(HttpStatus.BAD_GATEWAY, "COACH_003", "AI 코치 답변을 받지 못했습니다."),
     ;
 
     private final HttpStatus status;

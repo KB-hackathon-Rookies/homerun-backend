@@ -100,6 +100,9 @@ services:
       NOTIFICATION_RECOVERY_MIN_AGE: ${NOTIFICATION_RECOVERY_MIN_AGE:-5m}
       NOTIFICATION_RECOVERY_BATCH_SIZE: ${NOTIFICATION_RECOVERY_BATCH_SIZE:-100}
       NOTIFICATION_RECOVERY_FIXED_DELAY: ${NOTIFICATION_RECOVERY_FIXED_DELAY:-60s}
+      # 컨테이너끼리는 서비스 이름으로 부른다. 프론트는 이 주소를 알 필요가 없다.
+      AI_COACH_BASE_URL: ${AI_COACH_BASE_URL:-http://ai-coach:8000}
+      AI_COACH_READ_TIMEOUT: ${AI_COACH_READ_TIMEOUT:-20s}
     ports:
       - '${APP_PORT:-8080}:8080'
     healthcheck:
@@ -109,8 +112,9 @@ services:
       retries: 10
       start_period: 60s
 
-  # AI 코치 RAG 서비스(FastAPI + ChromaDB). Spring 과 같은 JWT_SECRET(HS256)을 공유해
-  # 프론트가 8000 으로 직접 호출한다. ChromaDB 는 임베디드 persistent 모드(별도 서버 없음).
+  # AI 코치 RAG 서비스(FastAPI + ChromaDB). Spring 과 같은 JWT_SECRET(HS256)을 공유하고,
+  # 프론트는 Spring 의 POST /api/v1/coach/ask 를 거쳐서만 닿는다(직접 호출하지 않는다).
+  # ChromaDB 는 임베디드 persistent 모드(별도 서버 없음).
   ai-coach:
     image: ${AI_COACH_IMAGE:-homerun-ai-coach:local}
     build: ./ai-coach
