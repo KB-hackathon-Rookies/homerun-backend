@@ -62,6 +62,7 @@ class AiCoachClientTest {
                 .andExpect(jsonPath("$.question").value("등기부등본은 언제 확인하나요?"))
                 .andExpect(jsonPath("$.stage").value("FIRST"))
                 .andExpect(jsonPath("$.context.budget").value(30000))
+                .andExpect(jsonPath("$.conversation_id").value("main"))
                 .andRespond(withSuccess("""
                         {"answer":"계약 직전에 확인합니다.","stage":"FIRST","sources":[]}
                         """, MediaType.APPLICATION_JSON));
@@ -69,6 +70,47 @@ class AiCoachClientTest {
         CoachAskResponse response = client.ask(REQUEST, BEARER);
 
         assertThat(response.answer()).isEqualTo("계약 직전에 확인합니다.");
+        assertThat(response.responseType()).isEqualTo("ANSWER");
+        assertThat(response.summary()).isEqualTo(response.answer());
+        assertThat(response.conversationId()).isEqualTo("main");
+        server.verify();
+    }
+
+    @Test
+    @DisplayName("구조화된 답변 필드를 매핑한다")
+    void should_map_structured_answer() {
+        server.expect(requestTo(ASK_URL)).andRespond(withSuccess("""
+                        {
+                          "answer":"가능성을 확인하세요.",
+                          "stage":"FIRST",
+                          "response_type":"CLARIFICATION",
+                          "summary":"정보가 더 필요해요.",
+                          "reasons":["소득 확인 필요"],
+                          "next_actions":["소득 입력"],
+                          "warnings":[],
+                          "follow_up_question":"연소득이 얼마인가요?",
+                          "conversation_id":"main",
+                          "sources":[]
+                        }
+                        """, MediaType.APPLICATION_JSON));
+
+        CoachAskResponse response = client.ask(REQUEST, BEARER);
+
+        assertThat(response.responseType()).isEqualTo("CLARIFICATION");
+        assertThat(response.nextActions()).containsExactly("소득 입력");
+        assertThat(response.followUpQuestion()).isEqualTo("연소득이 얼마인가요?");
+    }
+
+    @Test
+    @DisplayName("대화 기록 삭제 요청에도 호출자의 토큰을 전달한다")
+    void should_clear_conversation() {
+        server.expect(requestTo(BASE_URL + "/coach/conversations/main"))
+                .andExpect(method(HttpMethod.DELETE))
+                .andExpect(header(HttpHeaders.AUTHORIZATION, BEARER))
+                .andRespond(withSuccess());
+
+        client.clearConversation("main", BEARER);
+
         server.verify();
     }
 

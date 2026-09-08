@@ -131,6 +131,14 @@ services:
       # Spring 과 반드시 동일한 값이어야 토큰 검증이 통과한다.
       JWT_SECRET: ${JWT_SECRET:?Set JWT_SECRET in .env}
       CHROMA_DIR: ${CHROMA_DIR:-/data/chroma}
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      REDIS_PASSWORD: ${REDIS_PASSWORD:?Set REDIS_PASSWORD in .env}
+      CONVERSATION_TTL_SECONDS: ${AI_COACH_CONVERSATION_TTL_SECONDS:-1800}
+      CONVERSATION_MAX_TURNS: ${AI_COACH_CONVERSATION_MAX_TURNS:-5}
+    depends_on:
+      redis:
+        condition: service_healthy
     ports:
       - '${AI_COACH_PORT:-8000}:8000'
     volumes:
