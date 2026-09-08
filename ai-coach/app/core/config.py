@@ -29,6 +29,16 @@ class Settings(BaseSettings):
 
     # 검색/생성
     top_k: int = 4
+    retrieval_candidate_multiplier: int = 4
+    retrieval_max_distance: float = 0.75
+
+    # Redis 단기 대화 기억. 질문/답변만 저장하고 context 원문은 저장하지 않는다.
+    redis_host: str = "localhost"
+    redis_port: int = 6379
+    redis_password: str = ""
+    redis_db: int = 0
+    conversation_ttl_seconds: int = 1800
+    conversation_max_turns: int = 5
 
     # CORS 허용 오리진(쉼표 구분). 프론트 오리진을 넣는다.
     cors_origins: str = "*"

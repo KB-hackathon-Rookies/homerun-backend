@@ -29,4 +29,9 @@ public class CoachService {
         log.debug("AI 코치 질문 memberId={} stage={}", memberId, request.stage());
         return aiCoachClient.ask(request, authorization);
     }
+
+    public void clearConversation(Long memberId, String conversationId, String authorization) {
+        log.debug("AI 코치 대화 삭제 memberId={} conversationId={}", memberId, conversationId);
+        aiCoachClient.clearConversation(conversationId, authorization);
+    }
 }

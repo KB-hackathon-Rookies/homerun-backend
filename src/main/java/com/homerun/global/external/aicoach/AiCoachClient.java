@@ -53,7 +53,11 @@ public class AiCoachClient {
      * @param authorization 호출자가 보낸 {@code Authorization} 헤더 원문
      */
     public CoachAskResponse ask(CoachAskRequest request, String authorization) {
-        AskPayload payload = new AskPayload(request.question(), request.stage().name(), request.context());
+        AskPayload payload = new AskPayload(
+                request.question(),
+                request.stage().name(),
+                request.context(),
+                request.conversationId() == null ? "main" : request.conversationId());
         try {
             // 재시도하지 않는다. LLM 호출은 비싸고 느려서 한 번 더 던지면 사용자 대기시간이 두 배가 된다.
             AskResult result = restClient
@@ -69,7 +73,7 @@ public class AiCoachClient {
                 log.warn("AI 코치가 빈 응답을 반환했습니다.");
                 throw new BusinessException(ErrorCode.AI_COACH_UPSTREAM_ERROR);
             }
-            return toResponse(result, request.stage());
+            return toResponse(result, request.stage(), payload.conversationId());
         } catch (BusinessException exception) {
             throw exception;
         } catch (RestClientResponseException exception) {
@@ -89,7 +93,27 @@ public class AiCoachClient {
         }
     }
 
-    private CoachAskResponse toResponse(AskResult result, PlanStage requestedStage) {
+    public void clearConversation(String conversationId, String authorization) {
+        try {
+            restClient
+                    .delete()
+                    .uri("/coach/conversations/{conversationId}", conversationId)
+                    .header(HttpHeaders.AUTHORIZATION, authorization)
+                    .retrieve()
+                    .toBodilessEntity();
+        } catch (RestClientResponseException exception) {
+            log.warn("AI 코치 대화 삭제가 HTTP {} 를 반환했습니다.", exception.getStatusCode().value());
+            throw new BusinessException(ErrorCode.AI_COACH_UPSTREAM_ERROR);
+        } catch (ResourceAccessException exception) {
+            throw new BusinessException(
+                    hasTimeoutCause(exception) ? ErrorCode.AI_COACH_TIMEOUT : ErrorCode.AI_COACH_UNAVAILABLE);
+        } catch (RuntimeException exception) {
+            log.warn("AI 코치 대화 삭제에 실패했습니다.", exception);
+            throw new BusinessException(ErrorCode.AI_COACH_UPSTREAM_ERROR);
+        }
+    }
+
+    private CoachAskResponse toResponse(AskResult result, PlanStage requestedStage, String requestedConversationId) {
         PlanStage stage = parseStage(result.stage(), requestedStage);
         List<CoachSource> sources = result.sources() == null
                 ? List.of()
@@ -97,7 +121,17 @@ public class AiCoachClient {
                         .map(source ->
                                 new CoachSource(source.title(), source.source(), source.sourceUrl(), source.snippet()))
                         .toList();
-        return new CoachAskResponse(result.answer(), stage, sources);
+        return new CoachAskResponse(
+                result.answer(),
+                stage,
+                result.responseType() == null ? "ANSWER" : result.responseType(),
+                result.summary() == null ? result.answer() : result.summary(),
+                result.reasons() == null ? List.of() : result.reasons(),
+                result.nextActions() == null ? List.of() : result.nextActions(),
+                result.warnings() == null ? List.of() : result.warnings(),
+                result.followUpQuestion(),
+                result.conversationId() == null ? requestedConversationId : result.conversationId(),
+                sources);
     }
 
     /** 업스트림이 모르는 단계 값을 돌려줘도 요청 단계로 되돌린다. 답변 자체는 쓸 수 있기 때문이다. */
@@ -123,10 +157,24 @@ public class AiCoachClient {
     }
 
     /** ai-coach 요청 본문. 필드 이름이 계약이라 도메인 DTO 와 분리해 둔다. */
-    private record AskPayload(String question, String stage, Map<String, Object> context) {}
+    private record AskPayload(
+            String question,
+            String stage,
+            Map<String, Object> context,
+            @JsonProperty("conversation_id") String conversationId) {}
 
     /** ai-coach 응답 본문. snake_case 라 도메인 DTO 로 그대로 쓸 수 없다. */
-    private record AskResult(String answer, String stage, List<SourceResult> sources) {}
+    private record AskResult(
+            String answer,
+            String stage,
+            @JsonProperty("response_type") String responseType,
+            String summary,
+            List<String> reasons,
+            @JsonProperty("next_actions") List<String> nextActions,
+            List<String> warnings,
+            @JsonProperty("follow_up_question") String followUpQuestion,
+            @JsonProperty("conversation_id") String conversationId,
+            List<SourceResult> sources) {}
 
     private record SourceResult(
             String title,

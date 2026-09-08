@@ -30,6 +30,12 @@ ai-coach/
   출처 목록은 검색 히트의 메타데이터(title/source/snippet)로 코드가 직접 구성한다(출처 환각 방지).
 - **stage 검색은 현재 stage + ALL.** 문서를 `stage` 로 태깅하고, 검색은 `stage ∈ {현재 단계, ALL}`
   로 필터한다. 단계 전용 지식과 공통 지식을 함께 후보로 삼는다.
+- **검색은 dense + 키워드 hybrid.** 넓게 뽑은 후보를 RRF로 재정렬하고, 만료 문서·낮은 관련도·
+  같은 원문의 중복 청크를 제외한다.
+- 답변은 기존 `answer`와 함께 `summary`, `reasons`, `next_actions`, `warnings`,
+  `follow_up_question`을 돌려준다. 개인화 판단에 필수 값이 없으면 `CLARIFICATION`으로 되묻는다.
+- 최근 대화는 회원·`conversation_id`별로 Redis에 최대 5턴, 기본 30분만 저장한다. 요청의
+  `context` 원문은 대화 기록에 저장하지 않으며 삭제 API로 즉시 지울 수 있다.
 
 ## 로컬 실행
 
@@ -52,19 +58,33 @@ uvicorn app.main:app --reload --port 8000
 curl -X POST http://localhost:8000/coach/ask \
   -H "Authorization: Bearer <Spring이 발급한 accessToken>" \
   -H "Content-Type: application/json" \
-  -d '{"question":"전세자금대출 자격이 뭐예요?","stage":"FIRST"}'
+  -d '{"question":"전세자금대출 자격이 뭐예요?","stage":"FIRST","conversation_id":"main"}'
 ```
 
 응답:
 
 ```json
 {
-  "answer": "…근거 기반 답변…",
+  "answer": "가능성을 확인할 수 있어요. [근거 1]\n\n다음 할 일\n- 연소득을 입력하세요.",
   "stage": "FIRST",
+  "response_type": "ANSWER",
+  "summary": "가능성을 확인할 수 있어요. [근거 1]",
+  "reasons": ["연령과 소득 조건을 함께 확인해야 합니다. [근거 1]"],
+  "next_actions": ["연소득을 입력하세요."],
+  "warnings": ["실제 한도는 은행 심사에서 달라질 수 있습니다."],
+  "follow_up_question": null,
+  "conversation_id": "main",
   "sources": [
     {"title": "청년 전세자금대출 기본 개념(샘플)", "source": "홈런 샘플 문서", "snippet": "…"}
   ]
 }
+```
+
+대화 기록 삭제:
+
+```bash
+curl -X DELETE http://localhost:8000/coach/conversations/main \
+  -H "Authorization: Bearer <accessToken>"
 ```
 
 ## Docker

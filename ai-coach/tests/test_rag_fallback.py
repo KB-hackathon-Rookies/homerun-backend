@@ -18,7 +18,7 @@ class RagFallbackTest(unittest.TestCase):
         hit = Hit("청년 버팀목", "주택도시기금", "https://example.com", "조건 안내", 0.1)
         with (
             patch("app.services.rag.embed_query", return_value=[0.1]),
-            patch("app.services.rag.vectorstore.search", return_value=[hit]),
+            patch("app.services.rag.vectorstore.hybrid_search", return_value=[hit]),
             patch("app.services.rag._generate", side_effect=TimeoutError),
         ):
             response = rag.answer("대출 조건 알려줘", Stage.FIRST, None)

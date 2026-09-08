@@ -6,6 +6,7 @@ import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
@@ -53,6 +54,7 @@ import org.springframework.test.web.servlet.MockMvc;
 class CoachControllerIntegrationTest {
 
     private static final String ASK_URI = "/api/v1/coach/ask";
+    private static final String CONVERSATION_URI = "/api/v1/coach/conversations/main";
     private static final String ASK_BODY = """
             {"question":"전세 계약할 때 등기부등본은 언제 확인하나요?","stage":"FIRST"}
             """;
@@ -129,6 +131,16 @@ class CoachControllerIntegrationTest {
         // 새 토큰을 만들지 않는다. ai-coach 가 같은 시크릿으로 이 토큰을 직접 검증한다.
         assertThat(authorization.getValue()).isEqualTo(bearer);
         assertThat(request.getValue().stage()).isEqualTo(PlanStage.FIRST);
+    }
+
+    @Test
+    @DisplayName("로그인한 회원은 자신의 단기 대화 기록을 삭제할 수 있다")
+    void should_clear_conversation() throws Exception {
+        mvc.perform(delete(CONVERSATION_URI).header(HttpHeaders.AUTHORIZATION, bearer))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.success").value(true));
+
+        verify(aiCoachClient).clearConversation("main", bearer);
     }
 
     @Test

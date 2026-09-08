@@ -65,7 +65,9 @@ def main() -> int:
     for question in EVAL_QUESTIONS:
         stage = _stage_of(question.stage)
 
-        hits = vectorstore.search(embed_query(question.question), stage.value, settings.top_k)
+        hits = vectorstore.hybrid_search(
+            embed_query(question.question), question.question, stage.value, settings.top_k
+        )
         retrieval_ok = any(question.keyword in hit.snippet for hit in hits)
 
         response = answer(question.question, stage, None)
