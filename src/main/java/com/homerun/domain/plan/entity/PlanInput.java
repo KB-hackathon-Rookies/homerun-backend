@@ -113,6 +113,16 @@ public class PlanInput {
     @Column(name = "has_existing_jeonse_loan")
     private Boolean existingJeonseLoan;
 
+    /**
+     * 세대원 기금대출과 차주·배우자의 전세·주택담보대출까지 없음을 사용자가 확인했는가(FCT-258).
+     *
+     * <p>{@link #existingJeonseLoan} 이 담지 못하는 공식 금지 범위를 사용자가 스스로 확인한 값이다.
+     * 사용자 진술이지 은행 검증이 아니라서 확인하지 않아도(null·false) 1루는 끝낼 수 있고, 판정만
+     * 추가확인(NEED_INFO)으로 남는다.
+     */
+    @Column(name = "prohibited_loan_confirmed")
+    private Boolean prohibitedLoanConfirmed;
+
     @Enumerated(EnumType.STRING)
     @Column(name = "income_source", length = 20)
     private FinancialValueSource incomeSource;
@@ -241,6 +251,7 @@ public class PlanInput {
                 && Objects.equals(netAssets, request.netAssets())
                 && Objects.equals(availableCash, request.availableCash())
                 && Objects.equals(existingJeonseLoan, request.existingJeonseLoan())
+                && Objects.equals(prohibitedLoanConfirmed, request.prohibitedLoanConfirmed())
                 && Objects.equals(incomeSource, request.incomeSource())
                 && Objects.equals(assetSource, request.assetSource())
                 && Objects.equals(financialDataConfirmed, request.financialDataConfirmed())
@@ -277,6 +288,7 @@ public class PlanInput {
         netAssets = request.netAssets();
         availableCash = request.availableCash();
         existingJeonseLoan = request.existingJeonseLoan();
+        prohibitedLoanConfirmed = request.prohibitedLoanConfirmed();
         incomeSource = request.incomeSource();
         assetSource = request.assetSource();
         financialDataConfirmed = request.financialDataConfirmed();
@@ -394,6 +406,10 @@ public class PlanInput {
 
     public Boolean getExistingJeonseLoan() {
         return existingJeonseLoan;
+    }
+
+    public Boolean getProhibitedLoanConfirmed() {
+        return prohibitedLoanConfirmed;
     }
 
     public FinancialValueSource getIncomeSource() {

@@ -51,11 +51,16 @@ public record PlanInputRequest(
         @Schema(description = "부모 가구가 이미 주거급여를 받고 있는가(FCT-044). 청년 단독 신청은 불가하다")
         Boolean parentOnHousingBenefit,
 
+        @Schema(
+                description = "세대원 기금대출과 배우자의 전세·주택담보대출이 없음을 확인했는가(FCT-258). "
+                        + "사용자 진술이며 은행 검증이 아니다. 확인하지 않으면 판정은 추가확인으로 남는다")
+        Boolean prohibitedLoanConfirmed,
+
         Set<PlanInputUnknownField> unknownFields) {
 
     /**
-     * 원가구 입력(#160) 이전 자리수를 위한 편의 생성자. 두 값은 모름(null)으로 둔다 — 안 물어본
-     * 것과 아니라고 답한 것은 다르다(COM-05-04).
+     * 원가구 입력(#160)·중복대출 확인 이전 자리수를 위한 편의 생성자. 뒤에 붙은 세 값은
+     * 모름(null)으로 둔다 — 안 물어본 것과 아니라고 답한 것은 다르다(COM-05-04).
      */
     public PlanInputRequest(
             Long hopeDeposit,
@@ -108,6 +113,7 @@ public record PlanInputRequest(
                 incomeSource,
                 assetSource,
                 financialDataConfirmed,
+                null,
                 null,
                 null,
                 unknownFields);

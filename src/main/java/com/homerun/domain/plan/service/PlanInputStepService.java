@@ -43,6 +43,7 @@ public class PlanInputStepService {
             PlanInputUnknownField.NET_ASSETS,
             PlanInputUnknownField.AVAILABLE_CASH,
             PlanInputUnknownField.EXISTING_JEONSE_LOAN,
+            PlanInputUnknownField.PROHIBITED_LOAN_CONFIRMED,
             PlanInputUnknownField.INCOME_SOURCE,
             PlanInputUnknownField.ASSET_SOURCE,
             PlanInputUnknownField.FINANCIAL_DATA_CONFIRMED,
@@ -183,6 +184,7 @@ public class PlanInputStepService {
         return switch (field) {
             case HOUSEHOLDER_STATUS -> input.householderStatus() != null;
             case IS_HOMELESS -> input.isHomeless() != null;
+            case HOUSEHOLD_HOMELESS -> input.householdHomeless() != null;
             case MARITAL_STATUS -> input.maritalStatus() != null;
             case EMPLOYMENT_TYPE -> input.employmentType() != null;
             case COMPANY_SIZE -> input.companySize() != null;
@@ -190,6 +192,11 @@ public class PlanInputStepService {
             case MONTHLY_INCOME -> input.monthlyIncome() != null;
             case NET_ASSETS -> input.netAssets() != null;
             case AVAILABLE_CASH -> input.availableCash() != null;
+            case EXISTING_JEONSE_LOAN -> input.existingJeonseLoan() != null;
+            case PROHIBITED_LOAN_CONFIRMED -> input.prohibitedLoanConfirmed() != null;
+            case INCOME_SOURCE -> input.incomeSource() != null;
+            case ASSET_SOURCE -> input.assetSource() != null;
+            case FINANCIAL_DATA_CONFIRMED -> input.financialDataConfirmed() != null;
             case HOPE_DEPOSIT -> input.hopeDeposit() != null;
             case REGION_ID -> input.regionId() != null;
             default -> false;
@@ -286,6 +293,11 @@ public class PlanInputStepService {
                         PlanInputUnknownField.FINANCIAL_DATA_CONFIRMED),
                 current == null ? null : current.livesApartFromParents(),
                 current == null ? null : current.parentOnHousingBenefit(),
+                value(
+                        current == null ? null : current.prohibitedLoanConfirmed(),
+                        step,
+                        request,
+                        PlanInputUnknownField.PROHIBITED_LOAN_CONFIRMED),
                 unknown);
     }
 
@@ -423,6 +435,7 @@ public class PlanInputStepService {
             case NET_ASSETS -> input.netAssets() != null;
             case AVAILABLE_CASH -> input.availableCash() != null;
             case EXISTING_JEONSE_LOAN -> input.existingJeonseLoan() != null;
+            case PROHIBITED_LOAN_CONFIRMED -> input.prohibitedLoanConfirmed() != null;
             case INCOME_SOURCE -> input.incomeSource() != null;
             case ASSET_SOURCE -> input.assetSource() != null;
             case FINANCIAL_DATA_CONFIRMED -> input.financialDataConfirmed() != null;

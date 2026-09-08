@@ -222,6 +222,7 @@ public class PlanInputService {
             case NET_ASSETS -> request.netAssets();
             case AVAILABLE_CASH -> request.availableCash();
             case EXISTING_JEONSE_LOAN -> request.existingJeonseLoan();
+            case PROHIBITED_LOAN_CONFIRMED -> request.prohibitedLoanConfirmed();
             case INCOME_SOURCE -> request.incomeSource();
             case ASSET_SOURCE -> request.assetSource();
             case FINANCIAL_DATA_CONFIRMED -> request.financialDataConfirmed();
