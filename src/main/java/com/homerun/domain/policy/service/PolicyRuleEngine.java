@@ -27,6 +27,8 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 
 /**
@@ -40,6 +42,8 @@ import org.springframework.stereotype.Service;
 @Service
 public class PolicyRuleEngine {
 
+    private static final Logger log = LoggerFactory.getLogger(PolicyRuleEngine.class);
+
     /** factCode 가 없는 조건(무주택·세대주 등)의 화면 표시 문구. rule_json 에 사람이 읽을 라벨이
      * 없어서 여기 최소한으로 둔다 — 조건이 늘어나면 이 표도 늘어난다. */
     private static final Map<String, String> STATIC_LABELS = Map.of(
@@ -48,6 +52,7 @@ public class PolicyRuleEngine {
             "NO_DUPLICATE_LOAN", "기금·전세·주택담보 중복대출 금지",
             "NOT_VIOLATION_BUILDING", "위반건축물이 아님",
             "NOT_MULTI_HOUSEHOLD", "다가구 주택이 아님",
+            "RESIDENTIAL_USE", "주거용 주택(근린생활시설 아님)",
             "REGION_TARGET", "희망 지역이 서울",
             "HOUSE_TYPE", "대상 주택 유형");
 
@@ -633,8 +638,28 @@ public class PolicyRuleEngine {
             case "house_type" -> property == null ? null : property.getHouseType();
             case "is_violation_building" -> property == null ? null : property.getViolationBuilding();
             case "is_multi_household" -> property == null ? null : property.getMultiHousehold();
-            default -> null;
+            // 근린생활시설(비주거)은 모든 전세 상품이 불가다(BR-09). 위 둘과 같이 매물에서만 읽는다.
+            case "is_non_residential" -> property == null ? null : property.getNonResidential();
+            default -> unknownField(field);
         };
+    }
+
+    /**
+     * 조건식에는 있는데 여기엔 없는 필드. 값을 모르는 것과 필드를 모르는 것은 다르다 — 앞은
+     * 정상적인 NEED_INFO 지만, 뒤는 시드(rule_json)와 엔진이 어긋난 채 배포된 사고다.
+     * RESIDENTIAL_USE 가 이렇게 조용히 죽어 있었다(#364).
+     *
+     * <p>판정은 그대로 NEED_INFO 로 안전하게 두되(여기서 기본값을 지어내면 그게 틀린 안내다,
+     * NFR-01-06) 로그로 드러낸다. throw 하지 않는 이유는 규칙 한 줄의 오타가 판정 API 전체를
+     * 500 으로 만들면 안 되기 때문이다. 아는 필드가 null 인 경우는 여기로 오지 않으므로
+     * 정상 동작이 시끄러워지지 않는다.
+     */
+    private Object unknownField(String field) {
+        log.warn(
+                "rule_json 에 엔진이 모르는 field 가 있어 조건을 판정하지 못했습니다. field={} "
+                        + "— resolveField 에 case 를 추가하거나 조건식을 고쳐야 합니다.",
+                field);
+        return null;
     }
 
     private boolean financialValueNeedsConfirmation(String field, PlanInput input) {
