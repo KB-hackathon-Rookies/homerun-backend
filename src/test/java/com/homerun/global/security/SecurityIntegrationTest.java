@@ -118,6 +118,22 @@ class SecurityIntegrationTest {
     }
 
     @Test
+    void should_permitRegionOptions_withoutToken() throws Exception {
+        // 회원가입은 로그인 전이라 지역 목록을 인증 없이 읽을 수 있어야 한다.
+        mockMvc.perform(get("/api/v1/regions/jeonse-options")).andExpect(status().isOk());
+    }
+
+    @Test
+    void should_permitAddressSearch_withoutToken() throws Exception {
+        // keyword 없이 부르면 컨트롤러 단계에서 실패한다. 그 상태 코드가 무엇이든
+        // 401(인증 필요)만 아니면, 주소 검색이 로그인 전에도 열려 있음(permitAll)을 증명한다.
+        mockMvc.perform(get("/api/v1/addresses/search"))
+                .andExpect(result -> org.assertj.core.api.Assertions.assertThat(
+                                result.getResponse().getStatus())
+                        .isNotEqualTo(401));
+    }
+
+    @Test
     void should_returnChecklistWithoutPlan_andLinkExistingDocuments() throws Exception {
         mockMvc.perform(get("/api/v1/contract-checklist")
                         .header(
