@@ -115,6 +115,38 @@ class PropertyPolicyVerdictIntegrationTest {
         assertThat(youth.failStep()).isEqualTo((short) 2);
     }
 
+    /**
+     * 근린생활시설(비주거)은 기금 전세 상품이 전부 불가다(BR-09). V66 이 ACTIVE 규칙에 넣은
+     * RESIDENTIAL_USE 를 엔진이 못 읽어서 이런 매물이 FAIL 로 떨어지지 않던 것이 #364 다 —
+     * 판정에서 조건이 통째로 빠지면 화면에는 "확인 필요" 로만 보인다.
+     */
+    @Test
+    void should_reportFailStepThree_when_propertyIsNonResidential() {
+        Long shop = property(new BigDecimal("42.35"));
+        em.createNativeQuery("UPDATE property SET is_non_residential = true WHERE id = :id")
+                .setParameter("id", shop)
+                .executeUpdate();
+        em.flush();
+        em.clear();
+
+        PropertyPolicyVerdictResponse youth = youthOf(service.evaluate(memberId, planId, shop));
+
+        assertThat(youth.status()).isEqualTo(PolicyVerdictResult.FAIL);
+        assertThat(youth.failCodes()).contains("RESIDENTIAL_USE");
+        // 근린생활시설 여부는 위반건축물과 같은 STEP 3(건축물대장 자동조회)에서 갈린다.
+        assertThat(youth.failStep()).isEqualTo((short) 3);
+    }
+
+    /** 주거용으로 확인된 매물은 이 조건으로 걸리지 않는다. */
+    @Test
+    void should_notFailOnResidentialUse_when_propertyIsResidential() {
+        Long home = property(new BigDecimal("42.35"));
+
+        PropertyPolicyVerdictResponse youth = youthOf(service.evaluate(memberId, planId, home));
+
+        assertThat(youth.failCodes()).doesNotContain("RESIDENTIAL_USE");
+    }
+
     @Test
     void should_overwriteOnReevaluation_becauseItHoldsCurrentStateNotHistory() {
         Long id = property(new BigDecimal("120.00"));
@@ -151,8 +183,8 @@ class PropertyPolicyVerdictIntegrationTest {
         return ((Number) em.createNativeQuery("""
                         INSERT INTO property
                             (plan_id, deposit, exclusive_area, area_source,
-                             is_violation_building, is_multi_household)
-                        VALUES (:pid, 180000000, :area, 'AUTO', false, false)
+                             is_violation_building, is_multi_household, is_non_residential)
+                        VALUES (:pid, 180000000, :area, 'AUTO', false, false, false)
                         RETURNING id
                         """)
                         .setParameter("pid", planId)

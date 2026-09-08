@@ -56,7 +56,9 @@ public class PropertyPolicyVerdictService {
             "DEPOSIT_CAP", (short) 2,
             "REGION_TARGET", (short) 2,
             "NOT_VIOLATION_BUILDING", (short) 3,
-            "NOT_MULTI_HOUSEHOLD", (short) 3);
+            "NOT_MULTI_HOUSEHOLD", (short) 3,
+            // 근린생활시설 여부도 건축물대장에서 갈린다 — 위반건축물과 같은 STEP 3 이다.
+            "RESIDENTIAL_USE", (short) 3);
 
     private final PlanRepository plans;
     private final PlanInputRepository inputs;

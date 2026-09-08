@@ -32,6 +32,7 @@ public enum RejectionReasonCategory {
             Map.entry("INCOME_CAP_FEE_SUPPORT", USER),
             Map.entry("NOT_VIOLATION_BUILDING", HOUSE),
             Map.entry("NOT_MULTI_HOUSEHOLD", HOUSE),
+            Map.entry("RESIDENTIAL_USE", HOUSE),
             Map.entry("AREA_CAP", HOUSE),
             Map.entry("PRICE_RATIO_126", HOUSE),
             Map.entry("DEPOSIT_CAP", LIMIT));
