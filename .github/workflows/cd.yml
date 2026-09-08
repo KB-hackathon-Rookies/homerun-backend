@@ -23,7 +23,7 @@ env:
   ECR_REGISTRY: 409513748970.dkr.ecr.ap-northeast-2.amazonaws.com
   BACKEND_REPOSITORY: homerun-backend
   AI_REPOSITORY: homerun-ai-coach
-  DEPLOY_DIR: /home/ubuntu/homerun
+  DEPLOY_DIR: /opt/homerun
 
 jobs:
   build:
