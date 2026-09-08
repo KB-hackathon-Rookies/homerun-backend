@@ -7,8 +7,9 @@ public final class EducationDtos {
 
     private EducationDtos() {}
 
-    /** 목록 카드 한 건. */
-    public record ModuleSummary(String code, String title, Short estimatedMinutes, String status, Integer quizScore) {}
+    /** 목록 카드 한 건. hasContent 는 본문이 채워졌는지 — 프론트가 '준비 중' 여부를 이 값으로 정한다. */
+    public record ModuleSummary(
+            String code, String title, Short estimatedMinutes, String status, Integer quizScore, boolean hasContent) {}
 
     /** 모듈 상세: 본문 + 퀴즈 문항(정답 제외). */
     public record ModuleDetail(
