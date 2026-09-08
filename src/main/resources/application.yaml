@@ -65,6 +65,8 @@ external-api:
     token-encryption-key: ${OPEN_BANKING_TOKEN_ENCRYPTION_KEY:}
 
 oauth:
+  # 소셜 콜백이 끝난 뒤 브라우저를 돌려보낼 프론트 주소.
+  frontend-redirect-uri: ${OAUTH_FRONTEND_REDIRECT_URI:http://localhost:3000/auth/callback}
   google:
     client-id: ${GOOGLE_CLIENT_ID:}
     client-secret: ${GOOGLE_CLIENT_SECRET:}

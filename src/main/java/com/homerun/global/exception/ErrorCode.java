@@ -50,6 +50,7 @@ public enum ErrorCode {
     PHONE_AUTH_CONFIGURATION_ERROR(HttpStatus.INTERNAL_SERVER_ERROR, "AUTH_031", "휴대전화 인증 설정이 올바르지 않습니다."),
     PHONE_AUTH_UNAVAILABLE(HttpStatus.SERVICE_UNAVAILABLE, "AUTH_032", "휴대전화 인증 서비스를 사용할 수 없습니다."),
     SIGNUP_REQUIRED_FIELD_MISSING(HttpStatus.BAD_REQUEST, "AUTH_033", "회원가입 필수 정보가 누락되었습니다."),
+    SOCIAL_SIGNUP_ALREADY_COMPLETED(HttpStatus.CONFLICT, "AUTH_034", "이미 회원가입이 완료된 계정입니다."),
 
     OPEN_BANKING_NOT_CONNECTED(HttpStatus.NOT_FOUND, "OPENBANKING_001", "연결된 오픈뱅킹 정보가 없습니다."),
     OPEN_BANKING_CONFIGURATION_ERROR(HttpStatus.INTERNAL_SERVER_ERROR, "OPENBANKING_002", "오픈뱅킹 설정이 올바르지 않습니다."),

@@ -1,11 +1,13 @@
 package com.homerun.domain.auth.service;
 
 import com.homerun.domain.auth.config.OAuthProperties;
+import com.homerun.domain.auth.dto.request.SocialSignupRequest;
 import com.homerun.domain.auth.dto.response.LoginResponse;
 import com.homerun.domain.auth.model.SocialProfile;
 import com.homerun.domain.auth.type.AuthProvider;
 import com.homerun.domain.member.entity.Member;
 import com.homerun.domain.member.repository.MemberRepository;
+import com.homerun.domain.region.repository.RegionRepository;
 import com.homerun.global.exception.BusinessException;
 import com.homerun.global.exception.ErrorCode;
 import com.homerun.global.security.jwt.JwtTokenProvider;
@@ -30,6 +32,8 @@ public class OAuthLoginService {
     private final OAuthProperties properties;
     private final ObjectMapper objectMapper;
     private final MemberRepository memberRepository;
+    private final RegionRepository regionRepository;
+    private final PhoneVerificationService phoneVerificationService;
     private final JwtTokenProvider jwtTokenProvider;
     private final RestClient restClient;
 
@@ -37,10 +41,14 @@ public class OAuthLoginService {
             OAuthProperties properties,
             ObjectMapper objectMapper,
             MemberRepository memberRepository,
+            RegionRepository regionRepository,
+            PhoneVerificationService phoneVerificationService,
             JwtTokenProvider jwtTokenProvider) {
         this.properties = properties;
         this.objectMapper = objectMapper;
         this.memberRepository = memberRepository;
+        this.regionRepository = regionRepository;
+        this.phoneVerificationService = phoneVerificationService;
         this.jwtTokenProvider = jwtTokenProvider;
         this.restClient = RestClient.create();
     }
@@ -57,6 +65,43 @@ public class OAuthLoginService {
                 .findByProviderAndProviderUserIdAndDeletedAtIsNull(provider, profile.providerId())
                 .orElseGet(() -> memberRepository.save(
                         Member.create(provider, profile.providerId(), profile.email(), profile.name())));
+        return member;
+    }
+
+    /**
+     * 소셜 신규 회원의 본인 정보를 채워 가입을 끝낸다.
+     *
+     * <p>휴대전화 인증 토큰은 이메일 가입과 같은 방식으로 1회 소비한다 — 같은 토큰으로 두 번 가입하지
+     * 못하게 막는다.
+     */
+    @Transactional
+    public Member completeSignup(Long memberId, SocialSignupRequest request) {
+        Member member = memberRepository
+                .findById(memberId)
+                .orElseThrow(() -> new BusinessException(ErrorCode.MEMBER_NOT_FOUND));
+        member.requireActive();
+        if (member.getProvider() == AuthProvider.LOCAL) {
+            throw new BusinessException(ErrorCode.INVALID_OAUTH_REQUEST);
+        }
+        if (member.isProfileComplete()) {
+            throw new BusinessException(ErrorCode.SOCIAL_SIGNUP_ALREADY_COMPLETED);
+        }
+
+        String phone = phoneVerificationService.normalize(request.phone());
+        if (memberRepository.existsByPhoneAndDeletedAtIsNull(phone)) {
+            throw new BusinessException(ErrorCode.PHONE_ALREADY_REGISTERED);
+        }
+        if (!regionRepository.existsById(request.regionId())) {
+            throw new BusinessException(ErrorCode.SIGNUP_REQUIRED_FIELD_MISSING);
+        }
+        phoneVerificationService.consumeVerifiedToken(phone, request.phoneVerificationToken());
+
+        member.completeSocialProfile(
+                request.name().trim(),
+                request.birthDate(),
+                phone,
+                request.regionId(),
+                blankToNull(request.detailAddress()));
         return member;
     }
 
@@ -158,5 +203,9 @@ public class OAuthLoginService {
 
     private boolean isBlank(String value) {
         return value == null || value.isBlank();
+    }
+
+    private String blankToNull(String value) {
+        return value == null || value.isBlank() ? null : value.trim();
     }
 }

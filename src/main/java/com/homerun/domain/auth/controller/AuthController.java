@@ -2,6 +2,7 @@ package com.homerun.domain.auth.controller;
 
 import com.homerun.domain.auth.config.OAuthProperties;
 import com.homerun.domain.auth.config.RefreshTokenCookieFactory;
+import com.homerun.domain.auth.dto.request.SocialSignupRequest;
 import com.homerun.domain.auth.dto.response.LoginResponse;
 import com.homerun.domain.auth.service.OAuthLoginService;
 import com.homerun.domain.auth.service.RefreshTokenService;
@@ -15,6 +16,7 @@ import com.homerun.global.security.principal.MemberPrincipal;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.servlet.http.HttpSession;
+import jakarta.validation.Valid;
 import java.net.URI;
 import java.security.SecureRandom;
 import java.util.Base64;
@@ -25,6 +27,7 @@ import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.CookieValue;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
@@ -90,25 +93,31 @@ public class AuthController {
     }
 
     @GetMapping("/google/callback")
-    @Operation(summary = "Google 로그인 콜백")
-    public ResponseEntity<ApiResponse<LoginResponse>> googleCallback(
+    @Operation(summary = "Google 로그인 콜백", description = "세션을 걸고 프론트로 302 리다이렉트합니다.")
+    public ResponseEntity<Void> googleCallback(
             @RequestParam(required = false) String code,
             @RequestParam(required = false) String state,
             @RequestParam(required = false) String error,
             HttpSession session) {
-        validateCallback(AuthProvider.GOOGLE, code, state, error, session);
-        return loginResponse(oauthLoginService.login(AuthProvider.GOOGLE, code));
+        return callbackRedirect(AuthProvider.GOOGLE, code, state, error, session);
     }
 
     @GetMapping("/kakao/callback")
-    @Operation(summary = "Kakao 로그인 콜백")
-    public ResponseEntity<ApiResponse<LoginResponse>> kakaoCallback(
+    @Operation(summary = "Kakao 로그인 콜백", description = "세션을 걸고 프론트로 302 리다이렉트합니다.")
+    public ResponseEntity<Void> kakaoCallback(
             @RequestParam(required = false) String code,
             @RequestParam(required = false) String state,
             @RequestParam(required = false) String error,
             HttpSession session) {
-        validateCallback(AuthProvider.KAKAO, code, state, error, session);
-        return loginResponse(oauthLoginService.login(AuthProvider.KAKAO, code));
+        return callbackRedirect(AuthProvider.KAKAO, code, state, error, session);
+    }
+
+    @PostMapping("/social/signup")
+    @Operation(summary = "소셜 회원가입 완료", description = "소셜 로그인으로 만들어진 계정에 생년월일·휴대전화·거주지를 채워 가입을 끝냅니다.")
+    public ApiResponse<LoginResponse.MemberResponse> completeSocialSignup(
+            @AuthenticationPrincipal MemberPrincipal principal, @Valid @RequestBody SocialSignupRequest request) {
+        Member member = oauthLoginService.completeSignup(principal.memberId(), request);
+        return ApiResponse.success(LoginResponse.MemberResponse.from(member));
     }
 
     @PostMapping("/refresh")
@@ -140,6 +149,49 @@ public class AuthController {
                 .orElseThrow(() -> new BusinessException(ErrorCode.MEMBER_NOT_FOUND));
         member.requireActive();
         return ApiResponse.success(LoginResponse.MemberResponse.from(member));
+    }
+
+    /**
+     * 콜백 결과를 프론트로 넘긴다.
+     *
+     * <p>사용자가 주소창째로 이동해 온 요청이라 JSON 을 돌려주면 브라우저에 그대로 찍힌다. 리프레시
+     * 쿠키만 심고 프론트 착지 페이지로 302 를 준다. 액세스 토큰은 프론트가 그 쿠키로
+     * {@code POST /api/v1/auth/refresh} 를 한 번 불러 받는다 — 토큰을 주소창에 실으면 브라우저 기록과
+     * 리퍼러에 남는다.
+     *
+     * <p>{@code status} 는 셋이다. 본인 정보가 아직 없는 계정이면 {@code signup}(회원가입 트랙), 다
+     * 채운 계정이면 {@code login}, 실패면 {@code error} 다.
+     */
+    private ResponseEntity<Void> callbackRedirect(
+            AuthProvider provider, String code, String state, String error, HttpSession session) {
+        Member member;
+        try {
+            validateCallback(provider, code, state, error, session);
+            member = oauthLoginService.login(provider, code);
+        } catch (BusinessException exception) {
+            return ResponseEntity.status(HttpStatus.FOUND)
+                    .location(frontendUri("error", exception.errorCode().code()))
+                    .build();
+        }
+        String refreshToken = refreshTokenService.issue(member);
+        return ResponseEntity.status(HttpStatus.FOUND)
+                .header(
+                        HttpHeaders.SET_COOKIE,
+                        refreshTokenCookieFactory.create(refreshToken).toString())
+                .location(frontendUri(member.isProfileComplete() ? "login" : "signup", null))
+                .build();
+    }
+
+    private URI frontendUri(String status, String reason) {
+        if (isBlank(properties.frontendRedirectUri())) {
+            throw new BusinessException(ErrorCode.OAUTH_CONFIGURATION_ERROR);
+        }
+        UriComponentsBuilder builder = UriComponentsBuilder.fromUriString(properties.frontendRedirectUri())
+                .queryParam("status", status);
+        if (!isBlank(reason)) {
+            builder.queryParam("reason", reason);
+        }
+        return builder.build().encode().toUri();
     }
 
     private OAuthProperties.Provider requireProvider(OAuthProperties.Provider provider, String providerName) {
