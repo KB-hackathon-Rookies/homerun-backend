@@ -17,6 +17,7 @@ public enum DiagnosisInputStep {
             PlanInputUnknownField.NET_ASSETS,
             PlanInputUnknownField.AVAILABLE_CASH,
             PlanInputUnknownField.EXISTING_JEONSE_LOAN,
+            PlanInputUnknownField.PROHIBITED_LOAN_CONFIRMED,
             PlanInputUnknownField.INCOME_SOURCE,
             PlanInputUnknownField.ASSET_SOURCE,
             PlanInputUnknownField.FINANCIAL_DATA_CONFIRMED)),

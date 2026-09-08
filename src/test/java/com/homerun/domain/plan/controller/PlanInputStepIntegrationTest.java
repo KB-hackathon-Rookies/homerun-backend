@@ -168,6 +168,36 @@ class PlanInputStepIntegrationTest {
     }
 
     @Test
+    @DisplayName("금융 STEP은 중복대출 금지 확인값을 함께 저장한다")
+    void saves_prohibitedLoanConfirmed_in_financial_step() throws Exception {
+        save(
+                        "FINANCIAL",
+                        "{\"expectedRevision\":0,\"monthlyIncome\":2450000,\"netAssets\":36000000,"
+                                + "\"availableCash\":40000000,\"existingJeonseLoan\":false,"
+                                + "\"prohibitedLoanConfirmed\":true}")
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.input.prohibitedLoanConfirmed").value(true));
+
+        assertThat(em.createNativeQuery("SELECT prohibited_loan_confirmed FROM plan_input WHERE plan_id=:pid")
+                        .setParameter("pid", planId)
+                        .getSingleResult())
+                .isEqualTo(true);
+    }
+
+    /** 확인값은 사용자 진술이라 필수가 아니다 — 안 보내도 1루가 막히면 안 된다(AVAILABLE_CASH 회귀). */
+    @Test
+    @DisplayName("중복대출 금지 확인값이 없어도 금융 STEP은 완료된다")
+    void completes_financial_step_without_prohibitedLoanConfirmed() throws Exception {
+        save(
+                        "FINANCIAL",
+                        "{\"expectedRevision\":0,\"monthlyIncome\":2450000,\"netAssets\":36000000,"
+                                + "\"availableCash\":40000000,\"existingJeonseLoan\":false}")
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.nextStep").value("HOPE_DEPOSIT"))
+                .andExpect(jsonPath("$.data.input.prohibitedLoanConfirmed").isEmpty());
+    }
+
+    @Test
     @DisplayName("답변 없는 STEP 저장은 입력과 위치를 모두 롤백한다")
     void rolls_back_input_and_location_when_step_is_incomplete() throws Exception {
         save("HOUSEHOLDER", "{\"expectedRevision\":0}")

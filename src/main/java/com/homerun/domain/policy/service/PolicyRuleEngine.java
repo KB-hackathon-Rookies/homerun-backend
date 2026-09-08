@@ -289,14 +289,20 @@ public class PolicyRuleEngine {
     /**
      * 1루의 {@code has_existing_jeonse_loan}만으로는 공식 중복대출 금지 범위를 전부 확인할 수 없다.
      *
-     * <p>사용자가 기존 전세대출이 있다고 답한 경우에는 명확히 불충족이다. 없다고 답해도 성년
-     * 세대원의 기금대출과 차주·배우자의 주택담보대출까지 확인한 것은 아니므로 PASS로 만들지
-     * 않고 은행 추가 확인 상태로 둔다.
+     * <p>사용자가 기존 전세대출이 있다고 답한 경우에는 명확히 불충족이다. 없다고 답한 것만으로는
+     * 성년 세대원의 기금대출과 차주·배우자의 주택담보대출까지 확인한 것이 아니라, 나머지 범위까지
+     * 없음을 사용자가 직접 확인한({@code prohibited_loan_confirmed}) 경우에만 충족으로 본다.
+     *
+     * <p>확인값은 사용자 진술이지 은행 검증이 아니다 — 확인하지 않으면(null·false) 예전처럼 은행
+     * 추가 확인 상태로 남긴다. 안 물어본 것을 통과로 지어내지 않는다(NFR-01-06).
      */
     private ConditionResult prohibitedLoanCheck(RuleCondition condition, PlanInput input) {
         Object fieldValue = resolveField(condition.field(), input);
         if (Boolean.TRUE.equals(fieldValue)) {
             return met(condition, false, resolveFact(condition.factCode()).orElse(null));
+        }
+        if (input != null && Boolean.TRUE.equals(input.getProhibitedLoanConfirmed())) {
+            return met(condition, true, resolveFact(condition.factCode()).orElse(null));
         }
         return needInfo(condition, "세대원 기금대출과 차주·배우자의 전세·주택담보대출을 은행에서 확인해야 합니다.");
     }

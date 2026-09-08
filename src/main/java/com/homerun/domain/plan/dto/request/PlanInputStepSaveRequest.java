@@ -28,6 +28,12 @@ public record PlanInputStepSaveRequest(
         @PositiveOrZero Long netAssets,
         @PositiveOrZero Long availableCash,
         Boolean existingJeonseLoan,
+
+        @Schema(
+                description =
+                        "세대원 기금대출과 배우자의 전세·주택담보대출이 없음을 확인했는가(FCT-258). " + "사용자 진술이며 은행 검증이 아니다. 보내지 않아도 STEP 은 완료된다")
+        Boolean prohibitedLoanConfirmed,
+
         FinancialValueSource incomeSource,
         FinancialValueSource assetSource,
         Boolean financialDataConfirmed,
@@ -52,6 +58,7 @@ public record PlanInputStepSaveRequest(
             case NET_ASSETS -> netAssets;
             case AVAILABLE_CASH -> availableCash;
             case EXISTING_JEONSE_LOAN -> existingJeonseLoan;
+            case PROHIBITED_LOAN_CONFIRMED -> prohibitedLoanConfirmed;
             case INCOME_SOURCE -> incomeSource;
             case ASSET_SOURCE -> assetSource;
             case FINANCIAL_DATA_CONFIRMED -> financialDataConfirmed;
