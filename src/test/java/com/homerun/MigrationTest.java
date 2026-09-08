@@ -148,6 +148,13 @@ class MigrationTest {
     }
 
     @Test
+    @DisplayName("V72가 버팀목 중복대출 금지 확인값을 nullable 로 추가한다")
+    void should_add_prohibitedLoanConfirmed_whenV72IsApplied() {
+        assertThat(columnNames("plan_input")).contains("prohibited_loan_confirmed");
+        assertThat(isNullable("plan_input", "prohibited_loan_confirmed")).isTrue();
+    }
+
+    @Test
     @DisplayName("V40이 STEP별 진단 입력 체크포인트를 추가한다")
     void should_add_planInputStepCheckpoint_whenV40IsApplied() {
         assertThat(tableNames()).contains("plan_input_step");
@@ -430,6 +437,16 @@ class MigrationTest {
                         + " WHERE table_schema = 'public' AND table_name = ?",
                 String.class,
                 table);
+    }
+
+    private boolean isNullable(String table, String column) {
+        return "YES"
+                .equals(jdbc.queryForObject(
+                        "SELECT is_nullable FROM information_schema.columns"
+                                + " WHERE table_schema = 'public' AND table_name = ? AND column_name = ?",
+                        String.class,
+                        table,
+                        column));
     }
 
     private String confidenceOf(String factCode) {
