@@ -112,9 +112,7 @@ public class ContractController {
     }
 
     @PatchMapping("/balance-date")
-    @Operation(
-            summary = "잔금 예정일만 수정",
-            description = "다른 계약 값(계약일·확정일자·상담일 등)은 보존한다. 기존 계약을 다시 열어 잔금일만 바꿀 때 쓴다.")
+    @Operation(summary = "잔금 예정일만 수정", description = "다른 계약 값(계약일·확정일자·상담일 등)은 보존한다. 기존 계약을 다시 열어 잔금일만 바꿀 때 쓴다.")
     public ApiResponse<ContractGuide> saveBalanceDate(
             @AuthenticationPrincipal MemberPrincipal principal,
             @PathVariable Long planId,
