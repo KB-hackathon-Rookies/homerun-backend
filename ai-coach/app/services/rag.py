@@ -30,8 +30,10 @@ logger = logging.getLogger(__name__)
 
 @lru_cache
 def _client() -> OpenAI:
+    # 챗은 chat_base_url/chat_api_key 가 있으면 그 provider(Qwen 등)를, 없으면 OpenAI 를 쓴다.
     return OpenAI(
-        api_key=settings.openai_api_key,
+        api_key=settings.chat_api_key or settings.openai_api_key,
+        base_url=settings.chat_base_url or None,
         timeout=settings.openai_timeout_seconds,
         max_retries=settings.openai_max_retries,
     )
