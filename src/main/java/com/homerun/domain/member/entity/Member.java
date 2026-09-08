@@ -116,6 +116,29 @@ public class Member {
         return member;
     }
 
+    /**
+     * 회원가입이 끝난 회원인가.
+     *
+     * <p>소셜 로그인은 제공자에게서 이름·이메일밖에 못 받는다. 생년월일·휴대전화·거주지는 판정에
+     * 쓰이는 값이라 우리 회원가입 트랙에서 따로 받아야 하고, 그 전까지는 가입이 끝난 것이 아니다.
+     */
+    public boolean isProfileComplete() {
+        return birthDate != null && phone != null && residenceRegionId != null;
+    }
+
+    /** 소셜 회원의 본인 정보를 채워 가입을 끝낸다. 휴대전화 인증을 통과한 뒤에만 호출한다. */
+    public void completeSocialProfile(
+            String name, LocalDate birthDate, String phone, Long residenceRegionId, String detailAddress) {
+        requireActive();
+        this.name = name;
+        this.birthDate = birthDate;
+        this.phone = phone;
+        this.phoneVerifiedAt = Instant.now();
+        this.residenceRegionId = residenceRegionId;
+        this.detailAddress = detailAddress;
+        this.updatedAt = Instant.now();
+    }
+
     public void updateName(String name) {
         requireActive();
         this.name = name;
