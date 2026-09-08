@@ -9,7 +9,7 @@ import org.springframework.http.ResponseCookie;
 class RefreshTokenCookieFactoryTest {
 
     private final RefreshTokenCookieFactory factory =
-            new RefreshTokenCookieFactory(new AuthCookieProperties(true), new RefreshTokenProperties(14));
+            new RefreshTokenCookieFactory(new AuthCookieProperties(true, "Lax"), new RefreshTokenProperties(14));
 
     @Test
     void should_createRefreshTokenCookieWithSharedAttributes() {
