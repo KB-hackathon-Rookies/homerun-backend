@@ -12,6 +12,7 @@ import com.homerun.domain.openbanking.entity.OpenBankingConnection;
 import com.homerun.domain.openbanking.repository.OpenBankingConnectionRepository;
 import com.homerun.global.exception.BusinessException;
 import com.homerun.global.exception.ErrorCode;
+import com.homerun.global.external.openbanking.MockPersonaSelection;
 import com.homerun.global.external.openbanking.OpenBankingClient;
 import com.homerun.global.external.openbanking.OpenBankingResponses.Account;
 import com.homerun.global.external.openbanking.OpenBankingResponses.Loan;
@@ -83,6 +84,9 @@ public class OpenBankingService {
      * 의 샘플 데이터로 답한다(목 클라이언트는 토큰을 검증하지 않고 고정 계좌를 돌려준다). 그래서
      * 저장하는 토큰은 더미이고 만료만 넉넉히 둔다. 연동 연출 지연은 프론트에서 처리하고 이 경로는
      * 즉시 응답한다. {@code mock-data} 플래그 아래 컨트롤러로만 노출한다.
+     *
+     * <p>사용자일련번호에 회원 식별자를 박아 두는 이유는 페르소나 때문이다. 오픈뱅킹 조회 메서드에는
+     * 회원 식별자가 없어서, 목 클라이언트는 이 값에서 회원을 되짚어 그 회원이 고른 페르소나로 답한다.
      */
     @Transactional
     public OpenBankingConnectionResponse mockConnect(Long memberId) {
@@ -91,7 +95,7 @@ public class OpenBankingService {
         OpenBankingConnection connection =
                 connectionRepository.findByMemberId(memberId).orElseGet(() -> OpenBankingConnection.create(memberId));
         connection.updateCredentials(
-                "MOCK-" + memberId,
+                MockPersonaSelection.MOCK_USER_SEQ_NO_PREFIX + memberId,
                 tokenCipher.encrypt(memberId, "mock-access-token"),
                 tokenCipher.encrypt(memberId, "mock-refresh-token"),
                 "Bearer",

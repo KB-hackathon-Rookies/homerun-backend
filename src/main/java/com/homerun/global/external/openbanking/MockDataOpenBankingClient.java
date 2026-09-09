@@ -1,7 +1,12 @@
 package com.homerun.global.external.openbanking;
 
+import com.homerun.domain.openbanking.type.Persona;
 import com.homerun.global.exception.BusinessException;
 import com.homerun.global.exception.ErrorCode;
+import com.homerun.global.external.openbanking.MockPersonaFixtures.MockAccount;
+import com.homerun.global.external.openbanking.MockPersonaFixtures.MockLoan;
+import com.homerun.global.external.openbanking.MockPersonaFixtures.MockProfile;
+import com.homerun.global.external.openbanking.MockPersonaFixtures.MonthlyEntry;
 import com.homerun.global.external.openbanking.OpenBankingResponses.Account;
 import com.homerun.global.external.openbanking.OpenBankingResponses.Balance;
 import com.homerun.global.external.openbanking.OpenBankingResponses.Loan;
@@ -41,10 +46,13 @@ import org.springframework.stereotype.Component;
  * 빈으로 올라간다. 기본값은 false 이므로 운영·CI 동작은 그대로다. 사업자 등록이 끝나면 이 클래스와
  * 플래그를 함께 지운다.
  *
- * <p>픽스처는 사회초년생 한 명의 일관된 프로필이다. 월 실수령 280만원이 급여통장으로 매달 들어오고,
- * 그중 80만원은 자유적금, 10만원은 주택청약으로 자동이체되며, 월세·카드 결제까지 빠져나가 급여통장
- * 잔액은 320만원에서 제자리를 유지한다. 세 계좌 잔액 합은 4,000만원이고, 전세자금대출 이자 15만원이
- * 매달 나간다. 어느 화면에서 봐도 숫자가 서로 어긋나지 않도록 모든 엔드포인트가 같은 표에서 값을 만든다.
+ * <p>픽스처는 {@link Persona} 한 명의 일관된 프로필이다. 어느 화면에서 봐도 숫자가 서로 어긋나지
+ * 않도록 모든 엔드포인트가 {@link MockPersonaFixtures} 라는 같은 표에서 값을 만들고, 그 표의 헤드라인
+ * 수치는 페르소나 적재 경로가 쓰는 {@link Persona} 와 같은 값이다. 한때 이 클래스는 페르소나와 무관한
+ * 홍길동 한 명을 고정으로 답했고, 그래서 오픈뱅킹을 연결하면 4,000만원이 페르소나를 실으면 1,500만원이
+ * 나오는 어긋남이 있었다.
+ *
+ * <p>어떤 페르소나로 답할지는 {@link MockPersonaSelection} 이 정한다. 기본은 김첫집이다.
  */
 @Component
 @Primary
@@ -53,57 +61,20 @@ public class MockDataOpenBankingClient implements OpenBankingClient {
 
     private static final Logger log = LoggerFactory.getLogger(MockDataOpenBankingClient.class);
 
-    private static final String BANK_CODE = "004";
-    private static final String BANK_NAME = "국민은행";
-    private static final String HOLDER_NAME = "홍길동";
-    private static final String BRANCH_NAME = "샘플지점";
-
-    private static final String LOAN_ACCOUNT_NUMBER = "SAMPLE-LOAN-0001";
-    private static final String LOAN_ACCOUNT_MASKED = "004-**-****-3456";
-    private static final BigDecimal LOAN_MONTHLY_REPAYMENT = amount(150_000);
-    private static final int LOAN_REPAYMENT_DAY = 25;
     private static final String LOAN_REPAYMENT_TRANSACTION_TYPE = "02";
-
-    /** 급여통장·자유적금·주택청약. 잔액 합계 4,000만원. */
-    private static final List<MockAccount> ACCOUNTS = List.of(
-            new MockAccount(
-                    "SAMPLE-FIN-0001",
-                    "샘플 급여통장",
-                    "004-**-****-1234",
-                    "1",
-                    "샘플 직장인 우대통장",
-                    amount(3_200_000),
-                    List.of(
-                            entry(10, LocalTime.of(12, 30), Direction.WITHDRAWAL, "카드", "샘플 생활비 체크카드", 400_000),
-                            entry(25, LocalTime.of(9, 10), Direction.DEPOSIT, "급여", "샘플급여", 2_800_000),
-                            entry(26, LocalTime.of(6, 0), Direction.WITHDRAWAL, "이체", "샘플 자유적금 자동이체", 800_000),
-                            entry(26, LocalTime.of(6, 5), Direction.WITHDRAWAL, "이체", "샘플 주택청약 자동이체", 100_000),
-                            entry(27, LocalTime.of(6, 0), Direction.WITHDRAWAL, "이체", "샘플 월세", 700_000),
-                            entry(28, LocalTime.of(13, 0), Direction.WITHDRAWAL, "카드", "샘플 신용카드 결제", 800_000))),
-            new MockAccount(
-                    "SAMPLE-FIN-0002",
-                    "샘플 자유적금",
-                    "004-**-****-5678",
-                    "2",
-                    "샘플 자유적금",
-                    amount(24_800_000),
-                    List.of(entry(26, LocalTime.of(6, 0), Direction.DEPOSIT, "이체", "샘플 자유적금 납입", 800_000))),
-            new MockAccount(
-                    "SAMPLE-FIN-0003",
-                    "샘플 주택청약저축",
-                    "004-**-****-9012",
-                    "2",
-                    "샘플 주택청약종합저축",
-                    amount(12_000_000),
-                    List.of(entry(26, LocalTime.of(6, 5), Direction.DEPOSIT, "이체", "샘플 주택청약 납입", 100_000))));
 
     private final HttpOpenBankingClient authorizationDelegate;
     private final Clock clock;
+    private final MockPersonaSelection personaSelection;
 
-    public MockDataOpenBankingClient(HttpOpenBankingClient authorizationDelegate, Clock clock) {
+    public MockDataOpenBankingClient(
+            HttpOpenBankingClient authorizationDelegate, Clock clock, MockPersonaSelection personaSelection) {
         this.authorizationDelegate = authorizationDelegate;
         this.clock = clock;
-        log.warn("오픈뱅킹 데이터 조회가 샘플 픽스처로 대체됩니다. 인가(OAuth)는 실제 호출 그대로입니다.");
+        this.personaSelection = personaSelection;
+        log.warn(
+                "오픈뱅킹 데이터 조회가 샘플 픽스처로 대체됩니다. 기본 페르소나는 {} 입니다. 인가(OAuth)는 실제 호출 그대로입니다.",
+                personaSelection.defaultPersona().getLabel());
     }
 
     @Override
@@ -123,26 +94,32 @@ public class MockDataOpenBankingClient implements OpenBankingClient {
 
     @Override
     public UserInfo userInfo(String accessToken, String userSeqNo) {
-        List<Account> accounts = ACCOUNTS.stream()
+        MockProfile profile = profile(userSeqNo);
+        List<Account> accounts = profile.accounts().stream()
                 .map(account -> new Account(
                         account.alias(),
-                        BANK_CODE,
-                        BANK_NAME,
+                        MockPersonaFixtures.BANK_CODE,
+                        MockPersonaFixtures.BANK_NAME,
                         "",
                         account.fintechUseNumber(),
                         account.accountNumberMasked(),
-                        HOLDER_NAME,
+                        profile.holderName(),
                         account.accountType()))
                 .toList();
-        return new UserInfo(userSeqNo, HOLDER_NAME, accounts);
+        return new UserInfo(userSeqNo, profile.holderName(), accounts);
     }
 
+    /**
+     * 핀테크이용번호에 페르소나가 박혀 있어(예: {@code SAMPLE-KIM-0001}) 회원 식별자 없이도 어느
+     * 프로필의 계좌인지 되짚을 수 있다. 계좌 소유권 검증은 서비스 계층이 계좌 목록으로 하므로,
+     * 여기서 전 페르소나를 뒤져도 남의 페르소나 계좌를 조회할 수는 없다.
+     */
     @Override
     public Balance balance(String accessToken, String fintechUseNumber) {
         MockAccount account = requireAccount(fintechUseNumber);
         LocalDate today = LocalDate.now(clock);
         return new Balance(
-                BANK_NAME,
+                MockPersonaFixtures.BANK_NAME,
                 "",
                 account.fintechUseNumber(),
                 account.balance(),
@@ -164,7 +141,7 @@ public class MockDataOpenBankingClient implements OpenBankingClient {
             String beforeInquiryTraceInfo) {
         MockAccount account = requireAccount(fintechUseNumber);
         return new TransactionPage(
-                BANK_NAME,
+                MockPersonaFixtures.BANK_NAME,
                 "",
                 account.fintechUseNumber(),
                 account.balance(),
@@ -174,19 +151,22 @@ public class MockDataOpenBankingClient implements OpenBankingClient {
                 Instant.now(clock));
     }
 
+    /** 대출이 없는 페르소나는 잔액 0짜리 대출이 아니라 <b>빈 목록</b>을 돌려준다. 0원 대출은 화면에 없는 부채를 그린다. */
     @Override
     public LoanPage loans(String accessToken, String userSeqNo, String bankCode, String beforeInquiryTraceInfo) {
-        List<Loan> loans = BANK_CODE.equals(bankCode)
-                ? List.of(new Loan(
-                        BANK_CODE,
-                        BANK_NAME,
-                        LOAN_ACCOUNT_NUMBER,
+        MockProfile profile = profile(userSeqNo);
+        MockLoan loan = profile.loan();
+        List<Loan> loans = loan == null || !MockPersonaFixtures.BANK_CODE.equals(bankCode)
+                ? List.of()
+                : List.of(new Loan(
+                        MockPersonaFixtures.BANK_CODE,
+                        MockPersonaFixtures.BANK_NAME,
+                        loan.accountNumber(),
                         "",
-                        LOAN_ACCOUNT_MASKED,
-                        "샘플 청년전세자금대출",
+                        loan.accountNumberMasked(),
+                        loan.productName(),
                         "3170",
-                        "01"))
-                : List.of();
+                        "01"));
         return new LoanPage(false, "", loans, Instant.now(clock));
     }
 
@@ -198,16 +178,19 @@ public class MockDataOpenBankingClient implements OpenBankingClient {
             LocalDate fromDate,
             LocalDate toDate,
             String beforeInquiryTraceInfo) {
+        MockProfile profile = profileOfLoan(loan);
+        BigDecimal monthlyRepayment = BigDecimal.valueOf(profile.persona().getMonthlyDebtPayment());
+        int repaymentDay = profile.loan().repaymentDay();
         List<LoanTransaction> repayments = new ArrayList<>();
-        for (LocalDate date : monthlyDates(fromDate, toDate, LOAN_REPAYMENT_DAY)) {
-            repayments.add(new LoanTransaction(
-                    date, LocalTime.of(6, 0), LOAN_REPAYMENT_TRANSACTION_TYPE, LOAN_MONTHLY_REPAYMENT));
+        for (LocalDate date : monthlyDates(fromDate, toDate, repaymentDay)) {
+            repayments.add(
+                    new LoanTransaction(date, LocalTime.of(6, 0), LOAN_REPAYMENT_TRANSACTION_TYPE, monthlyRepayment));
         }
         return new LoanBasicPage(
-                String.valueOf(LOAN_REPAYMENT_DAY),
+                String.valueOf(repaymentDay),
                 "01",
-                BANK_CODE,
-                nextRepaymentDate(),
+                MockPersonaFixtures.BANK_CODE,
+                nextRepaymentDate(repaymentDay),
                 false,
                 "",
                 List.copyOf(repayments),
@@ -252,7 +235,7 @@ public class MockDataOpenBankingClient implements OpenBankingClient {
                     entry.description(),
                     entry.amount(),
                     balanceAfter,
-                    BRANCH_NAME));
+                    MockPersonaFixtures.BRANCH_NAME));
             balanceAfter = balanceAfter.subtract(entry.signedAmount());
         }
         return List.copyOf(transactions);
@@ -281,59 +264,31 @@ public class MockDataOpenBankingClient implements OpenBankingClient {
         return List.copyOf(dates);
     }
 
-    private LocalDate nextRepaymentDate() {
+    private LocalDate nextRepaymentDate(int repaymentDay) {
         LocalDate today = LocalDate.now(clock);
-        LocalDate thisMonth = today.withDayOfMonth(LOAN_REPAYMENT_DAY);
+        LocalDate thisMonth = today.withDayOfMonth(repaymentDay);
         return thisMonth.isAfter(today) ? thisMonth : thisMonth.plusMonths(1);
     }
 
-    private MockAccount requireAccount(String fintechUseNumber) {
-        return ACCOUNTS.stream()
-                .filter(account -> account.fintechUseNumber().equals(fintechUseNumber))
+    private MockProfile profile(String userSeqNo) {
+        return MockPersonaFixtures.profile(personaSelection.resolve(userSeqNo));
+    }
+
+    private MockProfile profileOfLoan(Loan loan) {
+        return MockPersonaFixtures.allProfiles().stream()
+                .filter(profile -> profile.loan() != null)
+                .filter(profile -> profile.loan().accountNumber().equals(loan == null ? null : loan.accountNumber()))
                 .findFirst()
                 .orElseThrow(() -> new BusinessException(ErrorCode.OPEN_BANKING_ACCOUNT_NOT_FOUND));
     }
 
-    private static MonthlyEntry entry(
-            int dayOfMonth, LocalTime time, Direction direction, String type, String description, long amount) {
-        return new MonthlyEntry(dayOfMonth, time, direction, type, description, amount(amount));
+    private MockAccount requireAccount(String fintechUseNumber) {
+        return MockPersonaFixtures.allProfiles().stream()
+                .flatMap(profile -> profile.accounts().stream())
+                .filter(account -> account.fintechUseNumber().equals(fintechUseNumber))
+                .findFirst()
+                .orElseThrow(() -> new BusinessException(ErrorCode.OPEN_BANKING_ACCOUNT_NOT_FOUND));
     }
-
-    private static BigDecimal amount(long value) {
-        return BigDecimal.valueOf(value);
-    }
-
-    private enum Direction {
-        DEPOSIT("입금"),
-        WITHDRAWAL("출금");
-
-        private final String label;
-
-        Direction(String label) {
-            this.label = label;
-        }
-
-        private String label() {
-            return label;
-        }
-    }
-
-    private record MonthlyEntry(
-            int dayOfMonth, LocalTime time, Direction direction, String type, String description, BigDecimal amount) {
-
-        private BigDecimal signedAmount() {
-            return direction == Direction.DEPOSIT ? amount : amount.negate();
-        }
-    }
-
-    private record MockAccount(
-            String fintechUseNumber,
-            String alias,
-            String accountNumberMasked,
-            String accountType,
-            String productName,
-            BigDecimal balance,
-            List<MonthlyEntry> monthlyEntries) {}
 
     private record Occurrence(LocalDate date, MonthlyEntry entry) {}
 }
