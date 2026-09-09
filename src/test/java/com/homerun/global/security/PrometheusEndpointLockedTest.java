@@ -26,7 +26,9 @@ import org.springframework.test.web.servlet.MockMvc;
 @SpringBootTest(
         properties = {
             "app.jwt.secret=prometheus-locked-test-secret-must-be-at-least-32-bytes",
-            "management.endpoints.web.exposure.include=health,info,prometheus,metrics"
+            "management.endpoints.web.exposure.include=health,info,prometheus,metrics",
+            // 테스트 공통 설정에서 꺼 둔 레지스트리를 이 테스트에서만 되켠다.
+            "management.prometheus.metrics.export.enabled=true"
         })
 class PrometheusEndpointLockedTest {
 

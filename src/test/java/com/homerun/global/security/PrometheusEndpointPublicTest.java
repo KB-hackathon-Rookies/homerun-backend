@@ -26,6 +26,8 @@ import org.springframework.test.web.servlet.MockMvc;
         properties = {
             "app.jwt.secret=prometheus-public-test-secret-must-be-at-least-32-bytes",
             "management.endpoints.web.exposure.include=health,info,prometheus,metrics",
+            // 테스트 공통 설정에서 꺼 둔 레지스트리를 이 테스트에서만 되켠다.
+            "management.prometheus.metrics.export.enabled=true",
             "management.metrics-public=true"
         })
 class PrometheusEndpointPublicTest {
