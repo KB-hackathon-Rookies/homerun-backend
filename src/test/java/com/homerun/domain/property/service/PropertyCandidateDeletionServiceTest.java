@@ -10,11 +10,13 @@ import static org.mockito.Mockito.when;
 import com.homerun.domain.contract.repository.LeaseContractRepository;
 import com.homerun.domain.plan.entity.Plan;
 import com.homerun.domain.plan.repository.PlanRepository;
+import com.homerun.domain.plan.type.HouseType;
 import com.homerun.domain.plan.type.LeaseType;
 import com.homerun.domain.policy.entity.PolicyVerdict;
 import com.homerun.domain.policy.repository.PolicyVerdictRepository;
 import com.homerun.domain.policy.repository.RejectionReasonRepository;
 import com.homerun.domain.policy.repository.VerdictBasisRepository;
+import com.homerun.domain.property.dto.response.PropertyWorkflowResponse;
 import com.homerun.domain.property.entity.Property;
 import com.homerun.domain.property.entity.PropertyDecision;
 import com.homerun.domain.property.repository.BankConsultationRepository;
@@ -22,8 +24,12 @@ import com.homerun.domain.property.repository.PropertyCheckRepository;
 import com.homerun.domain.property.repository.PropertyDecisionRepository;
 import com.homerun.domain.property.repository.PropertyPolicyVerdictRepository;
 import com.homerun.domain.property.repository.PropertyRepository;
+import com.homerun.domain.property.type.OfficialPriceSource;
+import com.homerun.domain.property.type.PropertyDiagnosisStep;
+import com.homerun.domain.property.type.PropertyWorkflowStatus;
 import com.homerun.global.exception.BusinessException;
 import com.homerun.global.exception.ErrorCode;
+import java.math.BigDecimal;
 import java.util.List;
 import java.util.Optional;
 import org.junit.jupiter.api.BeforeEach;
@@ -100,5 +106,56 @@ class PropertyCandidateDeletionServiceTest {
                         exception -> assertThat(exception.errorCode()).isEqualTo(ErrorCode.PROPERTY_DELETE_LOCKED));
 
         verify(properties, never()).delete(property);
+    }
+
+    @Test
+    void should_resetWorkflowToBuilding_and_clearHumanAnswers_when_reDiagnose() {
+        // 등기부까지 답해 REGISTRY 를 지난(신탁등기=true 라 RED) 매물을 만든다.
+        property.completeBuildingStep(1, HouseType.APARTMENT, new BigDecimal("59.90"));
+        property.completeViolationStep(2, false);
+        property.completeRegistryStep(
+                3,
+                300_000_000L,
+                2026,
+                OfficialPriceSource.REALTY_PRICE_APARTMENT,
+                50_000_000L,
+                true,
+                true,
+                false,
+                false,
+                false,
+                null,
+                false);
+        int revisionBefore = property.getWorkflowRevision();
+
+        PropertyWorkflowResponse response = service.reDiagnose(MEMBER_ID, PLAN_ID, PROPERTY_ID);
+
+        assertThat(response.currentStep()).isEqualTo(PropertyDiagnosisStep.BUILDING);
+        assertThat(response.status()).isEqualTo(PropertyWorkflowStatus.IN_PROGRESS);
+        assertThat(response.revision()).isEqualTo(revisionBefore + 1);
+        // 사람이 답한 값은 지워져 재-walk 에서 다시 받는다.
+        assertThat(property.getTrustRegistered()).isNull();
+        assertThat(property.getViolationBuilding()).isNull();
+        assertThat(property.getOfficialPrice()).isNull();
+        // 매물 자체는 지우지 않는다.
+        verify(properties, never()).delete(property);
+    }
+
+    @Test
+    void should_rejectReDiagnose_when_finalDecisionProperty() {
+        property.completeBuildingStep(1, HouseType.APARTMENT, new BigDecimal("59.90"));
+        property.completeViolationStep(2, false); // REGISTRY, revision 3
+        PropertyDecision decision = mock(PropertyDecision.class);
+        when(decision.getPropertyId()).thenReturn(PROPERTY_ID);
+        when(decisions.findByPlanId(PLAN_ID)).thenReturn(Optional.of(decision));
+
+        assertThatThrownBy(() -> service.reDiagnose(MEMBER_ID, PLAN_ID, PROPERTY_ID))
+                .isInstanceOfSatisfying(
+                        BusinessException.class,
+                        exception -> assertThat(exception.errorCode()).isEqualTo(ErrorCode.PROPERTY_RECHECK_LOCKED));
+
+        // 잠긴 매물은 되돌리지 않는다 — 단계·revision 이 그대로다.
+        assertThat(property.getWorkflowStep()).isEqualTo(PropertyDiagnosisStep.REGISTRY);
+        assertThat(property.getWorkflowRevision()).isEqualTo(3);
     }
 }
