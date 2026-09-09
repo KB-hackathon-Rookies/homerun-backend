@@ -316,7 +316,14 @@ public class Property {
         if (workflowRevision != expectedRevision) {
             throw new BusinessException(ErrorCode.PROPERTY_WORKFLOW_REVISION_MISMATCH);
         }
-        if (workflowStatus == PropertyWorkflowStatus.BLOCKED || workflowStep != expectedStep) {
+        /*
+         * 지금 STEP 만 저장을 받는다. BLOCKED 여부는 보지 않는다 — 위반건축물을 실수로 "있어요"
+         * 로 답해 BLOCKED 가 된 매물도 같은 STEP 에서 답을 고쳐 저장할 수 있어야 한다. BLOCKED
+         * 까지 막으면 잘못된 답을 영영 되돌리지 못한다. "다른 STEP 저장"은 workflowStep 비교가
+         * 이미 막고, 근생빌라 같은 객관적 실격은 저장 때마다 verify() 가 신호등을 다시 계산하므로
+         * 재답변으로 우회되지 않는다.
+         */
+        if (workflowStep != expectedStep) {
             throw new BusinessException(ErrorCode.PROPERTY_WORKFLOW_STEP_INVALID);
         }
     }
