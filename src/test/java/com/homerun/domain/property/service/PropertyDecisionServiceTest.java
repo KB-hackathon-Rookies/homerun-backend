@@ -35,6 +35,7 @@ import java.util.List;
 import java.util.Optional;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.test.util.ReflectionTestUtils;
 
 class PropertyDecisionServiceTest {
@@ -106,7 +107,7 @@ class PropertyDecisionServiceTest {
     void should_saveMultipleConsultationsForSameProperty() {
         Property property = property(1L);
         when(properties.findByIdAndPlanId(1L, PLAN_ID)).thenReturn(Optional.of(property));
-        when(consultations.save(any(BankConsultation.class))).thenAnswer(invocation -> {
+        when(consultations.saveAndFlush(any(BankConsultation.class))).thenAnswer(invocation -> {
             BankConsultation consultation = invocation.getArgument(0);
             ReflectionTestUtils.setField(consultation, "id", 7L);
             ReflectionTestUtils.setField(consultation, "createdAt", Instant.parse("2026-09-05T00:00:00Z"));
@@ -125,7 +126,8 @@ class PropertyDecisionServiceTest {
     void should_saveNotHeardAnswers_withoutBlockingConsultationProgress() {
         Property property = property(1L);
         when(properties.findByIdAndPlanId(1L, PLAN_ID)).thenReturn(Optional.of(property));
-        when(consultations.save(any(BankConsultation.class))).thenAnswer(invocation -> invocation.getArgument(0));
+        when(consultations.saveAndFlush(any(BankConsultation.class)))
+                .thenAnswer(invocation -> invocation.getArgument(0));
         BankConsultationRequest request = new BankConsultationRequest(
                 "국민은행",
                 null,
@@ -145,6 +147,36 @@ class PropertyDecisionServiceTest {
         assertThat(response.loanProduct()).isEqualTo(ConsultedLoanProduct.UNKNOWN);
         assertThat(response.collateralMethod()).isEqualTo(CollateralMethod.UNKNOWN);
         assertThat(response.approvedLimit()).isNull();
+    }
+
+    @Test
+    void should_answerConflict_whenSameKeyIsInsertedConcurrently() {
+        // 조회와 저장 사이에 같은 키가 먼저 들어오면 INSERT 가 유니크 제약에 걸린다.
+        // 500 이 아니라 다시 시도하라는 409 로 나가야 한다.
+        Property property = property(1L);
+        when(properties.findByIdAndPlanId(1L, PLAN_ID)).thenReturn(Optional.of(property));
+        when(consultations.saveAndFlush(any(BankConsultation.class)))
+                .thenThrow(new DataIntegrityViolationException("duplicate key value violates unique constraint"
+                        + " \"uq_bank_consultation_plan_property_bank_product\""));
+
+        assertThatThrownBy(() -> service.addConsultation(MEMBER_ID, PLAN_ID, 1L, consultationRequest()))
+                .isInstanceOfSatisfying(
+                        BusinessException.class,
+                        exception -> assertThat(exception.errorCode()).isEqualTo(ErrorCode.CONCURRENT_UPDATE));
+    }
+
+    @Test
+    void should_notHideOtherIntegrityErrors_asConflict() {
+        // 없는 정책·보증기관을 넣은 요청까지 "먼저 변경됐다"로 답하면 원인을 감춘다.
+        Property property = property(1L);
+        when(properties.findByIdAndPlanId(1L, PLAN_ID)).thenReturn(Optional.of(property));
+        when(consultations.saveAndFlush(any(BankConsultation.class)))
+                .thenThrow(new DataIntegrityViolationException(
+                        "insert or update on table \"bank_consultation\" violates foreign key constraint"
+                                + " \"bank_consultation_policy_id_fkey\""));
+
+        assertThatThrownBy(() -> service.addConsultation(MEMBER_ID, PLAN_ID, 1L, consultationRequest()))
+                .isInstanceOf(DataIntegrityViolationException.class);
     }
 
     @Test
