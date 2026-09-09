@@ -1,7 +1,5 @@
 package com.homerun.domain.plan.controller;
 
-import com.homerun.domain.openbanking.dto.request.MockConnectRequest;
-import com.homerun.domain.openbanking.dto.response.FinancialSnapshotResponse;
 import com.homerun.domain.plan.dto.response.PlanFinancialSyncResponse;
 import com.homerun.domain.plan.service.OpenBankingPlanSyncService;
 import com.homerun.global.response.ApiResponse;
@@ -9,16 +7,21 @@ import com.homerun.global.security.principal.MemberPrincipal;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.tags.Tag;
-import jakarta.validation.Valid;
 import java.util.List;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
-import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
+/**
+ * 진짜 오픈뱅킹 동기화. 모든 환경에 있어야 한다.
+ *
+ * <p>데모용 가짜 연동(`/mock`)은 {@link MockOpenBankingPlanSyncController} 로 따로 나가 있다.
+ * 조건부 등록은 클래스 단위로만 걸 수 있어서, 한 클래스에 두면 가짜를 끄는 순간 진짜까지 같이
+ * 꺼진다. 여기에 데모 전용 경로를 다시 넣지 않는다.
+ */
 @RestController
 @RequestMapping("/api/v1/plans/{planId}/input/open-banking-sync")
 @Tag(name = "계획 입력", description = "진단 입력 자동 저장과 외부 금융정보 동기화")
@@ -39,17 +42,5 @@ public class OpenBankingPlanSyncController {
             @PathVariable Long planId,
             @Parameter(description = "추가 조회할 금융기관 코드(숫자 3자리)") @RequestParam(required = false) List<String> bankCodes) {
         return ApiResponse.success(service.sync(principal.memberId(), planId, bankCodes));
-    }
-
-    @PostMapping("/mock")
-    @Operation(
-            summary = "데모용 가짜 오픈뱅킹 연동",
-            description =
-                    "실연동 불가로, 선택한 페르소나의 소득·자산을 스냅샷과 계획 입력에 확정 상태로 적재합니다. " + "연동 연출 지연은 프론트에서 처리하며 이 API는 즉시 응답합니다.")
-    public ApiResponse<FinancialSnapshotResponse> mock(
-            @AuthenticationPrincipal MemberPrincipal principal,
-            @PathVariable Long planId,
-            @Valid @RequestBody MockConnectRequest request) {
-        return ApiResponse.success(service.mockConnect(principal.memberId(), planId, request.persona()));
     }
 }
