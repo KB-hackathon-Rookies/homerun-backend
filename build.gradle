@@ -65,8 +65,9 @@ tasks.named('test') {
     finalizedBy jacocoTestReport
 }
 
-// 커버리지 리포트. 목표는 점진적으로 1.0 이며, 지금은 측정만 한다 — 빌드를 깨는 게이트는
-// 아직 걸지 않는다(현재 커버리지 아래로 내려갈 때만 잡도록 나중에 minimum 을 올려간다).
+// 커버리지 리포트. 목표는 점진적으로 1.0 이다. 하락 방지 게이트는 아래
+// jacocoTestCoverageVerification 이 건다 — 현재 수치 바로 아래에 floor 를 두고, 커버리지가
+// 오르면 floor 도 함께 올려 간다.
 // 리포트: build/reports/jacoco/test/html/index.html
 jacocoTestReport {
     dependsOn test
@@ -81,6 +82,42 @@ jacocoTestReport {
             fileTree(dir: it, exclude: ['**/HomerunApplication*'])
         })
     }
+}
+
+// 커버리지 하락 방지 게이트. 현재 수치(INSTRUCTION 87.6% · LINE 87.9% · BRANCH 72.3%,
+// HomerunApplication 제외 기준) 바로 아래에 floor 를 둬, 눈금 흔들림엔 안 걸리고 의미 있는
+// 하락만 빌드를 깬다. 커버리지가 오르면 이 값도 함께 올린다. check(→ build)에 붙는다.
+jacocoTestCoverageVerification {
+    dependsOn test
+    // 리포트와 같은 분모를 본다 — 부팅 진입점 제외.
+    afterEvaluate {
+        classDirectories.setFrom(classDirectories.files.collect {
+            fileTree(dir: it, exclude: ['**/HomerunApplication*'])
+        })
+    }
+    violationRules {
+        rule {
+            limit {
+                counter = 'INSTRUCTION'
+                value = 'COVEREDRATIO'
+                minimum = 0.85
+            }
+            limit {
+                counter = 'LINE'
+                value = 'COVEREDRATIO'
+                minimum = 0.85
+            }
+            limit {
+                counter = 'BRANCH'
+                value = 'COVEREDRATIO'
+                minimum = 0.70
+            }
+        }
+    }
+}
+
+tasks.named('check') {
+    dependsOn jacocoTestCoverageVerification
 }
 
 // PR 체크리스트의 "코드 포맷팅을 적용했습니다"를 사람 손에 맡기지 않는다.
