@@ -4,6 +4,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.Mockito.mock;
 
 import com.homerun.domain.plan.service.OpenBankingPlanSyncService;
+import com.homerun.global.external.openbanking.MockPersonaSelection;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.boot.autoconfigure.AutoConfigurations;
@@ -63,6 +64,13 @@ class MockOpenBankingPlanSyncRegistrationTest {
         @Bean
         OpenBankingPlanSyncService openBankingPlanSyncService() {
             return mock(OpenBankingPlanSyncService.class);
+        }
+
+        // 실제 빈은 같은 플래그에 묶여 있어 OFF 시나리오에서는 올라오지 않는다. 여기서 보는 것은
+        // 컨트롤러의 등록 여부뿐이라 조건과 무관한 대역을 준다.
+        @Bean
+        MockPersonaSelection mockPersonaSelection() {
+            return mock(MockPersonaSelection.class);
         }
     }
 }

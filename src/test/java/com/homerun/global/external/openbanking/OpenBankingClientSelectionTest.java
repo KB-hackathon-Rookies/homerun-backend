@@ -3,6 +3,7 @@ package com.homerun.global.external.openbanking;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.Mockito.mock;
 
+import com.homerun.domain.openbanking.type.Persona;
 import java.time.Clock;
 import org.junit.jupiter.api.Test;
 import org.springframework.boot.autoconfigure.AutoConfigurations;
@@ -38,17 +39,27 @@ class OpenBankingClientSelectionTest {
     }
 
     @Test
+    void should_notRegisterPersonaSelection_whenFlagIsFalse() {
+        contextRunner
+                .withPropertyValues("external-api.open-banking.mock-data=false")
+                .run(context -> assertThat(context).doesNotHaveBean(MockPersonaSelection.class));
+    }
+
+    @Test
     void should_useMockDataClient_whenFlagIsTrue() {
         contextRunner
                 .withPropertyValues("external-api.open-banking.mock-data=true")
                 .run(context -> {
                     assertThat(context).hasSingleBean(MockDataOpenBankingClient.class);
                     assertThat(context.getBean(OpenBankingClient.class)).isInstanceOf(MockDataOpenBankingClient.class);
+                    // 페르소나를 고른 적 없는 회원이 보게 될 시연 기본값.
+                    assertThat(context.getBean(MockPersonaSelection.class).defaultPersona())
+                            .isEqualTo(Persona.KIM_FIRST);
                 });
     }
 
     @Configuration(proxyBeanMethods = false)
-    @Import(MockDataOpenBankingClient.class)
+    @Import({MockDataOpenBankingClient.class, MockPersonaSelection.class})
     static class TestConfiguration {
 
         @Bean
