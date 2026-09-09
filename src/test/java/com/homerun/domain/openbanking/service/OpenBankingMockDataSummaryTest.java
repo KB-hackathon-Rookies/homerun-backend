@@ -9,7 +9,9 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import com.homerun.domain.openbanking.config.OpenBankingTokenCipher;
+import com.homerun.domain.openbanking.dto.response.AccountBalanceBreakdownResponse;
 import com.homerun.domain.openbanking.dto.response.FinancialSummaryStatus;
+import com.homerun.domain.openbanking.dto.response.MonthlyIncomeResponse;
 import com.homerun.domain.openbanking.dto.response.OpenBankingAccountResponse;
 import com.homerun.domain.openbanking.dto.response.OpenBankingFinancialSummaryResponse;
 import com.homerun.domain.openbanking.entity.OpenBankingConnection;
@@ -78,6 +80,19 @@ class OpenBankingMockDataSummaryTest {
         // 1루 진단이 "오픈뱅킹으로 조회한 월 평균 소득"으로 보여 주는 값. 거래내역의 급여 입금과 같아야 한다.
         assertThat(summary.averageMonthlyNetIncome()).isEqualByComparingTo(won(KIM.getMonthlyIncome()));
         assertThat(summary.salaryDetectedMonths()).isEqualTo(3);
+        // 계좌별 분해가 합계와 맞아야 한다 — 김국민은 계좌 3개(급여·적금·청약)이고 합이 총 금융자산이다.
+        assertThat(summary.accountBalances()).hasSize(3);
+        assertThat(summary.accountBalances().stream()
+                        .map(AccountBalanceBreakdownResponse::balanceAmount)
+                        .reduce(BigDecimal.ZERO, BigDecimal::add))
+                .isEqualByComparingTo(won(KIM.getFinancialAsset()));
+        // 월별 소득 분해 — 집계 기간 세 달이 오름차순으로, 각 달이 월 급여와 같아야 평균도 그 값이 된다.
+        assertThat(summary.monthlyNetIncomes())
+                .hasSize(3)
+                .extracting(MonthlyIncomeResponse::month)
+                .containsExactly("2026-06", "2026-07", "2026-08");
+        assertThat(summary.monthlyNetIncomes())
+                .allSatisfy(month -> assertThat(month.amount()).isEqualByComparingTo(won(KIM.getMonthlyIncome())));
         // 빚이 없는 페르소나라 대출 목록이 비어 있다. 0원짜리 대출 행을 만들면 여기서 개수가 어긋난다.
         assertThat(summary.loanCount()).isZero();
         assertThat(summary.averageMonthlyLoanRepayment()).isEqualByComparingTo(won(KIM.getMonthlyDebtPayment()));
