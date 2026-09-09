@@ -23,6 +23,7 @@ import com.homerun.domain.plan.validation.PlanInputCompletionValidator;
 import com.homerun.global.exception.BusinessException;
 import com.homerun.global.exception.ErrorCode;
 import java.util.List;
+import java.util.Optional;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -53,6 +54,27 @@ public class PlanService {
 
     @Transactional
     public PlanResponse create(Long memberId, CreatePlanRequest request) {
+        /*
+         * 아직 벤치에 있는 같은 유형의 계획이 있으면 그것을 이어 쓴다.
+         *
+         * 준비 문진은 계획 생성 · 입력 저장 · 관문 완료 세 번에 걸쳐 저장한다. 뒤에서 한 번
+         * 실패하면 사용자는 문진을 다시 마치는데, 그때 계획을 또 만들면 앞서 만든 계획이
+         * ACTIVE 인 채로 남는다. {@code GET /plans/active} 는 가장 최근 것만 주므로 그 계획은
+         * 어디서도 다시 열리지 않는다.
+         *
+         * 벤치를 벗어난 계획은 집어 오지 않는다 — 진단을 이미 시작한 사람이 새로 시작하려는
+         * 것일 수 있고, 그 계획을 덮어쓰면 안 된다. 임대차 유형이 다른 것도 같은 이유로 뺀다.
+         * 계획을 여러 개 두는 것 자체는 막지 않는다.
+         */
+        Optional<Plan> resumable = planRepository
+                .findFirstByMemberIdAndStatusOrderByUpdatedAtDescIdDesc(memberId, PlanStatus.ACTIVE)
+                .filter(found -> found.getStage() == PlanStage.BENCH)
+                .filter(found -> found.getLeaseType() == request.leaseType());
+        if (resumable.isPresent()) {
+            Plan existing = resumable.get();
+            return PlanResponse.from(existing, findSteps(existing.getId()));
+        }
+
         Plan plan = planRepository.save(Plan.create(memberId, request.leaseType(), request.targetMoveDate()));
         List<PlanStep> steps = planStepRepository.saveAll(PlanStep.defaultSteps(plan.getId()));
         List<StepTask> tasks = createDefaultTasks(plan, steps);
