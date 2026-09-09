@@ -10,6 +10,7 @@ import java.math.BigDecimal;
  * 계좌는 합에도 안 들어가므로 여기에도 없다).
  */
 public record AccountBalanceBreakdownResponse(
+        String fintechUseNumber,
         String bankName,
         String accountNumberMasked,
         String productName,

@@ -61,6 +61,7 @@ final class OpenBankingFinancialSummaryAggregator {
                 // 합계를 계좌별로 풀 수 있게 성공한 잔액을 그대로 담는다. 실패한 계좌는 합에도
                 // 안 들어가므로 여기에도 넣지 않는다.
                 accountBalances.add(new AccountBalanceBreakdownResponse(
+                        account.fintechUseNumber(),
                         bankNameOf(balance, account),
                         account.accountNumberMasked(),
                         balance.productName(),
