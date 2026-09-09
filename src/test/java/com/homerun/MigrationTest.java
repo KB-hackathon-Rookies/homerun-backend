@@ -247,6 +247,25 @@ class MigrationTest {
     }
 
     @Test
+    @DisplayName("V75가 계획·매물을 되짚는 목록 조회 인덱스를 추가한다")
+    void should_indexPlanAndPropertyLookups_whenV75IsApplied() {
+        // PostgreSQL 은 FK 를 걸어도 참조하는 쪽 컬럼에 인덱스를 만들지 않는다. 이 셋이 빠지면
+        // 매물 목록·신호등·고정지출 조회가 전부 테이블 전체 스캔으로 돌아간다.
+        assertThat(indexNames("property")).contains("ix_property_plan");
+        assertThat(indexNames("property_check")).contains("ix_property_check_property");
+        assertThat(indexNames("fixed_expense")).contains("ix_fixed_expense_plan");
+
+        // 이름만 맞고 엉뚱한 컬럼에 걸리면 조회는 그대로 느리면서 테스트만 통과한다.
+        assertThat(indexDefinition("ix_property_plan")).contains("(plan_id)");
+        assertThat(indexDefinition("ix_property_check_property")).contains("(property_id)");
+        assertThat(indexDefinition("ix_fixed_expense_plan")).contains("(plan_id)");
+
+        // 부분 인덱스는 전체 조회를 받치지 못한다. ix_property_plan 이 이것과 별개로 있어야 한다.
+        assertThat(indexDefinition("uq_property_selected_per_plan")).contains("WHERE");
+        assertThat(indexDefinition("ix_property_plan")).doesNotContain("WHERE");
+    }
+
+    @Test
     @DisplayName("팩트 레지스트리에 전세대출 진단 기준까지 적용된다")
     void should_seed_config_effective_when_migrated() {
         Integer count = jdbc.queryForObject("SELECT count(*) FROM config_effective", Integer.class);
@@ -467,6 +486,13 @@ class MigrationTest {
     private String constraintDefinition(String constraintName) {
         return jdbc.queryForObject(
                 "SELECT pg_get_constraintdef(oid) FROM pg_constraint WHERE conname = ?", String.class, constraintName);
+    }
+
+    private String indexDefinition(String indexName) {
+        return jdbc.queryForObject(
+                "SELECT indexdef FROM pg_indexes WHERE schemaname = 'public' AND indexname = ?",
+                String.class,
+                indexName);
     }
 
     private java.util.List<String> indexNames(String table) {
