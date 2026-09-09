@@ -4,9 +4,11 @@ import com.homerun.domain.auth.dto.request.LocalSignupRequest;
 import com.homerun.domain.auth.type.AuthProvider;
 import com.homerun.domain.member.entity.Member;
 import com.homerun.domain.member.repository.MemberRepository;
+import com.homerun.domain.openbanking.service.DemoOpenBankingSeeder;
 import com.homerun.domain.region.repository.RegionRepository;
 import com.homerun.global.exception.BusinessException;
 import com.homerun.global.exception.ErrorCode;
+import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
@@ -21,17 +23,22 @@ public class EmailAuthService {
     private final RegionRepository regionRepository;
     private final PasswordEncoder passwordEncoder;
 
+    /** 데모(mock-data=true)에서만 존재한다. 없으면 자동 연결을 건너뛴다. */
+    private final ObjectProvider<DemoOpenBankingSeeder> demoOpenBankingSeeder;
+
     public EmailAuthService(
             EmailVerificationService emailVerificationService,
             PhoneVerificationService phoneVerificationService,
             MemberRepository memberRepository,
             RegionRepository regionRepository,
-            PasswordEncoder passwordEncoder) {
+            PasswordEncoder passwordEncoder,
+            ObjectProvider<DemoOpenBankingSeeder> demoOpenBankingSeeder) {
         this.emailVerificationService = emailVerificationService;
         this.phoneVerificationService = phoneVerificationService;
         this.memberRepository = memberRepository;
         this.regionRepository = regionRepository;
         this.passwordEncoder = passwordEncoder;
+        this.demoOpenBankingSeeder = demoOpenBankingSeeder;
     }
 
     @Transactional
@@ -55,8 +62,9 @@ public class EmailAuthService {
         emailVerificationService.consumeVerifiedToken(email, request.emailVerificationToken());
         phoneVerificationService.consumeVerifiedToken(phone, request.phoneVerificationToken());
 
+        Member member;
         try {
-            return memberRepository.saveAndFlush(Member.createLocal(
+            member = memberRepository.saveAndFlush(Member.createLocal(
                     email,
                     passwordEncoder.encode(request.password()),
                     request.name().trim(),
@@ -68,6 +76,9 @@ public class EmailAuthService {
             // 동시 가입 경합으로 이메일·휴대전화 유니크 제약에 걸린 경우.
             throw new BusinessException(ErrorCode.EMAIL_ALREADY_REGISTERED, exception);
         }
+        // 데모: 가입 직후 오픈뱅킹을 미리 연결해 둔다(mock-data=true 일 때만 빈이 존재).
+        demoOpenBankingSeeder.ifAvailable(seeder -> seeder.seed(member.getId()));
+        return member;
     }
 
     @Transactional(readOnly = true)

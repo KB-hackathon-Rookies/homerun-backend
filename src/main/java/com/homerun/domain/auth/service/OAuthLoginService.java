@@ -7,10 +7,12 @@ import com.homerun.domain.auth.model.SocialProfile;
 import com.homerun.domain.auth.type.AuthProvider;
 import com.homerun.domain.member.entity.Member;
 import com.homerun.domain.member.repository.MemberRepository;
+import com.homerun.domain.openbanking.service.DemoOpenBankingSeeder;
 import com.homerun.domain.region.repository.RegionRepository;
 import com.homerun.global.exception.BusinessException;
 import com.homerun.global.exception.ErrorCode;
 import com.homerun.global.security.jwt.JwtTokenProvider;
+import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 import org.springframework.stereotype.Service;
@@ -37,19 +39,24 @@ public class OAuthLoginService {
     private final JwtTokenProvider jwtTokenProvider;
     private final RestClient restClient;
 
+    /** 데모(mock-data=true)에서만 존재한다. 없으면 자동 연결을 건너뛴다. */
+    private final ObjectProvider<DemoOpenBankingSeeder> demoOpenBankingSeeder;
+
     public OAuthLoginService(
             OAuthProperties properties,
             ObjectMapper objectMapper,
             MemberRepository memberRepository,
             RegionRepository regionRepository,
             PhoneVerificationService phoneVerificationService,
-            JwtTokenProvider jwtTokenProvider) {
+            JwtTokenProvider jwtTokenProvider,
+            ObjectProvider<DemoOpenBankingSeeder> demoOpenBankingSeeder) {
         this.properties = properties;
         this.objectMapper = objectMapper;
         this.memberRepository = memberRepository;
         this.regionRepository = regionRepository;
         this.phoneVerificationService = phoneVerificationService;
         this.jwtTokenProvider = jwtTokenProvider;
+        this.demoOpenBankingSeeder = demoOpenBankingSeeder;
         this.restClient = RestClient.create();
     }
 
@@ -61,11 +68,17 @@ public class OAuthLoginService {
                     case KAKAO -> fetchKakaoProfile(authorizationCode);
                     case LOCAL -> throw new BusinessException(ErrorCode.INVALID_OAUTH_REQUEST);
                 };
-        Member member = memberRepository
+        Member existing = memberRepository
                 .findByProviderAndProviderUserIdAndDeletedAtIsNull(provider, profile.providerId())
-                .orElseGet(() -> memberRepository.save(
-                        Member.create(provider, profile.providerId(), profile.email(), profile.name())));
-        return member;
+                .orElse(null);
+        if (existing != null) {
+            return existing;
+        }
+        Member created =
+                memberRepository.save(Member.create(provider, profile.providerId(), profile.email(), profile.name()));
+        // 데모: 새 회원이 만들어졌을 때만 오픈뱅킹을 미리 연결한다(mock-data=true 일 때만 빈이 존재).
+        demoOpenBankingSeeder.ifAvailable(seeder -> seeder.seed(created.getId()));
+        return created;
     }
 
     /**
