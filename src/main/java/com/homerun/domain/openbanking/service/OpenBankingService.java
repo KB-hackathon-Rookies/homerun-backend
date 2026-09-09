@@ -75,6 +75,33 @@ public class OpenBankingService {
         return OpenBankingConnectionResponse.from(connectionRepository.save(connection));
     }
 
+    /**
+     * 데모 전용 — 금융결제원 인가 없이 연결을 세운다.
+     *
+     * <p>실연동(사업자 등록)이 불가한 데모에서 인가 팝업·콜백 없이 연결 레코드만 만든다. 이후
+     * {@code accounts}·{@code balance}·{@code financial-summary} 는 {@code MockDataOpenBankingClient}
+     * 의 샘플 데이터로 답한다(목 클라이언트는 토큰을 검증하지 않고 고정 계좌를 돌려준다). 그래서
+     * 저장하는 토큰은 더미이고 만료만 넉넉히 둔다. 연동 연출 지연은 프론트에서 처리하고 이 경로는
+     * 즉시 응답한다. {@code mock-data} 플래그 아래 컨트롤러로만 노출한다.
+     */
+    @Transactional
+    public OpenBankingConnectionResponse mockConnect(Long memberId) {
+        Instant now = Instant.now(clock);
+        Instant farFuture = now.plusSeconds(365L * 24 * 3600);
+        OpenBankingConnection connection =
+                connectionRepository.findByMemberId(memberId).orElseGet(() -> OpenBankingConnection.create(memberId));
+        connection.updateCredentials(
+                "MOCK-" + memberId,
+                tokenCipher.encrypt(memberId, "mock-access-token"),
+                tokenCipher.encrypt(memberId, "mock-refresh-token"),
+                "Bearer",
+                "login inquiry",
+                farFuture,
+                farFuture,
+                now);
+        return OpenBankingConnectionResponse.from(connectionRepository.save(connection));
+    }
+
     @Transactional(readOnly = true)
     public OpenBankingConnectionResponse connection(Long memberId) {
         return connectionRepository

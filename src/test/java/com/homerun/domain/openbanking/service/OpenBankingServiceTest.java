@@ -3,6 +3,7 @@ package com.homerun.domain.openbanking.service;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -67,6 +68,23 @@ class OpenBankingServiceTest {
 
         assertThat(response.connected()).isTrue();
         assertThat(response.scope()).isEqualTo("login inquiry");
+        verify(repository).save(any(OpenBankingConnection.class));
+    }
+
+    @Test
+    void should_establishConnectionWithoutAuthorization_whenMockConnect() {
+        when(cipher.encrypt(MEMBER_ID, "mock-access-token")).thenReturn("enc-access");
+        when(cipher.encrypt(MEMBER_ID, "mock-refresh-token")).thenReturn("enc-refresh");
+        when(repository.findByMemberId(MEMBER_ID)).thenReturn(Optional.empty());
+        when(repository.save(any(OpenBankingConnection.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+        OpenBankingConnectionResponse response = service.mockConnect(MEMBER_ID);
+
+        // 금융결제원 토큰 교환을 부르지 않는다 — 인가 없이 연결만 세운다.
+        verify(client, never()).exchangeAuthorizationCode(any());
+        assertThat(response.connected()).isTrue();
+        // 만료를 넉넉히 둬야 이후 accounts 가 리프레시로 새지 않는다.
+        assertThat(response.accessTokenExpiresAt()).isAfter(NOW.plusSeconds(86_400));
         verify(repository).save(any(OpenBankingConnection.class));
     }
 
