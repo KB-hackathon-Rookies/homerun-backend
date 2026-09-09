@@ -80,7 +80,7 @@ public class PropertyCandidateService {
         Instant analyzedAt = Instant.now(clock);
         Property property = properties.save(Property.candidate(
                 planId,
-                request.house().legalDistrictCode(),
+                request.house().toLotQuery(),
                 request.house().jibunAddress(),
                 request.house().roadAddress(),
                 request.house().buildingName(),
