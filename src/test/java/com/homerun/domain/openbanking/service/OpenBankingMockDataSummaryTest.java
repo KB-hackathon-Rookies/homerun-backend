@@ -14,11 +14,14 @@ import com.homerun.domain.openbanking.dto.response.OpenBankingAccountResponse;
 import com.homerun.domain.openbanking.dto.response.OpenBankingFinancialSummaryResponse;
 import com.homerun.domain.openbanking.entity.OpenBankingConnection;
 import com.homerun.domain.openbanking.repository.OpenBankingConnectionRepository;
+import com.homerun.domain.openbanking.type.Persona;
 import com.homerun.global.exception.BusinessException;
 import com.homerun.global.exception.ErrorCode;
 import com.homerun.global.external.openbanking.HttpOpenBankingClient;
 import com.homerun.global.external.openbanking.MockDataOpenBankingClient;
+import com.homerun.global.external.openbanking.MockPersonaSelection;
 import com.homerun.global.external.openbanking.OpenBankingClient;
+import java.math.BigDecimal;
 import java.time.Clock;
 import java.time.Instant;
 import java.time.LocalDate;
@@ -28,19 +31,24 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
 /**
- * 플래그를 켰을 때 financial-summary 집계까지 샘플 프로필로 일관되게 채워지는지, 그리고 연결이 없는
- * 회원은 모킹이 켜져 있어도 지금과 똑같이 실패하는지 확인한다. 플래그를 껐을 때 실제 업스트림 경로가
- * 그대로인지는 OpenBankingRealClientPathTest 가 본다.
+ * 플래그를 켰을 때 financial-summary 집계까지 페르소나 한 명의 프로필로 일관되게 채워지는지, 그리고
+ * 연결이 없는 회원은 모킹이 켜져 있어도 지금과 똑같이 실패하는지 확인한다. 플래그를 껐을 때 실제
+ * 업스트림 경로가 그대로인지는 OpenBankingRealClientPathTest 가 본다.
+ *
+ * <p>여기서 보는 값은 전부 {@link Persona} 에서 나온다. 요약이 페르소나와 다른 숫자를 내면 자산확인
+ * 화면과 진단 입력이 같은 사람을 두고 다른 이야기를 하게 된다 — 그게 이 테스트가 잡는 지점이다.
  */
 class OpenBankingMockDataSummaryTest {
 
     private static final Long MEMBER_ID = 1L;
+    private static final Persona KIM = Persona.KIM_FIRST;
     private static final Instant NOW = Instant.parse("2026-09-03T00:00:00Z");
     private static final Clock CLOCK = Clock.fixed(NOW, ZoneOffset.UTC);
 
     private OpenBankingConnectionRepository repository;
     private OpenBankingTokenCipher cipher;
     private HttpOpenBankingClient authorizationDelegate;
+    private MockPersonaSelection personaSelection;
     private OpenBankingService mockDataService;
 
     @BeforeEach
@@ -48,11 +56,12 @@ class OpenBankingMockDataSummaryTest {
         repository = mock(OpenBankingConnectionRepository.class);
         cipher = mock(OpenBankingTokenCipher.class);
         authorizationDelegate = mock(HttpOpenBankingClient.class);
-        mockDataService = service(new MockDataOpenBankingClient(authorizationDelegate, CLOCK));
+        personaSelection = new MockPersonaSelection(Persona.KIM_FIRST);
+        mockDataService = service(new MockDataOpenBankingClient(authorizationDelegate, CLOCK, personaSelection));
     }
 
     @Test
-    void should_aggregateSampleProfile_intoACoherentFinancialSummary() {
+    void should_aggregateTheDefaultPersona_intoACoherentFinancialSummary() {
         connected();
 
         OpenBankingFinancialSummaryResponse summary = mockDataService.financialSummary(MEMBER_ID, null);
@@ -63,17 +72,33 @@ class OpenBankingMockDataSummaryTest {
         assertThat(summary.connectedAccountCount()).isEqualTo(3);
         assertThat(summary.accountBalanceCoverage().complete()).isTrue();
         assertThat(summary.accountTransactionCoverage().complete()).isTrue();
-        // 잔액 4,000만원 = 급여통장 320만 + 자유적금 2,480만 + 주택청약 1,200만.
-        assertThat(summary.totalAccountBalance()).isEqualByComparingTo("40000000");
-        assertThat(summary.totalAvailableBalance()).isEqualByComparingTo("40000000");
+        // 페르소나를 고른 적 없으면 시연 기본인 김첫집이다. 아래 값은 전부 Persona.KIM_FIRST 에서 나온다.
+        assertThat(summary.totalAccountBalance()).isEqualByComparingTo(won(KIM.getFinancialAsset()));
+        assertThat(summary.totalAvailableBalance()).isEqualByComparingTo(won(KIM.getFinancialAsset()));
         // 1루 진단이 "오픈뱅킹으로 조회한 월 평균 소득"으로 보여 주는 값. 거래내역의 급여 입금과 같아야 한다.
-        assertThat(summary.averageMonthlyNetIncome()).isEqualByComparingTo("2800000");
+        assertThat(summary.averageMonthlyNetIncome()).isEqualByComparingTo(won(KIM.getMonthlyIncome()));
         assertThat(summary.salaryDetectedMonths()).isEqualTo(3);
-        assertThat(summary.averageMonthlyLoanRepayment()).isEqualByComparingTo("150000");
-        assertThat(summary.loanCount()).isEqualTo(1);
+        // 빚이 없는 페르소나라 대출 목록이 비어 있다. 0원짜리 대출 행을 만들면 여기서 개수가 어긋난다.
+        assertThat(summary.loanCount()).isZero();
+        assertThat(summary.averageMonthlyLoanRepayment()).isEqualByComparingTo(won(KIM.getMonthlyDebtPayment()));
         assertThat(summary.loanRepaymentDetailUnavailableCount()).isZero();
         assertThat(summary.calculationFromDate()).isEqualTo(LocalDate.of(2026, 6, 1));
         assertThat(summary.calculationToDate()).isEqualTo(LocalDate.of(2026, 8, 31));
+    }
+
+    @Test
+    void should_aggregateTheSyncedPersona_whenTheMemberChoseAnotherOne() {
+        connectedAsMock();
+        personaSelection.select(MEMBER_ID, Persona.PARK_SENIOR);
+
+        OpenBankingFinancialSummaryResponse summary = mockDataService.financialSummary(MEMBER_ID, null);
+
+        assertThat(summary.status()).isEqualTo(FinancialSummaryStatus.COMPLETE);
+        assertThat(summary.totalAccountBalance()).isEqualByComparingTo(won(Persona.PARK_SENIOR.getFinancialAsset()));
+        assertThat(summary.averageMonthlyNetIncome()).isEqualByComparingTo(won(Persona.PARK_SENIOR.getMonthlyIncome()));
+        assertThat(summary.loanCount()).isEqualTo(1);
+        assertThat(summary.averageMonthlyLoanRepayment())
+                .isEqualByComparingTo(won(Persona.PARK_SENIOR.getMonthlyDebtPayment()));
     }
 
     @Test
@@ -125,10 +150,23 @@ class OpenBankingMockDataSummaryTest {
         return new OpenBankingService(repository, client, cipher, CLOCK);
     }
 
+    private BigDecimal won(long value) {
+        return BigDecimal.valueOf(value);
+    }
+
+    /** 가짜 연결이 세우는 사용자일련번호. 목 클라이언트는 여기서 회원을 되짚어 페르소나를 고른다. */
+    private void connectedAsMock() {
+        connect(MockPersonaSelection.MOCK_USER_SEQ_NO_PREFIX + MEMBER_ID);
+    }
+
     private void connected() {
+        connect("1100000000");
+    }
+
+    private void connect(String userSeqNo) {
         OpenBankingConnection connection = OpenBankingConnection.create(MEMBER_ID);
         connection.updateCredentials(
-                "1100000000",
+                userSeqNo,
                 "encrypted-access",
                 "encrypted-refresh",
                 "Bearer",

@@ -3,6 +3,7 @@ package com.homerun.domain.plan.controller;
 import com.homerun.domain.openbanking.dto.request.MockConnectRequest;
 import com.homerun.domain.openbanking.dto.response.FinancialSnapshotResponse;
 import com.homerun.domain.plan.service.OpenBankingPlanSyncService;
+import com.homerun.global.external.openbanking.MockPersonaSelection;
 import com.homerun.global.response.ApiResponse;
 import com.homerun.global.security.principal.MemberPrincipal;
 import io.swagger.v3.oas.annotations.Operation;
@@ -34,6 +35,10 @@ import org.springframework.web.bind.annotation.RestController;
  * 올라오지 않고 경로도 없다(404). 데모는 플래그를 켜고 뜨므로 그대로 쓸 수 있다. 사업자 등록이
  * 끝나면 {@code MockDataOpenBankingClient} 와 함께 이 클래스도 지운다.
  *
+ * <p>여기서 고른 페르소나는 {@link MockPersonaSelection} 에도 남긴다. 남기지 않으면 오픈뱅킹
+ * 조회(계좌·잔액·거래·대출)는 계속 기본 페르소나로 답해, 자산확인 화면과 진단 입력이 같은 사람을
+ * 두고 다른 숫자를 말한다.
+ *
  * <p>경로는 분리 전과 같다. 데모·프론트가 이미 이 주소를 부르고 있어 바꾸면 안 된다.
  */
 @RestController
@@ -43,9 +48,12 @@ import org.springframework.web.bind.annotation.RestController;
 public class MockOpenBankingPlanSyncController {
 
     private final OpenBankingPlanSyncService service;
+    private final MockPersonaSelection personaSelection;
 
-    public MockOpenBankingPlanSyncController(OpenBankingPlanSyncService service) {
+    public MockOpenBankingPlanSyncController(
+            OpenBankingPlanSyncService service, MockPersonaSelection personaSelection) {
         this.service = service;
+        this.personaSelection = personaSelection;
     }
 
     @PostMapping
@@ -58,6 +66,7 @@ public class MockOpenBankingPlanSyncController {
             @AuthenticationPrincipal MemberPrincipal principal,
             @PathVariable Long planId,
             @Valid @RequestBody MockConnectRequest request) {
+        personaSelection.select(principal.memberId(), request.persona());
         return ApiResponse.success(service.mockConnect(principal.memberId(), planId, request.persona()));
     }
 }
