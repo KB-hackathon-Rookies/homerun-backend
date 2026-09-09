@@ -14,6 +14,7 @@ import com.homerun.TestcontainersConfiguration;
 import com.homerun.domain.auth.type.AuthProvider;
 import com.homerun.domain.member.entity.Member;
 import com.homerun.domain.member.repository.MemberRepository;
+import com.homerun.domain.openbanking.type.Persona;
 import com.homerun.domain.terms.service.TermsService;
 import com.homerun.global.security.jwt.JwtTokenProvider;
 import jakarta.persistence.EntityManager;
@@ -92,8 +93,9 @@ class MockOpenBankingPlanSyncEnabledEndpointTest {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"persona\":\"KIM_KUKMIN\"}"))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.data.monthlyIncome").value(2500000))
-                .andExpect(jsonPath("$.data.financialAsset").value(15000000));
+                // 값을 여기 적어 두면 페르소나를 고칠 때마다 이 테스트가 따로 틀린다. 출처를 하나로 둔다.
+                .andExpect(jsonPath("$.data.monthlyIncome").value(Persona.KIM_KUKMIN.getMonthlyIncome()))
+                .andExpect(jsonPath("$.data.financialAsset").value(Persona.KIM_KUKMIN.getFinancialAsset()));
     }
 
     @Test
