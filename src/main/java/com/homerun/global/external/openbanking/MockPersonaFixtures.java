@@ -84,7 +84,7 @@ final class MockPersonaFixtures {
                 persona,
                 List.of(
                         new MockAccount(
-                                "SAMPLE-KIM-0001",
+                                "SAMPLE-KIM-0000000000001",
                                 "샘플 급여통장",
                                 "004-**-****-1234",
                                 "1",
@@ -100,7 +100,7 @@ final class MockPersonaFixtures {
                                         transferOut(LocalTime.of(6, 5), "샘플 주택청약 자동이체", 100_000),
                                         expense(28, LocalTime.of(13, 0), "카드", "샘플 신용카드 결제", 322_000))),
                         new MockAccount(
-                                "SAMPLE-KIM-0002",
+                                "SAMPLE-KIM-0000000000002",
                                 "샘플 자유적금",
                                 "004-**-****-5678",
                                 "2",
@@ -109,7 +109,7 @@ final class MockPersonaFixtures {
                                 // 급여통장에서 나간 그대로 들어온다. 금액이 어긋나면 순자산이 달마다 움직인다.
                                 List.of(mirror(toSavings, "샘플 자유적금 납입"))),
                         new MockAccount(
-                                "SAMPLE-KIM-0003",
+                                "SAMPLE-KIM-0000000000003",
                                 "샘플 주택청약저축",
                                 "004-**-****-9012",
                                 "2",
@@ -137,7 +137,7 @@ final class MockPersonaFixtures {
                 persona,
                 List.of(
                         new MockAccount(
-                                "SAMPLE-LEE-0001",
+                                "SAMPLE-LEE-0000000000001",
                                 "샘플 급여통장",
                                 "004-**-****-2341",
                                 "1",
@@ -154,7 +154,7 @@ final class MockPersonaFixtures {
                                         transferOut(LocalTime.of(6, 5), "샘플 주택청약 자동이체", 20_000),
                                         expense(28, LocalTime.of(13, 0), "카드", "샘플 신용카드 결제", 100_000))),
                         new MockAccount(
-                                "SAMPLE-LEE-0002",
+                                "SAMPLE-LEE-0000000000002",
                                 "샘플 자유적금",
                                 "004-**-****-6785",
                                 "2",
@@ -162,14 +162,14 @@ final class MockPersonaFixtures {
                                 amount(830_000),
                                 List.of(transferIn(LocalTime.of(6, 0), "샘플 자유적금 납입", 30_000))),
                         new MockAccount(
-                                "SAMPLE-LEE-0003",
+                                "SAMPLE-LEE-0000000000003",
                                 "샘플 주택청약저축",
                                 "004-**-****-0129",
                                 "2",
                                 "샘플 주택청약종합저축",
                                 amount(900_000),
                                 List.of(transferIn(LocalTime.of(6, 5), "샘플 주택청약 납입", 20_000)))),
-                new MockLoan("SAMPLE-LEE-LOAN-0001", "004-**-****-2233", "샘플 학자금대출", 20));
+                new MockLoan("SAMPLE-LEE-LOAN-00000001", "004-**-****-2233", "샘플 학자금대출", 20));
     }
 
     /** 고소득 경계. 청년 버팀목 소득기준(연 5,000만)을 넘겨 일반 버팀목·SGI 로 우회하는 대안 시나리오. */
@@ -179,7 +179,7 @@ final class MockPersonaFixtures {
                 persona,
                 List.of(
                         new MockAccount(
-                                "SAMPLE-PARK-0001",
+                                "SAMPLE-PARK-000000000001",
                                 "샘플 급여통장",
                                 "004-**-****-3412",
                                 "1",
@@ -196,7 +196,7 @@ final class MockPersonaFixtures {
                                         debtRepayment(persona, 27, "샘플 신용대출 상환"),
                                         expense(28, LocalTime.of(13, 0), "카드", "샘플 신용카드 결제", 450_000))),
                         new MockAccount(
-                                "SAMPLE-PARK-0002",
+                                "SAMPLE-PARK-000000000002",
                                 "샘플 자유적금",
                                 "004-**-****-7856",
                                 "2",
@@ -204,14 +204,14 @@ final class MockPersonaFixtures {
                                 amount(22_180_000),
                                 List.of(transferIn(LocalTime.of(6, 0), "샘플 자유적금 납입", 1_700_000))),
                         new MockAccount(
-                                "SAMPLE-PARK-0003",
+                                "SAMPLE-PARK-000000000003",
                                 "샘플 주택청약저축",
                                 "004-**-****-1290",
                                 "2",
                                 "샘플 주택청약종합저축",
                                 amount(13_090_000),
                                 List.of(transferIn(LocalTime.of(6, 5), "샘플 주택청약 납입", 100_000)))),
-                new MockLoan("SAMPLE-PARK-LOAN-0001", "004-**-****-7788", "샘플 신용대출", 27));
+                new MockLoan("SAMPLE-PARK-LOAN-0000001", "004-**-****-7788", "샘플 신용대출", 27));
     }
 
     /** 급여일은 25일 하나로 고정한다. 금액은 페르소나에서 그대로 가져와 두 계층이 어긋날 여지를 없앤다. */

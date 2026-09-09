@@ -159,6 +159,22 @@ class MockDataOpenBankingClientTest {
                         LocalDate.of(2026, 8, 25), LocalDate.of(2026, 7, 25), LocalDate.of(2026, 6, 25));
     }
 
+    /**
+     * 핀테크이용번호는 금융결제원 규격대로 24자여야 한다.
+     *
+     * <p>컨트롤러가 잔액·거래내역 경로에서 {@code @Size(min = 24, max = 24)} 로 막는다. 목 번호가
+     * 짧으면 <b>계좌 목록은 나오는데 잔액만 400</b> 으로 죽는다 — 목록 API 에는 이 검증이 없어서
+     * 화면에서는 "잔액 확인 못 함" 한 줄로만 보이고 원인이 드러나지 않는다.
+     */
+    @ParameterizedTest
+    @EnumSource(Persona.class)
+    @DisplayName("핀테크이용번호는 실제 규격대로 24자다 — 짧으면 잔액 조회가 400으로 막힌다")
+    void should_useRealLengthFintechUseNumbers(Persona persona) {
+        assertThat(accountsOf(persona).accounts())
+                .isNotEmpty()
+                .allSatisfy(account -> assertThat(account.fintechUseNumber()).hasSize(24));
+    }
+
     @Test
     @DisplayName("기본 페르소나의 급여는 달마다 다르다 — 매달 같은 금액이면 화면에서 가짜로 읽힌다")
     void should_varyTheSalary_acrossMonths() {
