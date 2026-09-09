@@ -3,11 +3,13 @@ package com.homerun.domain.plan.service;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.Mockito.doThrow;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import com.homerun.domain.dashboard.repository.DeadlineRepository;
 import com.homerun.domain.plan.dto.request.CompletePlanStepRequest;
+import com.homerun.domain.plan.dto.request.CreatePlanRequest;
 import com.homerun.domain.plan.dto.request.UpdatePlanLocationRequest;
 import com.homerun.domain.plan.dto.response.PlanProgressResponse;
 import com.homerun.domain.plan.dto.response.PlanResponse;
@@ -74,6 +76,69 @@ class PlanServiceTest {
         plan = Plan.create(MEMBER_ID, LeaseType.JEONSE, LocalDate.of(2027, 2, 1));
         ReflectionTestUtils.setField(plan, "id", PLAN_ID);
         steps = PlanStep.defaultSteps(PLAN_ID);
+    }
+
+    /**
+     * 준비 문진은 저장이 세 번에 걸쳐 일어난다. 뒤에서 실패해 사용자가 문진을 다시 마쳤을 때
+     * 계획을 또 만들면, 앞서 만든 계획이 ACTIVE 인 채로 남는데 getActive 는 가장 최근 것만
+     * 주므로 영영 열리지 않는다.
+     */
+    @Test
+    void should_resumeBenchPlan_when_createIsCalledAgain() {
+        when(planRepository.findFirstByMemberIdAndStatusOrderByUpdatedAtDescIdDesc(MEMBER_ID, PlanStatus.ACTIVE))
+                .thenReturn(Optional.of(plan));
+        when(planStepRepository.findAllByPlanIdOrderBySequenceAsc(PLAN_ID)).thenReturn(steps);
+
+        PlanResponse response = planService.create(MEMBER_ID, new CreatePlanRequest(LeaseType.JEONSE, null));
+
+        assertThat(response.id()).isEqualTo(PLAN_ID);
+        verify(planRepository, never()).save(org.mockito.ArgumentMatchers.any());
+    }
+
+    /** 진단을 이미 시작한 계획은 집어 오지 않는다. 새로 시작하려는 사람의 계획을 덮어쓰면 안 된다. */
+    @Test
+    void should_createNewPlan_when_activePlanLeftBench() {
+        // 이 테스트가 보려는 것은 create 의 판단이다. 단계를 옮기는 경로까지 태우지 않는다.
+        ReflectionTestUtils.setField(plan, "stage", PlanStage.FIRST);
+        when(planRepository.findFirstByMemberIdAndStatusOrderByUpdatedAtDescIdDesc(MEMBER_ID, PlanStatus.ACTIVE))
+                .thenReturn(Optional.of(plan));
+        givenNewPlanIsSaved();
+
+        planService.create(MEMBER_ID, new CreatePlanRequest(LeaseType.JEONSE, null));
+
+        verify(planRepository).save(org.mockito.ArgumentMatchers.any());
+    }
+
+    /** 임대차 유형이 다르면 다른 계획이다. */
+    @Test
+    void should_createNewPlan_when_leaseTypeDiffers() {
+        when(planRepository.findFirstByMemberIdAndStatusOrderByUpdatedAtDescIdDesc(MEMBER_ID, PlanStatus.ACTIVE))
+                .thenReturn(Optional.of(plan));
+        givenNewPlanIsSaved();
+
+        planService.create(MEMBER_ID, new CreatePlanRequest(LeaseType.WOLSE, null));
+
+        verify(planRepository).save(org.mockito.ArgumentMatchers.any());
+    }
+
+    /** 진행 중인 계획이 아예 없으면 당연히 새로 만든다. */
+    @Test
+    void should_createNewPlan_when_noActivePlanExists() {
+        when(planRepository.findFirstByMemberIdAndStatusOrderByUpdatedAtDescIdDesc(MEMBER_ID, PlanStatus.ACTIVE))
+                .thenReturn(Optional.empty());
+        givenNewPlanIsSaved();
+
+        planService.create(MEMBER_ID, new CreatePlanRequest(LeaseType.JEONSE, null));
+
+        verify(planRepository).save(org.mockito.ArgumentMatchers.any());
+    }
+
+    private void givenNewPlanIsSaved() {
+        Plan created = Plan.create(MEMBER_ID, LeaseType.JEONSE, null);
+        ReflectionTestUtils.setField(created, "id", 11L);
+        when(planRepository.save(org.mockito.ArgumentMatchers.any())).thenReturn(created);
+        when(planStepRepository.saveAll(org.mockito.ArgumentMatchers.any())).thenReturn(PlanStep.defaultSteps(11L));
+        when(stepTaskRepository.saveAll(org.mockito.ArgumentMatchers.any())).thenAnswer(call -> call.getArgument(0));
     }
 
     @Test
