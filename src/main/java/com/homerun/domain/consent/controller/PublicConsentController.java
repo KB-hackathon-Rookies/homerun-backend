@@ -21,6 +21,10 @@ import org.springframework.web.bind.annotation.RestController;
  *
  * <p>가구원은 우리 서비스 회원이 아니다. 세션 토큰이 없고 동의 토큰만 들고 온다. 그래서
  * 계획 하위가 아니라 별도 경로에 두고 SecurityConfig 에서 permitAll 로 열어야 한다.
+ *
+ * <p>그 목록은 {@code PublicEndpoints} 다. 여기에 경로를 더하거나 바꾸면 그쪽도 같이 고쳐야
+ * 한다 — 실제로 빠져 있어서 링크를 받은 가구원이 화면 대신 401 을 보고 있었다. 약관 필터
+ * ({@code RequiredTermsAgreementFilter}) 예외 목록도 마찬가지다.
  */
 @RestController
 @RequestMapping("/api/v1/consents")
