@@ -41,7 +41,7 @@ import org.junit.jupiter.api.Test;
 class OpenBankingMockDataSummaryTest {
 
     private static final Long MEMBER_ID = 1L;
-    private static final Persona KIM = Persona.KIM_FIRST;
+    private static final Persona KIM = Persona.KIM_KUKMIN;
     private static final Instant NOW = Instant.parse("2026-09-03T00:00:00Z");
     private static final Clock CLOCK = Clock.fixed(NOW, ZoneOffset.UTC);
 
@@ -56,7 +56,7 @@ class OpenBankingMockDataSummaryTest {
         repository = mock(OpenBankingConnectionRepository.class);
         cipher = mock(OpenBankingTokenCipher.class);
         authorizationDelegate = mock(HttpOpenBankingClient.class);
-        personaSelection = new MockPersonaSelection(Persona.KIM_FIRST);
+        personaSelection = new MockPersonaSelection(Persona.KIM_KUKMIN);
         mockDataService = service(new MockDataOpenBankingClient(authorizationDelegate, CLOCK, personaSelection));
     }
 
@@ -72,7 +72,7 @@ class OpenBankingMockDataSummaryTest {
         assertThat(summary.connectedAccountCount()).isEqualTo(3);
         assertThat(summary.accountBalanceCoverage().complete()).isTrue();
         assertThat(summary.accountTransactionCoverage().complete()).isTrue();
-        // 페르소나를 고른 적 없으면 시연 기본인 김첫집이다. 아래 값은 전부 Persona.KIM_FIRST 에서 나온다.
+        // 페르소나를 고른 적 없으면 시연 기본인 김국민이다. 아래 값은 전부 Persona.KIM_KUKMIN 에서 나온다.
         assertThat(summary.totalAccountBalance()).isEqualByComparingTo(won(KIM.getFinancialAsset()));
         assertThat(summary.totalAvailableBalance()).isEqualByComparingTo(won(KIM.getFinancialAsset()));
         // 1루 진단이 "오픈뱅킹으로 조회한 월 평균 소득"으로 보여 주는 값. 거래내역의 급여 입금과 같아야 한다.

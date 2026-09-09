@@ -61,7 +61,7 @@ class MockDataOpenBankingClientTest {
     @BeforeEach
     void setUp() {
         authorizationDelegate = mock(HttpOpenBankingClient.class);
-        personaSelection = new MockPersonaSelection(Persona.KIM_FIRST);
+        personaSelection = new MockPersonaSelection(Persona.KIM_KUKMIN);
         client = new MockDataOpenBankingClient(authorizationDelegate, CLOCK, personaSelection);
     }
 
@@ -83,16 +83,16 @@ class MockDataOpenBankingClientTest {
     }
 
     @Test
-    @DisplayName("페르소나를 고른 적 없으면 시연 기본인 김첫집으로 답한다")
-    void should_serveKimFirst_whenTheMemberHasNotChosenAPersona() {
-        assertThat(personaSelection.defaultPersona()).isEqualTo(Persona.KIM_FIRST);
+    @DisplayName("페르소나를 고른 적 없으면 시연 기본인 김국민으로 답한다")
+    void should_serveKimKukmin_whenTheMemberHasNotChosenAPersona() {
+        assertThat(personaSelection.defaultPersona()).isEqualTo(Persona.KIM_KUKMIN);
 
         UserInfo neverChose = client.userInfo("access", USER_SEQ_NO);
         UserInfo notAMockConnection = client.userInfo("access", "1100000000");
 
-        assertThat(neverChose.userName()).isEqualTo(Persona.KIM_FIRST.getLabel());
-        assertThat(notAMockConnection.userName()).isEqualTo(Persona.KIM_FIRST.getLabel());
-        assertThat(totalBalance(neverChose)).isEqualByComparingTo(won(Persona.KIM_FIRST.getFinancialAsset()));
+        assertThat(neverChose.userName()).isEqualTo(Persona.KIM_KUKMIN.getLabel());
+        assertThat(notAMockConnection.userName()).isEqualTo(Persona.KIM_KUKMIN.getLabel());
+        assertThat(totalBalance(neverChose)).isEqualByComparingTo(won(Persona.KIM_KUKMIN.getFinancialAsset()));
     }
 
     @Test
@@ -103,7 +103,7 @@ class MockDataOpenBankingClientTest {
         assertThat(client.userInfo("access", USER_SEQ_NO).userName()).isEqualTo(Persona.PARK_SENIOR.getLabel());
         assertThat(client.userInfo("access", MockPersonaSelection.MOCK_USER_SEQ_NO_PREFIX + 99)
                         .userName())
-                .isEqualTo(Persona.KIM_FIRST.getLabel());
+                .isEqualTo(Persona.KIM_KUKMIN.getLabel());
     }
 
     @ParameterizedTest
@@ -260,7 +260,7 @@ class MockDataOpenBankingClientTest {
 
     @Test
     void should_returnNoTransactions_outsideTheRequestedPeriod() {
-        String salaryAccount = accountsOf(Persona.KIM_FIRST).accounts().get(0).fintechUseNumber();
+        String salaryAccount = accountsOf(Persona.KIM_KUKMIN).accounts().get(0).fintechUseNumber();
 
         TransactionPage page =
                 client.transactions("access", salaryAccount, LocalDate.of(2026, 8, 1), LocalDate.of(2026, 8, 20), null);

@@ -57,7 +57,7 @@ final class MockPersonaFixtures {
 
     private static Map<Persona, MockProfile> profiles() {
         Map<Persona, MockProfile> profiles = new EnumMap<>(Persona.class);
-        profiles.put(Persona.KIM_FIRST, kimFirst());
+        profiles.put(Persona.KIM_KUKMIN, kimKukmin());
         profiles.put(Persona.LEE_TIGHT, leeTight());
         profiles.put(Persona.PARK_SENIOR, parkSenior());
         return profiles;
@@ -67,8 +67,8 @@ final class MockPersonaFixtures {
      * 시연 기본. 독립을 준비하는 평범한 사회초년생 — 월 실수령 250만원에 고정지출·카드로 150만원을
      * 쓰고 남는 100만원을 적금 90만·청약 10만으로 넘긴다. 대출이 없어 대출 목록은 비어 있다.
      */
-    private static MockProfile kimFirst() {
-        Persona persona = Persona.KIM_FIRST;
+    private static MockProfile kimKukmin() {
+        Persona persona = Persona.KIM_KUKMIN;
         return new MockProfile(
                 persona,
                 List.of(

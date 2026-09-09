@@ -103,7 +103,7 @@ class MockOpenBankingPlanSyncDisabledEndpointTest {
         MvcResult result = mvc.perform(post("/api/v1/plans/" + planId + "/input/open-banking-sync/mock")
                         .header("Authorization", bearer)
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content("{\"persona\":\"KIM_FIRST\"}"))
+                        .content("{\"persona\":\"KIM_KUKMIN\"}"))
                 .andReturn();
 
         // 인증은 통과했는데 붙을 컨트롤러가 없다. 매핑이 없으면 정적 리소스 핸들러로 흘러가므로

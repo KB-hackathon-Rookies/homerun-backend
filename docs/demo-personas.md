@@ -8,9 +8,9 @@
 
 ---
 
-## 시연 기본 — 김첫집 (`KIM_FIRST`)
+## 시연 기본 — 김국민 (`KIM_KUKMIN`)
 
-독립을 준비하는 가장 평범한 청년이다. **페르소나를 고른 적 없는 회원은 전부 김첫집으로 보인다** — 가짜 오픈뱅킹 연결만 하고 페르소나를 안 실어도 마찬가지다. 기본값은 `external-api.open-banking.mock-persona`(env `OPEN_BANKING_MOCK_PERSONA`, 기본 `KIM_FIRST`)로 바꿀 수 있다.
+독립을 준비하는 가장 평범한 청년이다. **페르소나를 고른 적 없는 회원은 전부 김국민으로 보인다** — 가짜 오픈뱅킹 연결만 하고 페르소나를 안 실어도 마찬가지다. 기본값은 `external-api.open-banking.mock-persona`(env `OPEN_BANKING_MOCK_PERSONA`, 기본 `KIM_KUKMIN`)로 바꿀 수 있다.
 
 | 항목 | 값 |
 | --- | --- |
@@ -117,7 +117,7 @@ curl -X POST 'http://localhost:8080/api/v1/open-banking/mock-connect' \
   -H "Authorization: Bearer $ACCESS_TOKEN"
 ```
 
-여기까지만 하면 계좌·잔액·거래내역·요약이 **김첫집**으로 답한다.
+여기까지만 하면 계좌·잔액·거래내역·요약이 **김국민**으로 답한다.
 
 ### 2. 페르소나 싣기 (진단 입력까지 확정 상태로)
 
@@ -125,10 +125,10 @@ curl -X POST 'http://localhost:8080/api/v1/open-banking/mock-connect' \
 curl -X POST 'http://localhost:8080/api/v1/plans/{planId}/input/open-banking-sync/mock' \
   -H "Authorization: Bearer $ACCESS_TOKEN" \
   -H 'Content-Type: application/json' \
-  -d '{"persona":"KIM_FIRST"}'
+  -d '{"persona":"KIM_KUKMIN"}'
 ```
 
-`persona` 는 `KIM_FIRST` · `LEE_TIGHT` · `PARK_SENIOR` 셋 중 하나다. 이 호출 이후로는 그 회원의 오픈뱅킹 조회도 실은 페르소나를 따라간다 — 즉 계좌 화면과 진단 입력이 계속 같은 사람을 말한다. 페르소나는 회원별로 마지막에 실은 것이 남고, 서버를 재시작하면 다시 김첫집으로 돌아간다.
+`persona` 는 `KIM_KUKMIN` · `LEE_TIGHT` · `PARK_SENIOR` 셋 중 하나다. 이 호출 이후로는 그 회원의 오픈뱅킹 조회도 실은 페르소나를 따라간다 — 즉 계좌 화면과 진단 입력이 계속 같은 사람을 말한다. 페르소나는 회원별로 마지막에 실은 것이 남고, 서버를 재시작하면 다시 김국민으로 돌아간다.
 
 ### 3. 다른 페르소나로 갈아타기
 

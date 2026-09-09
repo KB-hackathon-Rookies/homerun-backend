@@ -27,7 +27,7 @@
 
 - 인가는 모킹하지 않는다. `authorizationUri` / `exchangeAuthorizationCode` / `refreshToken` 은 실제 구현으로 위임하므로 데모에서도 진짜 금융결제원 인증 화면을 쓴다.
 - 연결(`open_banking_connection`)이 없는 회원은 모킹이 켜져 있어도 지금과 똑같이 `OPEN_BANKING_NOT_CONNECTED`로 실패한다. 계좌 소유권 검증도 그대로다.
-- 픽스처는 **페르소나 한 명**의 일관된 프로필이다. 계좌 잔액 합계·급여 입금·지출 출금·대출 상환이 전부 `Persona` 의 금융자산·월소득·월지출·대출잔액·월상환액에서 나오므로, 오픈뱅킹 화면과 진단 입력이 같은 숫자를 말한다. 어떤 페르소나로 답할지는 `MockPersonaSelection` 이 정하고 기본값은 김첫집이다(`external-api.open-banking.mock-persona`, env `OPEN_BANKING_MOCK_PERSONA`). 계좌 별칭에 `샘플`이 들어가고 예금주는 페르소나 이름, 계좌번호는 마스킹되어 있어 화면에서 실데이터와 구분된다. 페르소나별 계좌·현금흐름 표는 [데모 페르소나](../demo-personas.md) 에 있다.
+- 픽스처는 **페르소나 한 명**의 일관된 프로필이다. 계좌 잔액 합계·급여 입금·지출 출금·대출 상환이 전부 `Persona` 의 금융자산·월소득·월지출·대출잔액·월상환액에서 나오므로, 오픈뱅킹 화면과 진단 입력이 같은 숫자를 말한다. 어떤 페르소나로 답할지는 `MockPersonaSelection` 이 정하고 기본값은 김국민이다(`external-api.open-banking.mock-persona`, env `OPEN_BANKING_MOCK_PERSONA`). 계좌 별칭에 `샘플`이 들어가고 예금주는 페르소나 이름, 계좌번호는 마스킹되어 있어 화면에서 실데이터와 구분된다. 페르소나별 계좌·현금흐름 표는 [데모 페르소나](../demo-personas.md) 에 있다.
 
 ### 데모 전용 페르소나 적재 경로
 

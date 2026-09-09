@@ -54,7 +54,7 @@ class OpenBankingClientSelectionTest {
                     assertThat(context.getBean(OpenBankingClient.class)).isInstanceOf(MockDataOpenBankingClient.class);
                     // 페르소나를 고른 적 없는 회원이 보게 될 시연 기본값.
                     assertThat(context.getBean(MockPersonaSelection.class).defaultPersona())
-                            .isEqualTo(Persona.KIM_FIRST);
+                            .isEqualTo(Persona.KIM_KUKMIN);
                 });
     }
 
