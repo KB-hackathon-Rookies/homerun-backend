@@ -178,6 +178,43 @@ public class PlanInput {
         return input;
     }
 
+    /**
+     * 데모용 가짜 오픈뱅킹 연동. 사용자가 페르소나를 직접 고른 값이라 소득·순자산을 모두 넣고
+     * 확인 완료로 둔다 — 그래야 실 연동과 달리 별도 확인 단계 없이 판정이 값을 바로 쓴다.
+     */
+    public static PlanInput createWithMockFinancials(Long planId, Long monthlyIncome, Long netAssets) {
+        PlanInput input = new PlanInput();
+        input.planId = planId;
+        input.monthlyIncome = monthlyIncome;
+        input.netAssets = netAssets;
+        input.incomeSource = FinancialValueSource.OPEN_BANKING;
+        input.assetSource = FinancialValueSource.OPEN_BANKING;
+        input.financialDataConfirmed = true;
+        input.unknownFields = new ArrayList<>();
+        input.revision = 1;
+        input.createdAt = Instant.now();
+        input.updatedAt = input.createdAt;
+        return input;
+    }
+
+    /** 이미 있는 입력에 가짜 오픈뱅킹 자산을 덮어쓴다. 관련 모름 표시는 값이 채워졌으니 지운다. */
+    public void applyMockFinancials(Long monthlyIncome, Long netAssets) {
+        this.monthlyIncome = monthlyIncome;
+        this.netAssets = netAssets;
+        this.incomeSource = FinancialValueSource.OPEN_BANKING;
+        this.assetSource = FinancialValueSource.OPEN_BANKING;
+        this.financialDataConfirmed = true;
+        this.unknownFields = this.unknownFields.stream()
+                .filter(field -> field != PlanInputUnknownField.MONTHLY_INCOME
+                        && field != PlanInputUnknownField.NET_ASSETS
+                        && field != PlanInputUnknownField.INCOME_SOURCE
+                        && field != PlanInputUnknownField.ASSET_SOURCE
+                        && field != PlanInputUnknownField.FINANCIAL_DATA_CONFIRMED)
+                .toList();
+        this.revision++;
+        this.updatedAt = Instant.now();
+    }
+
     public boolean syncOpenBankingIncome(Long value) {
         if (Objects.equals(monthlyIncome, value)
                 && incomeSource == FinancialValueSource.OPEN_BANKING

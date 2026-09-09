@@ -144,6 +144,20 @@ public class PlanInputService {
         return PlanInputResponse.from(input);
     }
 
+    /** 데모용 가짜 오픈뱅킹 자산을 계획 입력에 확정 상태로 반영한다. */
+    @Transactional
+    public PlanInputResponse applyMockFinancials(Long memberId, Long planId, Long monthlyIncome, Long netAssets) {
+        findOwnedPlan(memberId, planId);
+        PlanInput input = inputRepository.findByPlanId(planId).orElse(null);
+        if (input == null) {
+            input = inputRepository.save(PlanInput.createWithMockFinancials(planId, monthlyIncome, netAssets));
+        } else {
+            input.applyMockFinancials(monthlyIncome, netAssets);
+        }
+        markAffectedStepsForRecalculation(planId);
+        return PlanInputResponse.from(input);
+    }
+
     public record OpenBankingIncomeSyncResult(OpenBankingIncomeSyncStatus status, PlanInputResponse input) {}
 
     private Plan findOwnedPlan(Long memberId, Long planId) {
