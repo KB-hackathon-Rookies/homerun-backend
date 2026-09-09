@@ -18,7 +18,7 @@ import java.lang.annotation.Target;
 @Retention(RetentionPolicy.RUNTIME)
 public @interface StrongPassword {
 
-    String message() default "비밀번호는 8자 이상이며 영문·숫자·특수문자를 모두 포함해야 합니다.";
+    String message() default "비밀번호는 8~64자이며 영문·숫자·특수문자를 모두 포함해야 하고 공백·한글·이모지는 쓸 수 없습니다.";
 
     Class<?>[] groups() default {};
 
