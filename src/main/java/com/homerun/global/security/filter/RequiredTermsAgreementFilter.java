@@ -53,6 +53,9 @@ public class RequiredTermsAgreementFilter extends OncePerRequestFilter {
                 || path.equals("/api/v1/members/me")
                 || path.equals("/api/v1/terms")
                 || path.startsWith("/api/v1/agreements")
+                // 가구원 동의 화면은 우리 약관과 무관하다. 링크를 연 사람이 회원이면서 아직 필수
+                // 약관에 동의하지 않았을 때, 동의 화면 대신 TERMS_005 를 받는 일이 없어야 한다.
+                || path.startsWith("/api/v1/consents/")
                 || path.startsWith("/swagger-ui/")
                 || path.startsWith("/v3/api-docs/")
                 || path.startsWith("/actuator/health");
