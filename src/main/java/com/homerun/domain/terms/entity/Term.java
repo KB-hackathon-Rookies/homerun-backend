@@ -1,7 +1,10 @@
 package com.homerun.domain.terms.entity;
 
+import com.homerun.domain.terms.type.TermScope;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
+import jakarta.persistence.EnumType;
+import jakarta.persistence.Enumerated;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
@@ -28,6 +31,11 @@ public class Term {
     @Column(name = "is_required", nullable = false)
     private boolean required;
 
+    /** 이 약관이 어디까지 필수인가. DB CHECK 제약(`ck_terms_scope`)과 값이 같아야 한다. */
+    @Enumerated(EnumType.STRING)
+    @Column(nullable = false, length = 20)
+    private TermScope scope;
+
     @Column(name = "content_url")
     private String contentUrl;
 
@@ -53,6 +61,10 @@ public class Term {
 
     public String getTitle() {
         return title;
+    }
+
+    public TermScope getScope() {
+        return scope;
     }
 
     public boolean isRequired() {
