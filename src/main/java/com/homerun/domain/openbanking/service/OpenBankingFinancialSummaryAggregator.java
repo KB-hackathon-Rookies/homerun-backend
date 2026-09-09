@@ -1,7 +1,9 @@
 package com.homerun.domain.openbanking.service;
 
+import com.homerun.domain.openbanking.dto.response.AccountBalanceBreakdownResponse;
 import com.homerun.domain.openbanking.dto.response.ExternalDataCoverage;
 import com.homerun.domain.openbanking.dto.response.FinancialSummaryStatus;
+import com.homerun.domain.openbanking.dto.response.MonthlyIncomeResponse;
 import com.homerun.domain.openbanking.dto.response.OpenBankingDataWarning;
 import com.homerun.domain.openbanking.dto.response.OpenBankingDataWarning.Source;
 import com.homerun.domain.openbanking.dto.response.OpenBankingFinancialSummaryResponse;
@@ -46,6 +48,7 @@ final class OpenBankingFinancialSummaryAggregator {
         List<OpenBankingDataWarning> warnings = new ArrayList<>();
         BigDecimal totalBalance = BigDecimal.ZERO;
         BigDecimal totalAvailableBalance = BigDecimal.ZERO;
+        List<AccountBalanceBreakdownResponse> accountBalances = new ArrayList<>();
         Map<YearMonth, BigDecimal> monthlySalary = new LinkedHashMap<>();
         int balanceSucceeded = 0;
         int transactionsSucceeded = 0;
@@ -55,6 +58,15 @@ final class OpenBankingFinancialSummaryAggregator {
                 Balance balance = client.balance(accessToken, account.fintechUseNumber());
                 totalBalance = totalBalance.add(orZero(balance.balanceAmount()));
                 totalAvailableBalance = totalAvailableBalance.add(orZero(balance.availableAmount()));
+                // 합계를 계좌별로 풀 수 있게 성공한 잔액을 그대로 담는다. 실패한 계좌는 합에도
+                // 안 들어가므로 여기에도 넣지 않는다.
+                accountBalances.add(new AccountBalanceBreakdownResponse(
+                        bankNameOf(balance, account),
+                        account.accountNumberMasked(),
+                        balance.productName(),
+                        account.accountType(),
+                        orZero(balance.balanceAmount()),
+                        orZero(balance.availableAmount())));
                 balanceSucceeded++;
             } catch (BusinessException exception) {
                 rethrowUnlessRecoverable(exception);
@@ -121,6 +133,11 @@ final class OpenBankingFinancialSummaryAggregator {
                 ? null
                 : divide(
                         monthlySalary.values().stream().reduce(BigDecimal.ZERO, BigDecimal::add), monthlySalary.size());
+        // 월별 소득 내역 — 어느 달을 몇 번 잡아 평균했는지 보이게 오름차순으로 편다.
+        List<MonthlyIncomeResponse> monthlyNetIncomes = monthlySalary.entrySet().stream()
+                .sorted(Map.Entry.comparingByKey())
+                .map(entry -> new MonthlyIncomeResponse(entry.getKey().toString(), entry.getValue()))
+                .toList();
         BigDecimal averageRepayment = averageRepayment(loanResult, repaymentSucceeded, repaymentTotal);
         FinancialSummaryStatus status = status(
                 warnings,
@@ -135,8 +152,10 @@ final class OpenBankingFinancialSummaryAggregator {
                 userInfo.accounts().size(),
                 totalBalance,
                 totalAvailableBalance,
+                List.copyOf(accountBalances),
                 averageSalary,
                 monthlySalary.size(),
+                monthlyNetIncomes,
                 averageRepayment,
                 loanResult.loans().size(),
                 repaymentUnavailableCount,
@@ -283,6 +302,17 @@ final class OpenBankingFinancialSummaryAggregator {
 
     private BigDecimal orZero(BigDecimal value) {
         return value == null ? BigDecimal.ZERO : value;
+    }
+
+    /** 저축은행 계좌는 실제 이름이 savingsBankName 에 온다. 잔액 응답을 먼저 보고, 없으면 계좌 목록 값. */
+    private String bankNameOf(Balance balance, Account account) {
+        if (!isBlank(balance.savingsBankName())) {
+            return balance.savingsBankName();
+        }
+        if (!isBlank(balance.bankName())) {
+            return balance.bankName();
+        }
+        return !isBlank(account.savingsBankName()) ? account.savingsBankName() : account.bankName();
     }
 
     private boolean isBlank(String value) {
