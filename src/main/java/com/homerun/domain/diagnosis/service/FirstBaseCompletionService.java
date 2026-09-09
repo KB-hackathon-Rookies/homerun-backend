@@ -102,7 +102,7 @@ public class FirstBaseCompletionService {
                 .orElse(null);
         if (previous != null) {
             FirstBaseResultSnapshot snapshot = snapshot(memberId, planId, previous);
-            return completedResponse(true, snapshot, planService.getProgress(memberId, planId));
+            return completedResponse(true, snapshot, replayProgress(memberId, planId, plan, request.ruleVersion()));
         }
 
         requireReviewCompleted(planId);
@@ -151,6 +151,32 @@ public class FirstBaseCompletionService {
                 .findFirstByPlanIdOrderByCreatedAtDescIdDesc(planId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.FIRST_BASE_RESULT_NOT_FOUND));
         return FirstBaseResultResponse.from(snapshot(memberId, planId, submission), progress);
+    }
+
+    /**
+     * 이미 저장한 회차를 다시 받았을 때 돌려줄 진행도.
+     *
+     * <p>되감기(POST /plans/{planId}/reset)는 관문을 되돌리면서 제출 기록은 지우지 않는다.
+     * 그래서 사용자가 답을 그대로 두고 다시 제출하면 회차가 같아 이 재생 분기로 들어오는데,
+     * 여기서 관문을 그냥 두면 1루 관문이 닫힌 채 남아 계획이 그 자리에서 영영 멈춘다 —
+     * 몇 번을 다시 내도 응답은 `replayed=true` 뿐이라 화면에 빠져나갈 길이 없다.
+     *
+     * <p>재생이 같은 결과를 돌려주는 것만으로는 멱등이 아니다. 여러 번 부른 뒤의 계획 상태가
+     * 한 번 부른 뒤와 같아야 멱등이다. 그래서 결과는 그대로 다시 주되, 아직 닫혀 있는 관문만
+     * 마저 통과시킨다.
+     *
+     * <p>관문이 이미 DONE 이면 아무것도 하지 않는다. 재시도를 안전하게 만드는 것이 재생 분기의
+     * 존재 이유이고, 이미 2루로 넘어간 사람의 이어하기 위치를 1루로 되돌려서도 안 된다.
+     */
+    private PlanProgressResponse replayProgress(Long memberId, Long planId, Plan plan, String ruleVersion) {
+        PlanProgressResponse progress = planService.getProgress(memberId, planId);
+        if (progress.isGateCompleted(PlanGate.FIRST_DIAGNOSIS)) {
+            return progress;
+        }
+        PlanProgressResponse reopened = planService.completeStep(
+                memberId, planId, PlanGate.FIRST_DIAGNOSIS.code(), new CompletePlanStepRequest(ruleVersion));
+        plan.enterStage(PlanStage.FIRST, "DIAGNOSIS_RESULT");
+        return progressAfterLocation(plan, reopened);
     }
 
     private FirstBaseLoanScenarioResponse scenario(

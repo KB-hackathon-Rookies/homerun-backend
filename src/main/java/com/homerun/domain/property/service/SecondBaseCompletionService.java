@@ -75,7 +75,7 @@ public class SecondBaseCompletionService {
                 .orElse(null);
         if (previous != null) {
             SecondBaseResultSnapshot snapshot = snapshot(previous);
-            return response(true, snapshot, planService.getProgress(memberId, planId));
+            return response(true, snapshot, replayProgress(memberId, planId, plan, request.ruleVersion()));
         }
 
         PropertyDecisionResponse selected = decisionService.getDecision(memberId, planId);
@@ -102,6 +102,28 @@ public class SecondBaseCompletionService {
         SecondBaseResultSnapshot snapshot = snapshot(submission);
         return new SecondBaseResultResponse(
                 snapshot.decisionRevision(), snapshot.decision(), progress, snapshot.completedAt());
+    }
+
+    /**
+     * 이미 저장한 회차를 다시 받았을 때 돌려줄 진행도.
+     *
+     * <p>되감기(POST /plans/{planId}/reset)는 관문을 되돌리면서 매물 확정(property_decision)과
+     * 제출 기록은 지우지 않는다. 그래서 되감기 뒤 같은 매물·같은 상담으로 다시 확정하면 회차가
+     * 그대로라 이 재생 분기로 들어오는데, 여기서 관문을 그냥 두면 2루 관문이 닫힌 채 남아
+     * 계획이 3루로 넘어가지 못한다. 몇 번을 다시 내도 응답은 `replayed=true` 뿐이다.
+     *
+     * <p>관문이 이미 DONE 이면 아무것도 하지 않는다 — 재시도를 안전하게 만드는 재생 분기의
+     * 성질을 그대로 두고, 이미 3루로 넘어간 사람의 이어하기 위치도 건드리지 않는다.
+     */
+    private PlanProgressResponse replayProgress(Long memberId, Long planId, Plan plan, String ruleVersion) {
+        PlanProgressResponse progress = planService.getProgress(memberId, planId);
+        if (progress.isGateCompleted(PlanGate.SECOND_POLICY_SELECTION)) {
+            return progress;
+        }
+        planService.completeStep(
+                memberId, planId, PlanGate.SECOND_POLICY_SELECTION.code(), new CompletePlanStepRequest(ruleVersion));
+        plan.enterStage(PlanStage.SECOND, "SECOND_BASE_RESULT");
+        return planService.getProgress(memberId, planId);
     }
 
     private void requireFinalTerms(BankConsultationResponse consultation) {
