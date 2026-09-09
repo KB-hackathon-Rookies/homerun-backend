@@ -312,6 +312,36 @@ public class Property {
         }
     }
 
+    /**
+     * 재진단 — 워크플로를 첫 STEP 으로 되돌린다.
+     *
+     * <p>사람이 답한 값(위반건축물·등기부 체크리스트)만 지운다. 재-walk 에서 VIOLATION·REGISTRY
+     * STEP 이 다시 받아 덮어쓰므로, 지워 두지 않으면 리셋 직후 판정이 옛 RED 로 다시 계산돼
+     * "재진단했는데 그대로 불가" 로 보인다. 등록 때 조회로 확보한 값(주소·지번·시세·전용면적·
+     * 주택유형·자동조회 안전사실)은 그대로 둔다 — 다시 조회하려면 삭제 후 재등록이다.
+     *
+     * <p>{@code workflowRevision} 을 올려, 옛 revision 을 든 저장 요청은 409 로 걸리게 한다.
+     */
+    public void resetDiagnosis() {
+        // VIOLATION STEP 이 다시 받는 값
+        violationBuilding = null;
+        // REGISTRY STEP 이 다시 받는 값
+        officialPrice = null;
+        officialPriceYear = null;
+        officialPriceSource = null;
+        seniorDebt = null;
+        seniorDebtRegisteredAt = null;
+        ownerMatches = null;
+        trustRegistered = null;
+        leaseholdRegistered = null;
+        seizureOrDispositionRestricted = null;
+        auctionInProgress = null;
+        landlordTaxUnpaid = null;
+        workflowStep = PropertyDiagnosisStep.BUILDING;
+        workflowStatus = PropertyWorkflowStatus.IN_PROGRESS;
+        workflowRevision++;
+    }
+
     private void verifyWorkflow(int expectedRevision, PropertyDiagnosisStep expectedStep) {
         if (workflowRevision != expectedRevision) {
             throw new BusinessException(ErrorCode.PROPERTY_WORKFLOW_REVISION_MISMATCH);

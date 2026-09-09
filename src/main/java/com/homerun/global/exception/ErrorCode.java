@@ -115,6 +115,7 @@ public enum ErrorCode {
     PROPERTY_COMPARISON_DUPLICATE(HttpStatus.BAD_REQUEST, "PRP_004", "같은 매물을 중복해서 비교할 수 없습니다."),
     PROPERTY_LIMIT_EXCEEDED(HttpStatus.BAD_REQUEST, "PRP_008", "매물은 최대 5개까지 등록할 수 있습니다."),
     PROPERTY_DELETE_LOCKED(HttpStatus.CONFLICT, "PRP_021", "최종 선택 또는 계약에 사용한 매물은 삭제할 수 없습니다."),
+    PROPERTY_RECHECK_LOCKED(HttpStatus.CONFLICT, "PRP_022", "최종 선택 또는 계약에 사용한 매물은 재진단할 수 없습니다."),
     PROPERTY_WORKFLOW_REVISION_MISMATCH(HttpStatus.CONFLICT, "PRP_009", "다른 요청에서 매물 확인 단계가 변경되었습니다."),
     PROPERTY_WORKFLOW_STEP_INVALID(HttpStatus.CONFLICT, "PRP_010", "현재 매물 확인 단계에서는 저장할 수 없습니다."),
     PROPERTY_LOAN_PRODUCTS_NOT_READY(HttpStatus.CONFLICT, "PRP_011", "필수 매물 확인을 마친 후 대출 상품을 판정할 수 있습니다."),
