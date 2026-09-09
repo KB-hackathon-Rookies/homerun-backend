@@ -14,12 +14,20 @@ import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
 import jakarta.persistence.Table;
+import jakarta.persistence.UniqueConstraint;
 import java.math.BigDecimal;
 import java.time.Instant;
 import java.time.LocalDate;
 
 @Entity
-@Table(name = "bank_consultation")
+@Table(
+        name = "bank_consultation",
+        // 자연키는 (계획 + 매물 + 은행 + 상품)이다. 실제 강제는 V74 유니크 제약이 하지만,
+        // 여기에 적어 두지 않으면 매핑만 보고 지점·상담일이 키에 든다고 오해하기 쉽다.
+        uniqueConstraints =
+                @UniqueConstraint(
+                        name = "uq_bank_consultation_plan_property_bank_product",
+                        columnNames = {"plan_id", "property_id", "bank_name", "loan_product"}))
 public class BankConsultation {
 
     @Id

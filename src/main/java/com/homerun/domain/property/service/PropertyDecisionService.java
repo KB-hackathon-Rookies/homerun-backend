@@ -23,11 +23,15 @@ import java.time.Instant;
 import java.util.Comparator;
 import java.util.HashSet;
 import java.util.List;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 @Service
 public class PropertyDecisionService {
+
+    /** V74 에서 만든 (plan_id, property_id, bank_name, loan_product) 유니크 제약 이름. */
+    private static final String DUPLICATE_CONSULTATION_CONSTRAINT = "uq_bank_consultation_plan_property_bank_product";
 
     private final PlanRepository plans;
     private final PropertyRepository properties;
@@ -88,9 +92,34 @@ public class PropertyDecisionService {
                     return existing;
                 })
                 .orElseGet(() -> new BankConsultation(planId, propertyId, request));
-        BankConsultationResponse response = BankConsultationResponse.from(consultations.save(consultation));
+        BankConsultationResponse response;
+        try {
+            response = BankConsultationResponse.from(consultations.saveAndFlush(consultation));
+        } catch (DataIntegrityViolationException e) {
+            // 조회와 저장 사이에 같은 키가 먼저 들어오면(더블클릭·동시 제출) INSERT 가 V74 유니크
+            // 제약에 걸린다. 이 시점에는 트랜잭션이 이미 깨져 재조회로 덮어쓸 수 없으므로 409 로
+            // 돌려보내 다시 저장하게 한다 -- 그때는 앞선 요청이 만든 카드를 찾아 덮어쓴다.
+            // 무결성 오류를 전부 경합으로 바꾸면 없는 정책·보증기관을 넣은 요청까지 가려지므로
+            // 제약 이름으로 갈라낸다.
+            if (violates(e, DUPLICATE_CONSULTATION_CONSTRAINT)) {
+                throw new BusinessException(ErrorCode.CONCURRENT_UPDATE, e);
+            }
+            throw e;
+        }
         property.markConsulted();
         return response;
+    }
+
+    private boolean violates(DataIntegrityViolationException e, String constraintName) {
+        Throwable current = e;
+        while (current != null) {
+            String message = current.getMessage();
+            if (message != null && message.contains(constraintName)) {
+                return true;
+            }
+            current = current.getCause() == current ? null : current.getCause();
+        }
+        return false;
     }
 
     @Transactional(readOnly = true)
