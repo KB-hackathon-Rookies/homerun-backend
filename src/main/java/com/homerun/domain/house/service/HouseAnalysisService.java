@@ -32,11 +32,7 @@ public class HouseAnalysisService {
     }
 
     public HouseAnalysisResponse analyze(HouseAnalysisRequest request) {
-        BuildingLotQuery lotQuery = new BuildingLotQuery(
-                request.legalDistrictCode(),
-                request.mountain(),
-                request.mainLotNumber(),
-                normalizeSubLotNumber(request.subLotNumber()));
+        BuildingLotQuery lotQuery = request.toLotQuery();
         BuildingLedgerResponse ledger = buildingLedgerService.findLedger(lotQuery);
         List<String> warnings = new ArrayList<>();
         HouseType houseType = request.houseType() != null ? request.houseType() : resolveHouseType(ledger, warnings);
@@ -87,7 +83,7 @@ public class HouseAnalysisService {
 
     private RentTransactions matchTransactions(
             RealEstateTransactionResponse source, HouseAnalysisRequest request, List<String> buildingNames) {
-        String targetLot = lotNumber(request.mainLotNumber(), request.subLotNumber());
+        String targetLot = lotNumber(request.mainLotNumber(), request.normalizedSubLotNumber());
         List<Map<String, String>> matches = source.items().stream()
                 .filter(item -> lotMatches(item, targetLot) || buildingNameMatches(item, buildingNames))
                 .toList();
@@ -156,14 +152,10 @@ public class HouseAnalysisService {
         return item.getOrDefault(key, "").trim();
     }
 
+    /** 실거래·대장 항목의 {@code jibun} 과 맞춰 보려고 만드는 표시용 지번. 부번 0 은 붙이지 않는다. */
     private String lotNumber(String mainLotNumber, String subLotNumber) {
         String main = String.valueOf(Integer.parseInt(mainLotNumber));
-        String sub = normalizeSubLotNumber(subLotNumber);
-        return "0".equals(sub) ? main : main + "-" + Integer.parseInt(sub);
-    }
-
-    private String normalizeSubLotNumber(String subLotNumber) {
-        return subLotNumber == null || subLotNumber.isBlank() ? "0" : subLotNumber;
+        return "0".equals(subLotNumber) ? main : main + "-" + Integer.parseInt(subLotNumber);
     }
 
     private String normalize(String value) {

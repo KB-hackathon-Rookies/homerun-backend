@@ -8,6 +8,7 @@ import com.homerun.domain.property.type.PropertyDiagnosisStep;
 import com.homerun.domain.property.type.PropertyWorkflowStatus;
 import com.homerun.global.exception.BusinessException;
 import com.homerun.global.exception.ErrorCode;
+import com.homerun.global.external.building.BuildingLotQuery;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;
@@ -108,6 +109,22 @@ public class Property {
     @Column(name = "jibun", length = 50)
     private String jibun;
 
+    /*
+     * 건축물대장 조회 파라미터. 주소 검색이 준 값을 그대로 둔다.
+     *
+     * jibun 은 "서울특별시 강남구 역삼동 648-23 여삼빌딩" 같은 표시용 문자열이라 조회에 쓸 수 없다.
+     * 이 셋이 없으면 등록한 뒤에는 대장을 다시 볼 방법이 없다.
+     */
+    @Column(name = "main_lot_number", length = 4)
+    private String mainLotNumber;
+
+    @Column(name = "sub_lot_number", length = 4)
+    private String subLotNumber;
+
+    /** 산 소재지 여부. 같은 번지라도 산과 대지는 다른 땅이라 빼면 엉뚱한 건물이 나온다. */
+    @Column(name = "mountain")
+    private Boolean mountain;
+
     /** 동·호수. 집합건물은 여기까지 정확해야 등기부가 맞다(FR-P2-02). */
     @Column(name = "detail_address", length = 100)
     private String detailAddress;
@@ -155,7 +172,7 @@ public class Property {
 
     public static Property candidate(
             Long planId,
-            String legalDistrictCode,
+            BuildingLotQuery lot,
             String address,
             String roadAddress,
             String buildingName,
@@ -172,7 +189,14 @@ public class Property {
             Instant analyzedAt) {
         Property property = new Property();
         property.planId = planId;
-        property.legalDistrictCode = legalDistrictCode;
+        // 주소를 모르는 채로 만드는 경로가 있다(테스트·수기 등록). 지번이 없으면 비워 둔다 —
+        // 지어내면 나중에 엉뚱한 대장을 조회하고도 그 사실을 알 수 없다.
+        if (lot != null) {
+            property.legalDistrictCode = lot.legalDistrictCode();
+            property.mainLotNumber = lot.mainLotNumber();
+            property.subLotNumber = lot.subLotNumber();
+            property.mountain = lot.mountain();
+        }
         property.address = address;
         property.roadAddress = roadAddress;
         property.buildingName = buildingName;
@@ -299,6 +323,31 @@ public class Property {
 
     public String getJibun() {
         return jibun;
+    }
+
+    /**
+     * 저장해 둔 값으로 건축물대장 조회 파라미터를 되만든다.
+     *
+     * <p>등록 전에 만든 매물은 이 값이 없다. 그때는 {@code null} 이다 — 주소 문자열에서 뽑아
+     * 지어내지 않는다. 추정으로 채우면 엉뚱한 대장을 조회하고도 그 사실을 알 수 없다.
+     */
+    public BuildingLotQuery lotQuery() {
+        if (mainLotNumber == null || legalDistrictCode == null) {
+            return null;
+        }
+        return new BuildingLotQuery(legalDistrictCode, Boolean.TRUE.equals(mountain), mainLotNumber, subLotNumber);
+    }
+
+    public String getMainLotNumber() {
+        return mainLotNumber;
+    }
+
+    public String getSubLotNumber() {
+        return subLotNumber;
+    }
+
+    public Boolean getMountain() {
+        return mountain;
     }
 
     public String getDetailAddress() {

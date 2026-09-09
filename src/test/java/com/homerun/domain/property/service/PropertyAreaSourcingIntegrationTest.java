@@ -7,6 +7,7 @@ import com.homerun.TestcontainersConfiguration;
 import com.homerun.domain.property.entity.Property;
 import com.homerun.domain.property.repository.PropertyRepository;
 import com.homerun.domain.property.type.DataSource;
+import com.homerun.global.external.building.BuildingLotQuery;
 import jakarta.persistence.EntityManager;
 import java.math.BigDecimal;
 import java.time.Instant;
@@ -82,7 +83,7 @@ class PropertyAreaSourcingIntegrationTest {
     private Property candidate(Long planId) {
         return Property.candidate(
                 planId,
-                "1162010100",
+                new BuildingLotQuery("1162010100", false, "123", "4"),
                 "서울특별시 관악구 신림동 123-4",
                 "서울특별시 관악구 신림로 00길 00",
                 "홈런오피스텔",

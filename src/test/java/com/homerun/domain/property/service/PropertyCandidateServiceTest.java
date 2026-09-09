@@ -26,6 +26,7 @@ import com.homerun.domain.property.type.DataSource;
 import com.homerun.global.exception.BusinessException;
 import com.homerun.global.exception.ErrorCode;
 import com.homerun.global.external.building.BuildingLedgerResponse;
+import com.homerun.global.external.building.BuildingLotQuery;
 import com.homerun.global.external.building.BuildingRegisterResponse;
 import java.time.Clock;
 import java.time.Instant;
@@ -224,6 +225,23 @@ class PropertyCandidateServiceTest {
                         com.homerun.domain.property.type.TrafficLight.RED);
     }
 
+    /**
+     * 등록 시점에만 대장을 볼 수 있으면 안 된다. 재판정·재검증이 같은 집을 다시 조회하려면
+     * 조회 파라미터가 매물에 남아 있어야 한다. jibun 은 표시용 문자열이라 쓸 수 없다.
+     */
+    @Test
+    void should_keepLotNumbersOnProperty_forLaterLedgerLookup() {
+        when(houses.analyze(any())).thenReturn(houseAnalysis());
+        stubSave(91L);
+        when(verifications.verifyAndRecord(any(), any()))
+                .thenReturn(new PropertyVerification(CheckResult.PASS, List.of(), List.of()));
+
+        service.analyzeAndSave(MEMBER_ID, PLAN_ID, request());
+
+        Property saved = savedProperty();
+        assertThat(saved.lotQuery()).isEqualTo(new BuildingLotQuery("1168010100", false, "123", "4"));
+    }
+
     /** save() 가 받은 엔티티를 그대로 돌려주도록 스텁한다 — 서비스가 무엇을 채웠는지 보려는 것이다. */
     private void stubSave(long id) {
         when(properties.save(any(Property.class))).thenAnswer(invocation -> {
@@ -391,7 +409,7 @@ class PropertyCandidateServiceTest {
     private Property candidate(Long id) {
         Property property = Property.candidate(
                 PLAN_ID,
-                "1168010100",
+                new BuildingLotQuery("1168010100", false, "123", "4"),
                 "지번주소",
                 "도로명주소",
                 "홈런아파트",

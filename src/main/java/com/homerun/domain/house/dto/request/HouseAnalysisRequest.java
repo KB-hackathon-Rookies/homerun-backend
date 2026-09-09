@@ -1,6 +1,7 @@
 package com.homerun.domain.house.dto.request;
 
 import com.homerun.domain.plan.type.HouseType;
+import com.homerun.global.external.building.BuildingLotQuery;
 import io.swagger.v3.oas.annotations.media.Schema;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Pattern;
@@ -31,4 +32,19 @@ public record HouseAnalysisRequest(
         HouseType houseType,
 
         @Schema(description = "실거래 계약연월", example = "202608") @NotBlank @Pattern(regexp = "\\d{6}")
-        String dealYearMonth) {}
+        String dealYearMonth) {
+
+    /**
+     * 건축물대장 조회 파라미터. 주소 검색이 준 값을 그대로 옮긴다.
+     *
+     * <p>부번은 비워서 보낼 수 있어 여기서 {@code "0"} 으로 맞춘다. 이 정규화가 여러 곳에 흩어지면
+     * 한쪽만 고쳐져 같은 집을 다른 지번으로 조회하게 된다.
+     */
+    public BuildingLotQuery toLotQuery() {
+        return new BuildingLotQuery(legalDistrictCode, mountain, mainLotNumber, normalizedSubLotNumber());
+    }
+
+    public String normalizedSubLotNumber() {
+        return subLotNumber == null || subLotNumber.isBlank() ? "0" : subLotNumber;
+    }
+}

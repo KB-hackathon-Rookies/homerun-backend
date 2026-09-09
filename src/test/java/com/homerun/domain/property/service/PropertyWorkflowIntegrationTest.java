@@ -29,6 +29,7 @@ import com.homerun.domain.property.type.PropertyWorkflowStatus;
 import com.homerun.domain.property.type.TrafficLight;
 import com.homerun.global.exception.BusinessException;
 import com.homerun.global.exception.ErrorCode;
+import com.homerun.global.external.building.BuildingLotQuery;
 import java.math.BigDecimal;
 import java.time.Instant;
 import java.util.Set;
@@ -188,7 +189,7 @@ class PropertyWorkflowIntegrationTest {
     private Property candidate(boolean areaReady) {
         Property property = Property.candidate(
                 planId,
-                "1168010100",
+                new BuildingLotQuery("1168010100", false, "123", "4"),
                 "서울특별시 강남구 역삼동 123-4",
                 "서울특별시 강남구 테헤란로 123",
                 "홈런아파트",
