@@ -3,25 +3,30 @@ package com.homerun.domain.diagnosis.dto.request;
 import io.swagger.v3.oas.annotations.media.Schema;
 import jakarta.validation.constraints.PositiveOrZero;
 
-@Schema(description = "1루 진단 비용 입력. 대출 한도와 이자는 서버가 정책 판정 결과로 계산합니다.")
+@Schema(description = """
+                1루 진단 비용 입력. 대출 한도와 이자는 서버가 정책 판정 결과로 계산합니다.
+                비용 항목은 모두 생략할 수 있습니다 — 중개보수·인지세·보증료는 대출금이 정해져야
+                나오는 값이라 화면이 알 수 없고, 생략하면 서버가 기준 수치로 계산합니다.
+                0을 보내면 '확인해서 0원'으로 계산에 들어갑니다.
+                """)
 public record FirstBaseCostRequest(
         @PositiveOrZero @Schema(description = "이사 비용", example = "1000000")
-        long movingCost,
+        Long movingCost,
 
         @PositiveOrZero @Schema(description = "중개보수", example = "600000")
-        long brokerageFee,
+        Long brokerageFee,
 
         @PositiveOrZero @Schema(description = "반환보증 등 보증료", example = "300000")
-        long guaranteeFee,
+        Long guaranteeFee,
 
         @PositiveOrZero @Schema(description = "인지세 본인 부담액", example = "75000")
-        long stampTax,
+        Long stampTax,
 
         @PositiveOrZero @Schema(description = "입주 후 생활 예비비", example = "3000000")
-        long emergencyReserve,
+        Long emergencyReserve,
 
         @PositiveOrZero @Schema(description = "월 생활비", example = "900000")
-        long monthlyLivingExpense,
+        Long monthlyLivingExpense,
 
         @PositiveOrZero @Schema(description = "월 대출 상환액. 생략하면 최근 오픈뱅킹 스냅샷 사용")
         Long monthlyDebtPayment) {

@@ -16,6 +16,7 @@ import com.homerun.domain.plan.repository.PlanInputRepository;
 import com.homerun.domain.plan.repository.PlanRepository;
 import com.homerun.domain.plan.type.FinancialValueSource;
 import com.homerun.domain.plan.type.LeaseType;
+import com.homerun.domain.policy.service.AncillaryCostCalculator;
 import java.time.Clock;
 import java.time.Instant;
 import java.time.LocalDate;
@@ -57,13 +58,16 @@ class AlternativeRecalculationServiceTest {
     @Mock
     DiagnosisRepository diagnoses;
 
+    @Mock
+    AncillaryCostCalculator ancillaryCosts;
+
     private AlternativeRecalculationService service;
 
     @BeforeEach
     void setUp() {
         Clock clock = Clock.fixed(Instant.parse("2026-09-05T00:00:00Z"), ZoneOffset.UTC);
         service = new AlternativeRecalculationService(
-                new DiagnosisService(plans, inputs, snapshots, costs, diagnoses, clock));
+                new DiagnosisService(plans, inputs, snapshots, costs, diagnoses, ancillaryCosts, clock));
     }
 
     @Test

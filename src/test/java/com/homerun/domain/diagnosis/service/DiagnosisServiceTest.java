@@ -20,6 +20,8 @@ import com.homerun.domain.plan.repository.PlanInputRepository;
 import com.homerun.domain.plan.repository.PlanRepository;
 import com.homerun.domain.plan.type.FinancialValueSource;
 import com.homerun.domain.plan.type.LeaseType;
+import com.homerun.domain.policy.dto.response.AncillaryCostResponse;
+import com.homerun.domain.policy.service.AncillaryCostCalculator;
 import com.homerun.global.exception.BusinessException;
 import com.homerun.global.exception.ErrorCode;
 import java.time.Clock;
@@ -56,12 +58,15 @@ class DiagnosisServiceTest {
     @Mock
     DiagnosisRepository diagnoses;
 
+    @Mock
+    AncillaryCostCalculator ancillaryCosts;
+
     private DiagnosisService service;
 
     @BeforeEach
     void setUp() {
         Clock clock = Clock.fixed(Instant.parse("2026-09-05T00:00:00Z"), ZoneOffset.UTC);
-        service = new DiagnosisService(plans, inputs, snapshots, costs, diagnoses, clock);
+        service = new DiagnosisService(plans, inputs, snapshots, costs, diagnoses, ancillaryCosts, clock);
     }
 
     @Test
@@ -192,6 +197,83 @@ class DiagnosisServiceTest {
                         null,
                         confirmed,
                         Set.of()));
+    }
+
+    /**
+     * 0 은 "확인해서 0원" 이고 null 은 "모른다" 다. 화면은 대출금이 정해져야 나오는 중개보수·인지세·
+     * 보증료를 알 수 없어 전에는 전부 0 을 보냈고, 그 0 이 그대로 초기 필요자금에서 빠졌다.
+     */
+    @Test
+    void should_estimateAncillaryCosts_whenRequestOmitsThem() {
+        givenPlanAndInput(input(100_000_000L, 3_000_000L, 20_000_000L, 5_000_000L, true));
+        when(ancillaryCosts.ancillaryCost(100_000_000L, 80_000_000L, null, null, null))
+                .thenReturn(new AncillaryCostResponse(880_000L, 70_000L, 240_000L, 500_000L, 3_000L, null, true));
+
+        var result = service.simulate(MEMBER_ID, PLAN_ID, requestWithoutAncillaryCosts());
+
+        assertThat(result.initialCost().brokerageFee()).isEqualTo(880_000L);
+        assertThat(result.initialCost().stampTax()).isEqualTo(70_000L);
+        assertThat(result.initialCost().guaranteeFee()).isEqualTo(240_000L);
+        assertThat(result.initialCost().movingCost()).isEqualTo(500_000L);
+        // 보증금 1억 + 부대비용 1,690,000 + 예비비 3,000,000
+        assertThat(result.initialCost().totalRequired()).isEqualTo(104_690_000L);
+        assertThat(result.warnings()).contains(DiagnosisWarning.ANCILLARY_COST_ESTIMATED);
+    }
+
+    /** 사용자가 준 값이 있으면 그것이 먼저다. 서버가 굳이 계산하지 않는다. */
+    @Test
+    void should_useRequestedCosts_whenAllOfThemArePresent() {
+        givenPlanAndInput(input(100_000_000L, 3_000_000L, 20_000_000L, 5_000_000L, true));
+
+        var result = service.simulate(MEMBER_ID, PLAN_ID, request(200_000L));
+
+        assertThat(result.initialCost().brokerageFee()).isEqualTo(500_000L);
+        assertThat(result.warnings()).doesNotContain(DiagnosisWarning.ANCILLARY_COST_ESTIMATED);
+        verify(ancillaryCosts, never())
+                .ancillaryCost(
+                        org.mockito.ArgumentMatchers.anyLong(),
+                        org.mockito.ArgumentMatchers.anyLong(),
+                        org.mockito.ArgumentMatchers.any(),
+                        org.mockito.ArgumentMatchers.any(),
+                        org.mockito.ArgumentMatchers.any());
+    }
+
+    /** 요율표를 확보하지 못한 구간(보증금 6억 초과)이다. 지어내지 않고 빠졌다고 말한다. */
+    @Test
+    void should_warnBrokerageUnknown_whenRateTableDoesNotCoverDeposit() {
+        givenPlanAndInput(input(100_000_000L, 3_000_000L, 20_000_000L, 5_000_000L, true));
+        when(ancillaryCosts.ancillaryCost(100_000_000L, 80_000_000L, null, null, null))
+                .thenReturn(new AncillaryCostResponse(null, 70_000L, 240_000L, 500_000L, 3_000L, null, true));
+
+        var result = service.simulate(MEMBER_ID, PLAN_ID, requestWithoutAncillaryCosts());
+
+        assertThat(result.initialCost().brokerageFee()).isZero();
+        assertThat(result.warnings()).contains(DiagnosisWarning.BROKERAGE_FEE_UNKNOWN);
+    }
+
+    /**
+     * 생활비를 모르면 월 지출이 통째로 빠져 여유자금이 소득 전액에 가까워진다. 저축 가능액과
+     * 독립 가능 시점이 실제보다 낙관적으로 나오므로, 0 으로 두더라도 모른다는 것을 남긴다.
+     */
+    @Test
+    void should_warnMissingLivingExpenseAndReserve_whenRequestOmitsThem() {
+        givenPlanAndInput(input(100_000_000L, 3_000_000L, 20_000_000L, 5_000_000L, true));
+
+        var request = new DiagnosisCalculationRequest(
+                1_000_000L, 500_000L, 300_000L, 75_000L, null, null, 200_000L, 80_000_000L, 200_000L);
+        var result = service.simulate(MEMBER_ID, PLAN_ID, request);
+
+        assertThat(result.initialCost().emergencyReserve()).isZero();
+        assertThat(result.monthlyLivingExpense()).isZero();
+        // 소득 3,000,000 − 주거비 300,000 − 상환 200,000. 생활비 900,000 이 빠진 만큼 크다.
+        assertThat(result.monthlyDisposable()).isEqualTo(2_500_000L);
+        assertThat(result.warnings())
+                .contains(DiagnosisWarning.MONTHLY_LIVING_EXPENSE_MISSING, DiagnosisWarning.EMERGENCY_RESERVE_MISSING);
+    }
+
+    private DiagnosisCalculationRequest requestWithoutAncillaryCosts() {
+        return new DiagnosisCalculationRequest(
+                null, null, null, null, 3_000_000L, 900_000L, 200_000L, 80_000_000L, 200_000L);
     }
 
     private DiagnosisCalculationRequest request(long debtPayment) {
