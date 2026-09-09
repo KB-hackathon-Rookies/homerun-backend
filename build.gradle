@@ -64,6 +64,11 @@ dependencies {
 
 tasks.named('test') {
     useJUnitPlatform()
+    // Gradle 기본 테스트 힙은 512m 이다. 테스트 클래스가 180개를 넘기면서 스프링 테스트
+    // 컨텍스트 캐시가 20개 넘는 컨텍스트를 동시에 들고 있게 됐고, 거기서 512m 가 아슬아슬해졌다.
+    // 실제로 컨텍스트 하나를 더하자 "Java heap space" 로 스위트 끝에서 무너졌다.
+    // 남은 여유가 없어서 다음 테스트를 넣는 사람이 자기 코드와 무관한 OOM 을 만나게 된다.
+    maxHeapSize = '1g'
     finalizedBy jacocoTestReport
 }
 
