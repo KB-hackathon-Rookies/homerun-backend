@@ -167,6 +167,17 @@ public class PropertyCandidateController {
         return ApiResponse.success(null);
     }
 
+    @PostMapping("/{propertyId}/re-diagnose")
+    @Operation(
+            summary = "매물 재진단",
+            description = "워크플로를 첫 STEP 으로 되돌려 매물을 삭제 없이 다시 진단합니다. 최종 선택 또는 계약에 사용한 매물은 재진단할 수 없습니다.")
+    public ApiResponse<PropertyWorkflowResponse> reDiagnose(
+            @AuthenticationPrincipal MemberPrincipal principal,
+            @PathVariable Long planId,
+            @PathVariable Long propertyId) {
+        return ApiResponse.success(deletionService.reDiagnose(principal.memberId(), planId, propertyId));
+    }
+
     @PostMapping("/compare")
     @Operation(summary = "매물 후보 비교", description = "매물은 계획당 최대 5개까지 등록할 수 있고 한 번에 2~3개를 매물·상담 요약과 함께 비교합니다.")
     public ApiResponse<PropertyComparisonResponse> compare(
