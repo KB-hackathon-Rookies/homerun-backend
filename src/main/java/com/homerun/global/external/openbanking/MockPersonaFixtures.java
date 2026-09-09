@@ -3,6 +3,7 @@ package com.homerun.global.external.openbanking;
 import com.homerun.domain.openbanking.type.Persona;
 import java.math.BigDecimal;
 import java.time.LocalTime;
+import java.time.YearMonth;
 import java.util.EnumMap;
 import java.util.List;
 import java.util.Map;
@@ -69,6 +70,16 @@ final class MockPersonaFixtures {
      */
     private static MockProfile kimKukmin() {
         Persona persona = Persona.KIM_KUKMIN;
+        /*
+         * 급여가 달마다 다르다. 기본급 315만은 같고 시간외수당이 붙으며, 분기 마지막 달에 성과급이
+         * 얹힌다. 세 달 합이 1,140만이라 어느 세 달을 잡아도 평균이 페르소나의 380만이다.
+         */
+        MonthlyEntry salary = varyingSalary(persona, 3_240_000L, 3_410_000L, 4_750_000L);
+        /*
+         * 남는 돈은 전부 적금으로 넘긴다. 지출 150만 + 청약 10만을 빼고 남는 만큼이라, 성과급이
+         * 들어온 달에는 적금도 그만큼 늘어난다. 그래야 급여통장 잔액이 달마다 제자리다.
+         */
+        MonthlyEntry toSavings = surplusToSavings(salary, "샘플 자유적금 자동이체", 1_600_000L);
         return new MockProfile(
                 persona,
                 List.of(
@@ -78,14 +89,14 @@ final class MockPersonaFixtures {
                                 "004-**-****-1234",
                                 "1",
                                 "샘플 직장인 우대통장",
-                                amount(1_840_000),
+                                amount(4_260_000),
                                 List.of(
                                         expense(5, LocalTime.of(6, 0), "자동이체", "샘플 월세", 550_000),
                                         expense(14, LocalTime.of(12, 30), "카드", "샘플 생활비 체크카드", 430_000),
                                         expense(15, LocalTime.of(6, 0), "자동이체", "샘플 관리비", 120_000),
                                         expense(17, LocalTime.of(6, 0), "자동이체", "샘플 통신요금", 78_000),
-                                        salary(persona),
-                                        transferOut(LocalTime.of(6, 0), "샘플 자유적금 자동이체", 900_000),
+                                        salary,
+                                        toSavings,
                                         transferOut(LocalTime.of(6, 5), "샘플 주택청약 자동이체", 100_000),
                                         expense(28, LocalTime.of(13, 0), "카드", "샘플 신용카드 결제", 322_000))),
                         new MockAccount(
@@ -94,17 +105,29 @@ final class MockPersonaFixtures {
                                 "004-**-****-5678",
                                 "2",
                                 "샘플 자유적금",
-                                amount(8_760_000),
-                                List.of(transferIn(LocalTime.of(6, 0), "샘플 자유적금 납입", 900_000))),
+                                amount(31_340_000),
+                                // 급여통장에서 나간 그대로 들어온다. 금액이 어긋나면 순자산이 달마다 움직인다.
+                                List.of(mirror(toSavings, "샘플 자유적금 납입"))),
                         new MockAccount(
                                 "SAMPLE-KIM-0003",
                                 "샘플 주택청약저축",
                                 "004-**-****-9012",
                                 "2",
                                 "샘플 주택청약종합저축",
-                                amount(4_400_000),
+                                amount(6_400_000),
                                 List.of(transferIn(LocalTime.of(6, 5), "샘플 주택청약 납입", 100_000)))),
                 null);
+    }
+
+    /** 본인 계좌 사이의 이체를 받는 쪽. 금액을 그대로 따라가야 순자산이 변하지 않는다. */
+    private static MonthlyEntry mirror(MonthlyEntry outgoing, String description) {
+        return new MonthlyEntry(
+                outgoing.dayOfMonth(),
+                outgoing.time(),
+                Direction.DEPOSIT,
+                TYPE_INTERNAL_TRANSFER,
+                description,
+                outgoing.amount());
     }
 
     /** 저소득·학자금. 소득요건은 되지만 자산이 얇아 부족자금이 크게 잡히는 대안 시나리오. */
@@ -194,7 +217,56 @@ final class MockPersonaFixtures {
     /** 급여일은 25일 하나로 고정한다. 금액은 페르소나에서 그대로 가져와 두 계층이 어긋날 여지를 없앤다. */
     private static MonthlyEntry salary(Persona persona) {
         return new MonthlyEntry(
-                25, LocalTime.of(9, 10), Direction.DEPOSIT, TYPE_SALARY, "샘플급여", amount(persona.getMonthlyIncome()));
+                25,
+                LocalTime.of(9, 10),
+                Direction.DEPOSIT,
+                TYPE_SALARY,
+                "샘플급여",
+                MonthlyAmount.fixed(amount(persona.getMonthlyIncome())));
+    }
+
+    /**
+     * 달마다 다른 급여. <b>연속한 어느 세 달을 잡아도 평균이 페르소나의 월소득과 같다.</b>
+     *
+     * <p>요약 집계가 최근 <b>3개월</b>만 평균 내기 때문이다({@code SUMMARY_MONTHS}). 성과급을 연중에
+     * 흩뿌리면 데모를 도는 달에 따라 화면의 소득이 달라진다 — 12월엔 부풀고 한산한 분기엔 낮게 나온다.
+     * 그래서 변동을 분기 주기로 두어 어느 시점에 열어도 평균이 같게 만든다.
+     *
+     * <p>분기 안의 배분은 실제 급여명세에 가깝게 잡았다. 기본급은 같고 시간외수당이 달마다 다르며,
+     * 분기 마지막 달에 성과급이 얹힌다.
+     */
+    private static MonthlyEntry varyingSalary(Persona persona, long... cycle) {
+        long average = persona.getMonthlyIncome();
+        long sum = 0;
+        for (long month : cycle) {
+            sum += month;
+        }
+        if (cycle.length == 0 || sum != average * cycle.length) {
+            throw new IllegalArgumentException("급여 주기의 평균이 페르소나 월소득과 달라 화면이 다른 숫자를 말하게 된다: 합계 " + sum);
+        }
+        return new MonthlyEntry(
+                25,
+                LocalTime.of(9, 10),
+                Direction.DEPOSIT,
+                TYPE_SALARY,
+                "샘플급여",
+                month -> amount(cycle[Math.floorMod(month.getMonthValue() - 1, cycle.length)]));
+    }
+
+    /**
+     * 급여에서 지출·청약을 빼고 남는 만큼 적금으로 넘긴다.
+     *
+     * <p>급여가 달마다 다르면 남는 돈도 달라진다. 그 차액을 적금이 흡수해야 급여통장 잔액이
+     * 달마다 제자리다 — 성과급이 그대로 저축으로 가는 셈이라 실제 사람의 행동과도 맞는다.
+     */
+    private static MonthlyEntry surplusToSavings(MonthlyEntry salary, String description, long otherOutflow) {
+        return new MonthlyEntry(
+                26,
+                LocalTime.of(6, 0),
+                Direction.WITHDRAWAL,
+                TYPE_INTERNAL_TRANSFER,
+                description,
+                month -> salary.amountAt(month).subtract(amount(otherOutflow)));
     }
 
     private static MonthlyEntry debtRepayment(Persona persona, int dayOfMonth, String description) {
@@ -204,20 +276,28 @@ final class MockPersonaFixtures {
                 Direction.WITHDRAWAL,
                 TYPE_DEBT_REPAYMENT,
                 description,
-                amount(persona.getMonthlyDebtPayment()));
+                MonthlyAmount.fixed(amount(persona.getMonthlyDebtPayment())));
     }
 
     private static MonthlyEntry expense(int dayOfMonth, LocalTime time, String type, String description, long amount) {
-        return new MonthlyEntry(dayOfMonth, time, Direction.WITHDRAWAL, type, description, amount(amount));
+        return new MonthlyEntry(
+                dayOfMonth, time, Direction.WITHDRAWAL, type, description, MonthlyAmount.fixed(amount(amount)));
     }
 
     /** 적금·청약 납입은 26일에 급여통장에서 나가 같은 날 같은 금액으로 저축계좌에 들어온다. */
     private static MonthlyEntry transferOut(LocalTime time, String description, long amount) {
-        return new MonthlyEntry(26, time, Direction.WITHDRAWAL, TYPE_INTERNAL_TRANSFER, description, amount(amount));
+        return new MonthlyEntry(
+                26,
+                time,
+                Direction.WITHDRAWAL,
+                TYPE_INTERNAL_TRANSFER,
+                description,
+                MonthlyAmount.fixed(amount(amount)));
     }
 
     private static MonthlyEntry transferIn(LocalTime time, String description, long amount) {
-        return new MonthlyEntry(26, time, Direction.DEPOSIT, TYPE_INTERNAL_TRANSFER, description, amount(amount));
+        return new MonthlyEntry(
+                26, time, Direction.DEPOSIT, TYPE_INTERNAL_TRANSFER, description, MonthlyAmount.fixed(amount(amount)));
     }
 
     private static BigDecimal amount(long value) {
@@ -239,11 +319,36 @@ final class MockPersonaFixtures {
         }
     }
 
-    record MonthlyEntry(
-            int dayOfMonth, LocalTime time, Direction direction, String type, String description, BigDecimal amount) {
+    /**
+     * 달마다 금액이 달라질 수 있는 항목.
+     *
+     * <p>급여가 매달 같은 금액이면 화면에서 바로 가짜로 읽힌다. 실제 월급은 기본급에 시간외수당이
+     * 붙고 분기마다 성과급이 얹힌다. 그래서 금액을 고정값이 아니라 <b>달의 함수</b>로 둔다.
+     */
+    @FunctionalInterface
+    interface MonthlyAmount {
+        BigDecimal at(YearMonth month);
 
-        BigDecimal signedAmount() {
-            return direction == Direction.DEPOSIT ? amount : amount.negate();
+        static MonthlyAmount fixed(BigDecimal amount) {
+            return month -> amount;
+        }
+    }
+
+    record MonthlyEntry(
+            int dayOfMonth,
+            LocalTime time,
+            Direction direction,
+            String type,
+            String description,
+            MonthlyAmount amount) {
+
+        BigDecimal amountAt(YearMonth month) {
+            return amount.at(month);
+        }
+
+        BigDecimal signedAmountAt(YearMonth month) {
+            BigDecimal value = amountAt(month);
+            return direction == Direction.DEPOSIT ? value : value.negate();
         }
     }
 

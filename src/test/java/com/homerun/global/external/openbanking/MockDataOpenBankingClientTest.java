@@ -144,14 +144,32 @@ class MockDataOpenBankingClientTest {
                 .toList();
 
         assertThat(accountsWithSalary).isEqualTo(1);
-        assertThat(salaries).hasSize(SUMMARY_MONTHS).allSatisfy(salary -> {
-            assertThat(salary.direction()).isEqualTo("입금");
-            assertThat(salary.amount()).isEqualByComparingTo(won(persona.getMonthlyIncome()));
-        });
+        assertThat(salaries)
+                .hasSize(SUMMARY_MONTHS)
+                .allSatisfy(salary -> assertThat(salary.direction()).isEqualTo("입금"));
+        /*
+         * 매달 같은 금액이 아니라 **평균**이 페르소나 값과 같아야 한다. 요약 집계가 최근 3개월을
+         * 평균 내므로, 이 합이 어긋나면 화면이 페르소나와 다른 소득을 말한다.
+         */
+        BigDecimal total = salaries.stream().map(Transaction::amount).reduce(BigDecimal.ZERO, BigDecimal::add);
+        assertThat(total).isEqualByComparingTo(won(persona.getMonthlyIncome() * SUMMARY_MONTHS));
         assertThat(salaries)
                 .extracting(Transaction::date)
                 .containsExactlyInAnyOrder(
                         LocalDate.of(2026, 8, 25), LocalDate.of(2026, 7, 25), LocalDate.of(2026, 6, 25));
+    }
+
+    @Test
+    @DisplayName("기본 페르소나의 급여는 달마다 다르다 — 매달 같은 금액이면 화면에서 가짜로 읽힌다")
+    void should_varyTheSalary_acrossMonths() {
+        List<BigDecimal> amounts = accountsOf(Persona.KIM_KUKMIN).accounts().stream()
+                .flatMap(account -> transactions(account, FROM_DATE, TO_DATE).stream())
+                .filter(this::isSalary)
+                .map(Transaction::amount)
+                .toList();
+
+        assertThat(amounts).hasSize(SUMMARY_MONTHS);
+        assertThat(amounts.stream().distinct()).hasSize(SUMMARY_MONTHS);
     }
 
     @ParameterizedTest

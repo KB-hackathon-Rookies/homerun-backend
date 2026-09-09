@@ -227,16 +227,17 @@ public class MockDataOpenBankingClient implements OpenBankingClient {
         BigDecimal balanceAfter = account.balance();
         for (Occurrence occurrence : occurrences) {
             MonthlyEntry entry = occurrence.entry();
+            YearMonth month = YearMonth.from(occurrence.date());
             transactions.add(new Transaction(
                     occurrence.date(),
                     entry.time(),
                     entry.direction().label(),
                     entry.type(),
                     entry.description(),
-                    entry.amount(),
+                    entry.amountAt(month),
                     balanceAfter,
                     MockPersonaFixtures.BRANCH_NAME));
-            balanceAfter = balanceAfter.subtract(entry.signedAmount());
+            balanceAfter = balanceAfter.subtract(entry.signedAmountAt(month));
         }
         return List.copyOf(transactions);
     }

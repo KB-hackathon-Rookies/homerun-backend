@@ -86,13 +86,22 @@ class OpenBankingMockDataSummaryTest {
                         .map(AccountBalanceBreakdownResponse::balanceAmount)
                         .reduce(BigDecimal.ZERO, BigDecimal::add))
                 .isEqualByComparingTo(won(KIM.getFinancialAsset()));
-        // 월별 소득 분해 — 집계 기간 세 달이 오름차순으로, 각 달이 월 급여와 같아야 평균도 그 값이 된다.
+        // 월별 소득 분해 — 집계 기간 세 달이 오름차순으로 온다.
         assertThat(summary.monthlyNetIncomes())
                 .hasSize(3)
                 .extracting(MonthlyIncomeResponse::month)
                 .containsExactly("2026-06", "2026-07", "2026-08");
+        /*
+         * 달마다 금액이 다르다(기본급·시간외수당·분기 성과급). 매달 같으면 화면에서 가짜로 읽힌다.
+         * 대신 세 달 합이 월소득의 세 배라 평균이 페르소나 값과 정확히 맞는다.
+         */
         assertThat(summary.monthlyNetIncomes())
-                .allSatisfy(month -> assertThat(month.amount()).isEqualByComparingTo(won(KIM.getMonthlyIncome())));
+                .extracting(MonthlyIncomeResponse::amount)
+                .doesNotHaveDuplicates();
+        assertThat(summary.monthlyNetIncomes().stream()
+                        .map(MonthlyIncomeResponse::amount)
+                        .reduce(BigDecimal.ZERO, BigDecimal::add))
+                .isEqualByComparingTo(won(KIM.getMonthlyIncome() * 3));
         // 빚이 없는 페르소나라 대출 목록이 비어 있다. 0원짜리 대출 행을 만들면 여기서 개수가 어긋난다.
         assertThat(summary.loanCount()).isZero();
         assertThat(summary.averageMonthlyLoanRepayment()).isEqualByComparingTo(won(KIM.getMonthlyDebtPayment()));
@@ -136,8 +145,11 @@ class OpenBankingMockDataSummaryTest {
                         .transactions())
                 .filteredOn(transaction -> "급여".equals(transaction.type()))
                 .hasSize(3)
-                .allSatisfy(
-                        salary -> assertThat(salary.amount()).isEqualByComparingTo(summary.averageMonthlyNetIncome()));
+                // 급여가 달마다 달라 한 건씩 비교할 수 없다. 요약이 평균을 내므로 합으로 맞춘다.
+                .satisfies(salaries -> assertThat(salaries.stream()
+                                .map(salary -> salary.amount())
+                                .reduce(BigDecimal.ZERO, BigDecimal::add))
+                        .isEqualByComparingTo(summary.averageMonthlyNetIncome().multiply(BigDecimal.valueOf(3))));
     }
 
     @Test
