@@ -83,6 +83,7 @@ public class PropertyWorkflowService {
         if (verification.trafficLight() == TrafficLight.RED) {
             property.blockAt(PropertyDiagnosisStep.BUILDING);
         }
+        rememberLocation(plan, property);
         return response(property, verification);
     }
 
@@ -92,7 +93,9 @@ public class PropertyWorkflowService {
         Plan plan = ownedPlan(memberId, planId);
         Property property = ownedProperty(planId, propertyId, true);
         property.completeViolationStep(request.expectedRevision(), request.violationBuilding());
-        return response(property, verify(property, plan));
+        PropertyVerification verification = verify(property, plan);
+        rememberLocation(plan, property);
+        return response(property, verification);
     }
 
     @Transactional
@@ -119,6 +122,7 @@ public class PropertyWorkflowService {
         if (workflowStatus == PropertyWorkflowStatus.READY_FOR_CONSULTATION) {
             policyVerdicts.evaluate(memberId, planId, propertyId);
         }
+        rememberLocation(plan, property);
         return response(property, verification);
     }
 
@@ -146,6 +150,20 @@ public class PropertyWorkflowService {
                         .toList(),
                 loans,
                 consultations);
+    }
+
+    /**
+     * 매물 워크플로가 한 칸 나아갈 때마다 계획의 이어하기 자리를 2루로 옮긴다.
+     *
+     * <p>STEP 저장 하나하나가 자동 저장 지점이다. 1루는 문진 단계마다, 3루는 할 일마다 자리를
+     * 남기는데 2루만 남기지 않아서, 매물을 STEP 4 까지 검증하고 나간 사람도 1루 완료가 심어 둔
+     * `FIRST` / `DIAGNOSIS_RESULT` 를 그대로 달고 있었다. 이어하기가 끝난 1루를 다시 가리킨다.
+     *
+     * <p>남기는 값은 저장 뒤의 워크플로 단계다 — 돌아온 사람이 이어서 할 화면이 그 단계다.
+     * 막힌 매물이면 막힌 자리가 남는다. 프론트의 `PropertyStep` 과 글자를 맞춰 두었다.
+     */
+    private void rememberLocation(Plan plan, Property property) {
+        plan.updateLastLocation(property.getWorkflowStep().name());
     }
 
     private PropertyVerification verify(Property property, Plan plan) {
