@@ -47,6 +47,22 @@ public class UserAgreement {
         return new UserAgreement(memberId, term);
     }
 
+    /**
+     * 아직 답을 정하지 않은 상태로 만든다.
+     *
+     * <p>선택 약관은 "동의 안 함" 도 남겨야 한다 — 거절한 것과 물어본 적 없는 것은 다르다.
+     * 만든 직후 {@link #agree()} 나 {@link #revoke()} 로 답을 정한다.
+     */
+    public static UserAgreement of(Long memberId, Term term) {
+        return new UserAgreement(memberId, term);
+    }
+
+    /** 동의하지 않는다고 답했다. 기록은 남는다 — 물어본 적 없는 것과 구분하기 위해서다. */
+    public void revoke() {
+        agreed = false;
+        revokedAt = Instant.now();
+    }
+
     public void agree() {
         agreed = true;
         agreedAt = Instant.now();
