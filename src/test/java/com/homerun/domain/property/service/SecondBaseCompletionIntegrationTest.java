@@ -11,6 +11,7 @@ import com.homerun.domain.plan.entity.Plan;
 import com.homerun.domain.plan.entity.PlanStep;
 import com.homerun.domain.plan.repository.PlanRepository;
 import com.homerun.domain.plan.repository.PlanStepRepository;
+import com.homerun.domain.plan.service.PlanService;
 import com.homerun.domain.plan.type.LeaseType;
 import com.homerun.domain.plan.type.PlanGate;
 import com.homerun.domain.plan.type.PlanStage;
@@ -71,6 +72,9 @@ class SecondBaseCompletionIntegrationTest {
     @Autowired
     SecondBaseSubmissionRepository submissions;
 
+    @Autowired
+    PlanService planService;
+
     private Long memberId;
     private Long planId;
     private Long propertyId;
@@ -80,9 +84,8 @@ class SecondBaseCompletionIntegrationTest {
         Member member =
                 members.save(Member.create(AuthProvider.KAKAO, "second-base-" + System.nanoTime(), null, "tester"));
         memberId = member.getId();
-        Plan plan = plans.save(Plan.create(memberId, LeaseType.JEONSE, null));
-        planId = plan.getId();
-        prepareSecondBase(plan);
+        planId = plans.save(Plan.create(memberId, LeaseType.JEONSE, null)).getId();
+        prepareSecondBase();
         propertyId = safeProperty();
     }
 
@@ -107,6 +110,30 @@ class SecondBaseCompletionIntegrationTest {
         assertThat(submissions.countByPlanId(planId)).isEqualTo(1);
         assertThat(completionService.result(memberId, planId).decisionRevision())
                 .isEqualTo(revision);
+    }
+
+    @Test
+    void should_reopenSecondBaseGate_when_sameDecisionIsSubmittedAfterReset() {
+        int revision = decide(completeConsultation());
+        SecondBaseCompleteRequest request = new SecondBaseCompleteRequest(revision, Plan.CURRENT_RULE_VERSION);
+        var completed = completionService.complete(memberId, planId, request);
+
+        // 되감기는 관문만 되돌린다. 매물 확정과 제출 기록은 남아 회차가 그대로다.
+        planService.reset(memberId, planId);
+        walkToSecondBase();
+
+        var replayed = completionService.complete(memberId, planId, request);
+
+        assertThat(replayed.replayed()).isTrue();
+        assertThat(replayed.completedAt()).isEqualTo(completed.completedAt());
+        assertThat(replayed.progress().currentStage()).isEqualTo(PlanStage.THIRD);
+        assertThat(replayed.progress().lastVisitedStage()).isEqualTo(PlanStage.SECOND);
+        assertThat(replayed.progress().lastLocationCode()).isEqualTo("SECOND_BASE_RESULT");
+        assertThat(replayed.progress().steps())
+                .filteredOn(step -> step.code().equals(PlanGate.SECOND_POLICY_SELECTION.code()))
+                .extracting("status")
+                .containsExactly(PlanStepStatus.DONE);
+        assertThat(submissions.countByPlanId(planId)).isEqualTo(1);
     }
 
     @Test
@@ -146,8 +173,14 @@ class SecondBaseCompletionIntegrationTest {
         assertThat(submissions.countByPlanId(planId)).isZero();
     }
 
-    private void prepareSecondBase(Plan plan) {
-        List<PlanStep> steps = PlanStep.defaultSteps(planId);
+    private void prepareSecondBase() {
+        planSteps.saveAll(PlanStep.defaultSteps(planId));
+        walkToSecondBase();
+    }
+
+    /** 벤치·1루 관문을 통과시켜 계획을 2루에 세운다. 되감기 뒤 되돌아올 때도 같은 길을 쓴다. */
+    private void walkToSecondBase() {
+        List<PlanStep> steps = planSteps.findAllByPlanIdOrderBySequenceAsc(planId);
         PlanStep bench = steps.get(0);
         PlanStep first = steps.get(1);
         PlanStep second = steps.get(2);
@@ -157,6 +190,7 @@ class SecondBaseCompletionIntegrationTest {
         second.unlockWhenDependenciesCompleted(
                 List.of(PlanGate.BENCH_ONBOARDING.code(), PlanGate.FIRST_DIAGNOSIS.code()));
         planSteps.saveAll(steps);
+        Plan plan = plans.findById(planId).orElseThrow();
         plan.advance();
         plan.advance();
         plans.save(plan);

@@ -14,6 +14,7 @@ import com.homerun.domain.member.entity.Member;
 import com.homerun.domain.member.repository.MemberRepository;
 import com.homerun.domain.plan.dto.request.CompletePlanStepRequest;
 import com.homerun.domain.plan.dto.request.PlanInputRequest;
+import com.homerun.domain.plan.dto.request.UpdatePlanLocationRequest;
 import com.homerun.domain.plan.entity.Plan;
 import com.homerun.domain.plan.entity.PlanInput;
 import com.homerun.domain.plan.entity.PlanInputStep;
@@ -30,6 +31,7 @@ import com.homerun.domain.plan.type.HouseholderStatus;
 import com.homerun.domain.plan.type.LeaseType;
 import com.homerun.domain.plan.type.PlanGate;
 import com.homerun.domain.plan.type.PlanInputUnknownField;
+import com.homerun.domain.plan.type.PlanStage;
 import com.homerun.domain.region.repository.RegionRepository;
 import com.homerun.domain.terms.service.TermsService;
 import com.homerun.global.security.jwt.JwtTokenProvider;
@@ -171,6 +173,63 @@ class FirstBaseCompletionIntegrationTest {
 
         assertThat(count("diagnosis")).isEqualTo(1);
         assertThat(count("cost_estimate")).isEqualTo(1);
+        assertThat(count("first_base_submission")).isEqualTo(1);
+    }
+
+    @Test
+    void reopens_firstBaseGate_when_sameAnswersAreSubmitted_afterReset() throws Exception {
+        mvc.perform(post(endpoint())
+                        .header("Authorization", bearer)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(requestBody(1)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.replayed").value(false));
+
+        // 되감기는 관문을 벤치로 되돌리지만 제출 기록은 남긴다. 사용자는 준비 문진부터 다시 밟는다.
+        planService.reset(memberId, planId);
+        planService.completeStep(
+                memberId,
+                planId,
+                PlanGate.BENCH_ONBOARDING.code(),
+                new CompletePlanStepRequest(Plan.CURRENT_RULE_VERSION));
+
+        // 답을 바꾸지 않았으니 회차가 그대로다 — 재생 분기로 들어오지만 관문은 다시 열려야 한다.
+        mvc.perform(post(endpoint())
+                        .header("Authorization", bearer)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(requestBody(1)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.replayed").value(true))
+                .andExpect(jsonPath("$.data.progress.currentStage").value("SECOND"))
+                .andExpect(jsonPath("$.data.progress.lastVisitedStage").value("FIRST"))
+                .andExpect(jsonPath("$.data.progress.lastLocationCode").value("DIAGNOSIS_RESULT"))
+                .andExpect(jsonPath("$.data.progress.steps[1].status").value("DONE"))
+                .andExpect(jsonPath("$.data.progress.steps[2].status").value("READY"));
+
+        assertThat(count("diagnosis")).isEqualTo(1);
+        assertThat(count("first_base_submission")).isEqualTo(1);
+    }
+
+    @Test
+    void keeps_resumeLocation_when_replayArrivesAfterUserMovedOn() throws Exception {
+        mvc.perform(post(endpoint())
+                        .header("Authorization", bearer)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(requestBody(1)))
+                .andExpect(status().isOk());
+
+        // 사용자가 이미 2루로 넘어갔다. 뒤늦게 도착한 재제출이 이어하기를 1루로 끌어내리면 안 된다.
+        planService.enterStage(memberId, planId, PlanStage.SECOND, new UpdatePlanLocationRequest("PROPERTY_LIST"));
+
+        mvc.perform(post(endpoint())
+                        .header("Authorization", bearer)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(requestBody(1)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.replayed").value(true))
+                .andExpect(jsonPath("$.data.progress.lastVisitedStage").value("SECOND"))
+                .andExpect(jsonPath("$.data.progress.lastLocationCode").value("PROPERTY_LIST"));
+
         assertThat(count("first_base_submission")).isEqualTo(1);
     }
 
