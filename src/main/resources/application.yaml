@@ -150,8 +150,18 @@ management:
   endpoints:
     web:
       exposure:
-        include: health,info
+        # prometheus 는 부하 시험·모니터링용이라 기본으로 켠다. 운영에서 외부에 열지 말 것.
+        include: health,info,prometheus,metrics
   endpoint:
     health:
       probes:
         enabled: true
+  metrics:
+    tags:
+      application: homerun-backend
+    distribution:
+      # 평균만 보면 느린 요청이 묻힌다. p95·p99 를 보려면 히스토그램이 있어야 한다.
+      percentiles-histogram:
+        http.server.requests: true
+      percentiles:
+        http.server.requests: 0.5, 0.95, 0.99

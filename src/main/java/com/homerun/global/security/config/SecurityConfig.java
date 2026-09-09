@@ -5,6 +5,7 @@ import com.homerun.global.security.filter.RequiredTermsAgreementFilter;
 import com.homerun.global.security.handler.RestAccessDeniedHandler;
 import com.homerun.global.security.handler.RestAuthenticationEntryPoint;
 import java.util.List;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.http.HttpMethod;
@@ -56,7 +57,8 @@ public class SecurityConfig {
             JwtAuthenticationFilter jwtAuthenticationFilter,
             RequiredTermsAgreementFilter requiredTermsAgreementFilter,
             RestAuthenticationEntryPoint authenticationEntryPoint,
-            RestAccessDeniedHandler accessDeniedHandler)
+            RestAccessDeniedHandler accessDeniedHandler,
+            @Value("${management.metrics-public:false}") boolean metricsPublic)
             throws Exception {
         return http.cors(cors -> cors.configurationSource(corsConfigurationSource()))
                 .csrf(csrf -> csrf.disable())
@@ -75,6 +77,12 @@ public class SecurityConfig {
                         .requestMatchers(HttpMethod.GET, PublicEndpoints.GET)
                         .permitAll()
                         .requestMatchers(HttpMethod.POST, PublicEndpoints.POST)
+                        .permitAll()
+                        // 메트릭은 기본으로 잠근다. 엔드포인트 이름과 JVM 상태가 그대로 드러나
+                        // 공개하면 공격면을 알려주는 꼴이 된다. 부하 시험·로컬 관측처럼 스크래퍼가
+                        // 같은 호스트에 있을 때만 management.metrics-public=true 로 연다.
+                        .requestMatchers(request ->
+                                metricsPublic && request.getRequestURI().startsWith("/actuator/prometheus"))
                         .permitAll()
                         .anyRequest()
                         .authenticated())
