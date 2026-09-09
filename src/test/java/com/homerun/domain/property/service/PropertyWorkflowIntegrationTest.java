@@ -5,6 +5,8 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import com.homerun.TestcontainersConfiguration;
 import com.homerun.domain.auth.type.AuthProvider;
+import com.homerun.domain.dashboard.dto.response.DashboardResumeResponse;
+import com.homerun.domain.dashboard.service.DashboardService;
 import com.homerun.domain.member.entity.Member;
 import com.homerun.domain.member.repository.MemberRepository;
 import com.homerun.domain.plan.dto.request.PlanInputRequest;
@@ -17,6 +19,7 @@ import com.homerun.domain.plan.type.FinancialValueSource;
 import com.homerun.domain.plan.type.HouseType;
 import com.homerun.domain.plan.type.HouseholderStatus;
 import com.homerun.domain.plan.type.LeaseType;
+import com.homerun.domain.plan.type.PlanStage;
 import com.homerun.domain.property.dto.request.PropertyBuildingStepRequest;
 import com.homerun.domain.property.dto.request.PropertyRegistryStepRequest;
 import com.homerun.domain.property.dto.request.PropertyViolationStepRequest;
@@ -58,6 +61,9 @@ class PropertyWorkflowIntegrationTest {
     @Autowired
     PropertyRepository properties;
 
+    @Autowired
+    DashboardService dashboard;
+
     private Long memberId;
     private Long planId;
 
@@ -68,6 +74,55 @@ class PropertyWorkflowIntegrationTest {
         memberId = member.getId();
         planId = plans.save(Plan.create(memberId, LeaseType.JEONSE, null)).getId();
         inputs.save(PlanInput.create(planId, planInput()));
+    }
+
+    @Test
+    void should_moveResumeToSecondBase_whenPropertyStepIsSaved() {
+        enterSecondBase();
+        Property property = candidate(false);
+
+        // 1루 완료가 남긴 자리 그대로다. 매물 검증을 시작하기 전이라 아직 1루를 가리킨다.
+        assertResume(PlanStage.FIRST, "DIAGNOSIS_RESULT");
+
+        service.saveBuilding(
+                memberId,
+                planId,
+                property.getId(),
+                new PropertyBuildingStepRequest(1, HouseType.APARTMENT, new BigDecimal("42.35")));
+        assertResume(PlanStage.SECOND, "VIOLATION");
+
+        service.saveViolation(memberId, planId, property.getId(), new PropertyViolationStepRequest(2, false));
+        assertResume(PlanStage.SECOND, "REGISTRY");
+
+        service.saveRegistry(
+                memberId,
+                planId,
+                property.getId(),
+                new PropertyRegistryStepRequest(
+                        3,
+                        200_000_000L,
+                        2026,
+                        OfficialPriceSource.REALTY_PRICE_APARTMENT,
+                        0L,
+                        true,
+                        false,
+                        false,
+                        false,
+                        false,
+                        null,
+                        false));
+        assertResume(PlanStage.SECOND, "COMPLETE");
+    }
+
+    @Test
+    void should_keepResumeAtBlockedStep_whenViolationIsConfirmed() {
+        enterSecondBase();
+        Property property = candidate();
+
+        service.saveViolation(memberId, planId, property.getId(), new PropertyViolationStepRequest(1, true));
+
+        // 막힌 매물이라도 사용자가 있는 곳은 2루다. 막힌 자리를 그대로 가리켜야 한다.
+        assertResume(PlanStage.SECOND, "VIOLATION");
     }
 
     @Test
@@ -180,6 +235,21 @@ class PropertyWorkflowIntegrationTest {
                         BusinessException.class,
                         exception -> assertThat(exception.errorCode())
                                 .isEqualTo(ErrorCode.PROPERTY_WORKFLOW_REVISION_MISMATCH));
+    }
+
+    /** 1루를 마치고 2루에 들어선 계획. 위치는 1루 완료가 남기는 값 그대로다. */
+    private void enterSecondBase() {
+        Plan plan = plans.findById(planId).orElseThrow();
+        plan.advance();
+        plan.advance();
+        plan.enterStage(PlanStage.FIRST, "DIAGNOSIS_RESULT");
+        plans.save(plan);
+    }
+
+    private void assertResume(PlanStage stage, String locationCode) {
+        DashboardResumeResponse resume = dashboard.get(memberId, planId).resume();
+        assertThat(resume.stage()).isEqualTo(stage);
+        assertThat(resume.locationCode()).isEqualTo(locationCode);
     }
 
     private Property candidate() {
