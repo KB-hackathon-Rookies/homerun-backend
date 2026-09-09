@@ -4,9 +4,12 @@ import com.homerun.domain.openbanking.dto.response.FinancialSnapshotResponse;
 import com.homerun.domain.openbanking.dto.response.OpenBankingFinancialSummaryResponse;
 import com.homerun.domain.openbanking.entity.FinancialSnapshot;
 import com.homerun.domain.openbanking.repository.FinancialSnapshotRepository;
+import com.homerun.domain.openbanking.type.Persona;
 import com.homerun.global.exception.BusinessException;
 import com.homerun.global.exception.ErrorCode;
 import java.math.BigDecimal;
+import java.time.Instant;
+import java.time.LocalDate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -41,6 +44,21 @@ public class FinancialSnapshotService {
                 eligibleMonthlyIncome,
                 monthlyDebtPayment,
                 summary.fetchedAt());
+        return FinancialSnapshotResponse.from(snapshots.save(snapshot));
+    }
+
+    /** 데모용 가짜 오픈뱅킹 연동. 선택한 persona 값을 스냅샷으로 적재하고 그대로 돌려준다. */
+    @Transactional
+    public FinancialSnapshotResponse connectMock(Long memberId, Persona persona) {
+        FinancialSnapshot snapshot = FinancialSnapshot.mock(
+                memberId,
+                LocalDate.now(),
+                persona.getFinancialAsset(),
+                persona.getMonthlyIncome(),
+                persona.getMonthlyExpense(),
+                persona.getLoanBalance(),
+                persona.getMonthlyDebtPayment(),
+                Instant.now());
         return FinancialSnapshotResponse.from(snapshots.save(snapshot));
     }
 

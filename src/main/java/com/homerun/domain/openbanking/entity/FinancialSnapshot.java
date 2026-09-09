@@ -80,6 +80,30 @@ public class FinancialSnapshot {
         return new FinancialSnapshot(userId, asOf, financialAsset, monthlyIncome, monthlyDebtPayment, createdAt);
     }
 
+    /** 데모용 가짜 오픈뱅킹 적재. 실 조회로 못 채우는 지출·부채잔액까지 채우고 source 를 MOCK 으로 둔다. */
+    public static FinancialSnapshot mock(
+            Long userId,
+            LocalDate asOf,
+            Long financialAsset,
+            Long monthlyIncome,
+            Long monthlyExpense,
+            Long loanBalance,
+            Long monthlyDebtPayment,
+            Instant createdAt) {
+        FinancialSnapshot snapshot = new FinancialSnapshot();
+        snapshot.userId = userId;
+        snapshot.asOf = asOf;
+        snapshot.source = FinancialSnapshotSource.MOCK;
+        snapshot.confirmedByUser = false;
+        snapshot.financialAsset = financialAsset;
+        snapshot.monthlyIncome = monthlyIncome;
+        snapshot.monthlyExpense = monthlyExpense;
+        snapshot.loanBalance = loanBalance;
+        snapshot.monthlyDebtPayment = monthlyDebtPayment;
+        snapshot.createdAt = createdAt;
+        return snapshot;
+    }
+
     public Long getId() {
         return id;
     }
