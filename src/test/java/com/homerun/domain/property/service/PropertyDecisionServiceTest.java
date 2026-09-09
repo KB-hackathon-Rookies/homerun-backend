@@ -25,6 +25,7 @@ import com.homerun.domain.property.type.ConsultedLoanProduct;
 import com.homerun.domain.property.type.TrafficLight;
 import com.homerun.global.exception.BusinessException;
 import com.homerun.global.exception.ErrorCode;
+import com.homerun.global.external.building.BuildingLotQuery;
 import java.math.BigDecimal;
 import java.time.Clock;
 import java.time.Instant;
@@ -241,7 +242,7 @@ class PropertyDecisionServiceTest {
     private Property property(Long id) {
         Property property = Property.candidate(
                 PLAN_ID,
-                "1168010100",
+                new BuildingLotQuery("1168010100", false, "123", "4"),
                 "서울 지번",
                 "서울 도로명",
                 "홈런빌라",

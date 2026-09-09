@@ -28,6 +28,7 @@ import com.homerun.domain.property.service.PropertyTrafficLightResolver;
 import com.homerun.domain.property.type.DataSource;
 import com.homerun.domain.property.type.TrafficLight;
 import com.homerun.domain.terms.service.TermsService;
+import com.homerun.global.external.building.BuildingLotQuery;
 import com.homerun.global.security.jwt.JwtTokenProvider;
 import java.math.BigDecimal;
 import java.time.Instant;
@@ -138,7 +139,7 @@ class PropertyPolicyVerdictApiIntegrationTest {
     private Property candidate() {
         Property property = Property.candidate(
                 planId,
-                "1168010100",
+                new BuildingLotQuery("1168010100", false, "123", "4"),
                 "서울특별시 강남구 역삼동 123-4",
                 "서울특별시 강남구 테헤란로 123",
                 "홈런아파트",
