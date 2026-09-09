@@ -21,7 +21,7 @@ import org.springframework.transaction.annotation.Transactional;
  * 실제 전세 판정을 돌려, 소득 컷오프에서 판정이 갈리는지 진짜 Postgres 에서 확인한다.
  *
  * <p>청년 버팀목 소득 기준(FCT-003 연 5,000만) 기준으로 박사회(연 5,040만)만 FAIL 이고
- * 김첫집·이빠듯은 FAIL 이 아니어야 한다. 세 페르소나는 보증금·순자산에선 안 걸리므로 소득이
+ * 김국민·이빠듯은 FAIL 이 아니어야 한다. 세 페르소나는 보증금·순자산에선 안 걸리므로 소득이
  * 유일한 차이다. mockConnect 가 plan_input 까지 확정 상태로 채우지 않으면 전부 NEED_INFO 가 되어
  * 이 테스트가 깨진다 — 그게 연결이 실제로 됐는지 잡는 지점이다.
  */
@@ -74,7 +74,7 @@ class JeonsePersonaRehearsalIntegrationTest {
     @Test
     void should_failOnlyHighIncomePersona_whenEvaluatingYouthLoanAfterMockConnect() {
         assertThat(youthVerdictAfterMockConnect(Persona.PARK_SENIOR)).isEqualTo(PolicyVerdictResult.FAIL);
-        assertThat(youthVerdictAfterMockConnect(Persona.KIM_FIRST)).isNotEqualTo(PolicyVerdictResult.FAIL);
+        assertThat(youthVerdictAfterMockConnect(Persona.KIM_KUKMIN)).isNotEqualTo(PolicyVerdictResult.FAIL);
         assertThat(youthVerdictAfterMockConnect(Persona.LEE_TIGHT)).isNotEqualTo(PolicyVerdictResult.FAIL);
     }
 

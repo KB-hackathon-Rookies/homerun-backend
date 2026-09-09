@@ -90,7 +90,7 @@ class MockOpenBankingPlanSyncEnabledEndpointTest {
         mvc.perform(post("/api/v1/plans/" + planId + "/input/open-banking-sync/mock")
                         .header("Authorization", bearer)
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content("{\"persona\":\"KIM_FIRST\"}"))
+                        .content("{\"persona\":\"KIM_KUKMIN\"}"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.monthlyIncome").value(2500000))
                 .andExpect(jsonPath("$.data.financialAsset").value(15000000));

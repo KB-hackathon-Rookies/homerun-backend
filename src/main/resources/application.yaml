@@ -82,9 +82,9 @@ external-api:
     # 켜서 조회 결과를 샘플 픽스처로 대체한다. 인가(OAuth)는 이 값과 무관하게 언제나 실제로 호출된다.
     mock-data: ${OPEN_BANKING_MOCK_DATA:false}
     # 페르소나를 고른 적 없는 회원에게 보여 줄 기본 프로필. 시연 대본이 "독립을 준비하는 평범한
-    # 청년" 한 명으로 흐르므로 김첫집이다. 다른 페르소나는 데모 적재 경로로 명시적으로 실었을
+    # 청년" 한 명으로 흐르므로 김국민이다. 다른 페르소나는 데모 적재 경로로 명시적으로 실었을
     # 때만 나온다. mock-data 가 false 면 이 값은 읽히지도 않는다.
-    mock-persona: ${OPEN_BANKING_MOCK_PERSONA:KIM_FIRST}
+    mock-persona: ${OPEN_BANKING_MOCK_PERSONA:KIM_KUKMIN}
   # AI 코치(FastAPI). 외부에 공개하지 않고 Spring 만 호출하는 내부 서비스다.
   # compose 로 띄우면 서비스 이름(http://ai-coach:8000)을 넣는다.
   ai-coach:

@@ -95,8 +95,8 @@ services:
       # 계좌·거래 조회는 사업자 등록을 마친 이용기관만 호출할 수 있다. 등록 전 데모에서만 true 로 켠다.
       # 인가(OAuth)는 이 값과 무관하게 언제나 실제 금융결제원으로 나간다.
       OPEN_BANKING_MOCK_DATA: ${OPEN_BANKING_MOCK_DATA:-false}
-      # 페르소나를 고른 적 없는 회원에게 보여 줄 기본 프로필. 시연 기본은 김첫집이다.
-      OPEN_BANKING_MOCK_PERSONA: ${OPEN_BANKING_MOCK_PERSONA:-KIM_FIRST}
+      # 페르소나를 고른 적 없는 회원에게 보여 줄 기본 프로필. 시연 기본은 김국민이다.
+      OPEN_BANKING_MOCK_PERSONA: ${OPEN_BANKING_MOCK_PERSONA:-KIM_KUKMIN}
       FCM_ENABLED: ${FCM_ENABLED:-false}
       # 서비스계정 JSON 을 base64 한 줄로 준다(파일 배치 불필요, 서버 .env 에 그대로 둔다).
       # FirebaseConfig 가 base64/원본 JSON/파일 경로를 모두 해석한다.

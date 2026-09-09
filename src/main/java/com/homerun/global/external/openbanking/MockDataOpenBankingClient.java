@@ -52,7 +52,7 @@ import org.springframework.stereotype.Component;
  * 홍길동 한 명을 고정으로 답했고, 그래서 오픈뱅킹을 연결하면 4,000만원이 페르소나를 실으면 1,500만원이
  * 나오는 어긋남이 있었다.
  *
- * <p>어떤 페르소나로 답할지는 {@link MockPersonaSelection} 이 정한다. 기본은 김첫집이다.
+ * <p>어떤 페르소나로 답할지는 {@link MockPersonaSelection} 이 정한다. 기본은 김국민이다.
  */
 @Component
 @Primary
