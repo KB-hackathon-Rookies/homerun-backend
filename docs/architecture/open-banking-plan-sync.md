@@ -29,6 +29,14 @@
 - 연결(`open_banking_connection`)이 없는 회원은 모킹이 켜져 있어도 지금과 똑같이 `OPEN_BANKING_NOT_CONNECTED`로 실패한다. 계좌 소유권 검증도 그대로다.
 - 픽스처는 사회초년생 한 명의 일관된 프로필이다. 급여통장에 매달 280만원 급여가 들어오고 적금 80만·청약 10만·월세·카드가 빠져나가 잔액이 320만원에서 유지된다. 세 계좌 잔액 합계는 4,000만원, 전세자금대출 상환은 매달 15만원이다. 계좌 별칭에 `샘플`이 들어가고 예금주는 홍길동, 계좌번호는 마스킹되어 있어 화면에서 실데이터와 구분된다.
 
+### 데모 전용 페르소나 적재 경로
+
+`POST /api/v1/plans/{planId}/input/open-banking-sync/mock`은 **같은 플래그에 묶인 데모 전용 경로**다. `MockOpenBankingPlanSyncController` 에 `@ConditionalOnProperty(prefix = "external-api.open-banking", name = "mock-data", havingValue = "true")` 가 걸려 있어, 기본값(false)에서는 빈이 올라오지 않고 경로도 없다(404).
+
+이 경로만 조건부인 이유는 적재 방식 때문이다. 위 동기화와 달리 선택한 페르소나의 소득·순자산을 `financialDataConfirmed=true`, 즉 **확인된 값으로** 계획 입력에 넣는다. 확인된 값은 아래 "정책 판정 안전장치"의 NEED_INFO 로 빠지지 않고 곧바로 PASS/FAIL 비교에 들어간다. 열려 있으면 오픈뱅킹 연결도 실제 거래내역도 없이 판정 근거를 지어낼 수 있다.
+
+진짜 동기화(`POST .../open-banking-sync`)는 `OpenBankingPlanSyncController` 에 그대로 남아 플래그와 무관하게 모든 환경에 있다. 조건은 클래스 단위로만 걸 수 있어 둘을 한 클래스에 두면 가짜를 끄는 순간 진짜까지 꺼지므로, 컨트롤러를 나누되 **URL 은 바꾸지 않았다.**
+
 ## 동기화 API
 
 인증 후 `POST /api/v1/plans/{planId}/input/open-banking-sync`를 호출한다. 필요한 경우 `bankCodes=004,020`처럼 추가 대출조회 금융기관 코드를 전달한다.
