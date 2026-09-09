@@ -11,6 +11,8 @@ import com.homerun.domain.openbanking.dto.response.FinancialSummaryStatus;
 import com.homerun.domain.openbanking.dto.response.OpenBankingFinancialSummaryResponse;
 import com.homerun.domain.openbanking.entity.FinancialSnapshot;
 import com.homerun.domain.openbanking.repository.FinancialSnapshotRepository;
+import com.homerun.domain.openbanking.type.FinancialSnapshotSource;
+import com.homerun.domain.openbanking.type.Persona;
 import com.homerun.global.exception.BusinessException;
 import com.homerun.global.exception.ErrorCode;
 import java.math.BigDecimal;
@@ -70,6 +72,22 @@ class FinancialSnapshotServiceTest {
 
         assertThat(result).isNull();
         verifyNoInteractions(snapshots);
+    }
+
+    @Test
+    void should_persistPersonaValuesAsMock_whenMockConnecting() {
+        echoSavedSnapshot();
+
+        var result = service.connectMock(7L, Persona.LEE_TIGHT);
+
+        assertThat(result.source()).isEqualTo(FinancialSnapshotSource.MOCK);
+        assertThat(result.confirmedByUser()).isFalse();
+        assertThat(result.financialAsset()).isEqualTo(Persona.LEE_TIGHT.getFinancialAsset());
+        assertThat(result.monthlyIncome()).isEqualTo(Persona.LEE_TIGHT.getMonthlyIncome());
+        assertThat(result.monthlyExpense()).isEqualTo(Persona.LEE_TIGHT.getMonthlyExpense());
+        assertThat(result.loanBalance()).isEqualTo(Persona.LEE_TIGHT.getLoanBalance());
+        assertThat(result.monthlyDebtPayment()).isEqualTo(Persona.LEE_TIGHT.getMonthlyDebtPayment());
+        assertThat(result.asOf()).isEqualTo(LocalDate.now());
     }
 
     @Test
