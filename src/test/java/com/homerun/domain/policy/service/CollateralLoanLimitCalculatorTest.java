@@ -185,4 +185,91 @@ class CollateralLoanLimitCalculatorTest {
         assertThat(of(result, CollateralType.HUG).limit()).isEqualTo(162_000_000L);
         assertThat(of(result, CollateralType.SGI).limit()).isEqualTo(144_000_000L);
     }
+
+    @Test
+    void should_noteDepositBound_when_hfLimitedByDeposit() {
+        // 보증금 1.8억 × 0.8 = 1.44억. 소득이 넉넉(월 1,000만 × 12 × 3.5 = 4.2억)하고 상한(2.22억)보다도
+        // 작아, HF 가 보증금에 막힌다 — 소득도 상한도 아닌 기본 note 경로.
+        var hf = of(
+                calculator.calculate(input(180_000_000L, 10_000_000L, LocalDate.of(1990, 1, 1), MaritalStatus.SINGLE)),
+                CollateralType.HF);
+        assertThat(hf.limit()).isEqualTo(144_000_000L);
+        assertThat(hf.note()).contains("80%");
+    }
+
+    @Test
+    void should_leaveHfUnknown_when_capFactMissing() {
+        doThrow(new FactNotFoundException("none")).when(facts).won("FCT-211");
+        var hf = of(
+                calculator.calculate(input(180_000_000L, 5_000_000L, LocalDate.of(1990, 1, 1), MaritalStatus.SINGLE)),
+                CollateralType.HF);
+        assertThat(hf.limit()).isNull();
+        assertThat(hf.note()).contains("HF 한도 기준");
+    }
+
+    @Test
+    void should_leaveHfUnknown_when_incomeMultipleFactMissing() {
+        doThrow(new FactNotFoundException("none")).when(facts).require("FCT-059");
+        var hf = of(
+                calculator.calculate(input(180_000_000L, 5_000_000L, LocalDate.of(1990, 1, 1), MaritalStatus.SINGLE)),
+                CollateralType.HF);
+        assertThat(hf.limit()).isNull();
+    }
+
+    @Test
+    void should_leaveHugUnknown_when_capFactMissing() {
+        doThrow(new FactNotFoundException("none")).when(facts).won("FCT-212");
+        var hug = of(
+                calculator.calculate(input(180_000_000L, 5_000_000L, LocalDate.of(1990, 1, 1), MaritalStatus.SINGLE)),
+                CollateralType.HUG);
+        assertThat(hug.limit()).isNull();
+    }
+
+    @Test
+    void should_leaveHugUnknown_when_youthRatioFactMissing_forMarried() {
+        doThrow(new FactNotFoundException("none")).when(facts).require("FCT-214");
+        var hug = of(
+                calculator.calculate(input(180_000_000L, 5_000_000L, LocalDate.of(1986, 1, 1), MaritalStatus.MARRIED)),
+                CollateralType.HUG);
+        assertThat(hug.limit()).isNull();
+        assertThat(hug.note()).contains("HUG 청년 비율");
+    }
+
+    @Test
+    void should_leaveSgiUnknown_when_capFactMissing() {
+        doThrow(new FactNotFoundException("none")).when(facts).won("FCT-213");
+        var sgi = of(
+                calculator.calculate(input(180_000_000L, 5_000_000L, LocalDate.of(1990, 1, 1), MaritalStatus.SINGLE)),
+                CollateralType.SGI);
+        assertThat(sgi.limit()).isNull();
+    }
+
+    @Test
+    void should_useHug80Percent_when_birthDateUnknownAndSingle() {
+        // 생년월일도 없고 미혼이면 청년 비율을 판단할 수 없다 → 기본 80% (1.8억 × 0.8 = 1.44억).
+        var hug = of(
+                calculator.calculate(input(180_000_000L, 5_000_000L, null, MaritalStatus.SINGLE)), CollateralType.HUG);
+        assertThat(hug.limit()).isEqualTo(144_000_000L);
+    }
+
+    @Test
+    void should_markProvisional_when_aFactIsProvisional() {
+        // 한도 팩트가 잠정값이면 응답도 잠정으로 표시된다.
+        doReturn(new Fact("FCT-211", "FCT-211", new BigDecimal("222000000"), "원", "2.22억", null, true))
+                .when(facts)
+                .require("FCT-211");
+        var hf = of(
+                calculator.calculate(input(180_000_000L, 5_000_000L, LocalDate.of(1990, 1, 1), MaritalStatus.SINGLE)),
+                CollateralType.HF);
+        assertThat(hf.provisional()).isTrue();
+    }
+
+    @Test
+    void should_reportNullRange_when_allCollateralsUnknown() {
+        // 보증금이 없으면 셋 다 계산 불가 → min·max 모두 null.
+        var result = calculator.calculate(input(null, null, null, MaritalStatus.SINGLE));
+        assertThat(result.minLimit()).isNull();
+        assertThat(result.maxLimit()).isNull();
+        assertThat(of(result, CollateralType.HF).limit()).isNull();
+    }
 }
